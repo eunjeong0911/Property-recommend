@@ -1,1 +1,0 @@
-백엔드(Django Framework) 폴더입니다.

@@ -1,1 +1,70 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.installed.cfg
+*.egg
+*.log
+.coverage
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Virtual environments
+.env
 .venv
+env/
+venv/
+ENV/
+
+# Django
+db.sqlite3
+db.sqlite3-journal
+local_settings.py
+*/migrations/*.py
+!*/migrations/__init__.py
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+dist/
+build/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+*.env.local
+
+# Model artifacts
+apps/reco/artifacts/
+*.pth
+*.pkl
+*.joblib
+
+# Data
+data/interim/
+data/processed/
+data/embeddings/
+notebooks/.ipynb_checkpoints/
+
+# Logs
+*.log
+logs/
