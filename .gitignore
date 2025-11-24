@@ -68,3 +68,5 @@ notebooks/.ipynb_checkpoints/
 # Logs
 *.log
 logs/
+
+*desktop.ini
