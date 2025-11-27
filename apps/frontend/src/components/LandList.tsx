@@ -41,7 +41,7 @@ export default function LandList({ lands = MOCK_LANDS }: LandListProps) {
                 {lands.map((land) => (
                     <LandImage
                         key={land.id}
-                        image={land.image}
+                        id={land.id}
                         temperature={land.temperature}
                         price={land.price}
                     />

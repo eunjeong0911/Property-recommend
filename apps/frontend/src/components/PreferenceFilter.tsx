@@ -26,7 +26,7 @@ interface PreferenceFilterProps {
 const FILTER_OPTIONS: FilterOption[] = [
     { id: 'transport', label: '대중교통', icon: '🚇' },
     { id: 'park', label: '주변 공원', icon: '🌳' },
-    { id: 'distance', label: '대학/직장 거리', icon: '🏢' },
+    { id: 'distance', label: '대학가', icon: '🏢' },
     { id: 'facilities', label: '편의시설', icon: '🏪' },
     { id: 'safety', label: '치안/안전', icon: '⭐' },
     { id: 'fake', label: '허위매물', icon: '🚫' },

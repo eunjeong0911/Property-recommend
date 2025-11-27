@@ -13,9 +13,11 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import TemperatureList from './TemperatureList';
 
 interface LandImageProps {
+    id?: string;
     images?: string[];
     temperature?: number;
     price: string;
@@ -24,6 +26,7 @@ interface LandImageProps {
 }
 
 export default function LandImage({
+    id = '1',
     images = [
         'https://img.peterpanz.com/photo/20250115/16772468/67871b38ee314_origin.jpg',
         'https://img.peterpanz.com/photo/20250115/16772468/67871b3976aac_origin.jpg',
@@ -34,11 +37,13 @@ export default function LandImage({
     onLike,
     isLiked = false
 }: LandImageProps) {
+    const router = useRouter();
     const [liked, setLiked] = useState(isLiked);
     const [isHovered, setIsHovered] = useState(false);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-    const handleLike = () => {
+    const handleLike = (e: React.MouseEvent) => {
+        e.stopPropagation();
         setLiked(!liked);
         onLike?.();
     };
@@ -53,8 +58,12 @@ export default function LandImage({
         setCurrentImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
     };
 
+    const handleClick = () => {
+        router.push(`/landDetail/${id}`);
+    };
+
     return (
-        <div className="relative">
+        <div className="relative cursor-pointer" onClick={handleClick}>
             <div
                 className="relative w-full aspect-square bg-gray-200 rounded-lg overflow-hidden group"
                 onMouseEnter={() => setIsHovered(true)}
