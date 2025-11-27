@@ -16,7 +16,7 @@ import Image from 'next/image';
 import TemperatureList from './TemperatureList';
 
 interface LandImageProps {
-    image?: string;
+    images?: string[];
     temperature?: number;
     price: string;
     onLike?: () => void;
@@ -24,32 +24,80 @@ interface LandImageProps {
 }
 
 export default function LandImage({
-    image = 'https://img.peterpanz.com/photo/20250115/16772468/67871b38ee314_origin.jpg',
+    images = [
+        'https://img.peterpanz.com/photo/20250115/16772468/67871b38ee314_origin.jpg',
+        'https://img.peterpanz.com/photo/20250115/16772468/67871b3976aac_origin.jpg',
+        'https://img.peterpanz.com/photo/20250115/16772468/67871b39eb65a_origin.jpg',
+        'https://img.peterpanz.com/photo/20250115/16772468/67871b3a65cad_origin.jpg'
+    ],
     price,
     onLike,
     isLiked = false
 }: LandImageProps) {
     const [liked, setLiked] = useState(isLiked);
     const [isHovered, setIsHovered] = useState(false);
+    const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
     const handleLike = () => {
         setLiked(!liked);
         onLike?.();
     };
 
+    const handlePrevImage = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setCurrentImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
+    };
+
+    const handleNextImage = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setCurrentImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
+    };
+
     return (
         <div className="relative">
             <div
-                className="relative w-full aspect-square bg-gray-200 rounded-lg overflow-hidden"
+                className="relative w-full aspect-square bg-gray-200 rounded-lg overflow-hidden group"
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
             >
                 <Image
-                    src={image}
+                    src={images[currentImageIndex]}
                     alt="매물 이미지"
                     fill
                     className="object-cover"
                 />
+
+                {/* 이전/다음 버튼 */}
+                {images.length > 1 && (
+                    <>
+                        <button
+                            onClick={handlePrevImage}
+                            className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full w-8 h-8 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                        >
+                            ‹
+                        </button>
+                        <button
+                            onClick={handleNextImage}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full w-8 h-8 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                        >
+                            ›
+                        </button>
+                    </>
+                )}
+
+                {/* 이미지 인디케이터 */}
+                {images.length > 1 && (
+                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1 z-10">
+                        {images.map((_, index) => (
+                            <div
+                                key={index}
+                                className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                                    index === currentImageIndex ? 'bg-white' : 'bg-white/50'
+                                }`}
+                            />
+                        ))}
+                    </div>
+                )}
 
                 {/* 찜하기 버튼 */}
                 <button
