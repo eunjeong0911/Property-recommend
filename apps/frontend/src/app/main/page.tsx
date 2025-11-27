@@ -13,3 +13,20 @@
  * - TemperatureList.tsx (온도 목록)
  * - Footer.tsx (푸터)
  */
+
+'use client';
+
+import PreferenceFilter from '@/components/PreferenceFilter';
+import Map from '@/components/Map';
+
+
+
+export default function MainPage() {
+    return (
+        <div>
+            <h1>메인 페이지</h1>
+            <PreferenceFilter />
+            <Map />
+        </div>
+    );
+}
