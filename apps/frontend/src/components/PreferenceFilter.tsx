@@ -59,7 +59,7 @@ export default function PreferenceFilter({
     };
 
     return (
-        <div className="flex gap-2 items-center flex-wrap py-3">
+        <div className="flex gap-2 items-center justify-center flex-wrap py-3">
             {FILTER_OPTIONS.map((option) => (
                 <button
                     key={option.id}
@@ -69,7 +69,7 @@ export default function PreferenceFilter({
             transition-all duration-200
             ${selectedFilters.has(option.id)
                             ? 'border-blue-500 bg-blue-500 text-white'
-                            : 'border-gray-300 bg-white text-gray-700 hover:border-blue-500 hover:bg-blue-50'
+                            : 'border-gray-300 text-gray-700 hover:border-blue-500'
                         }
           `}
                     onClick={() => handleFilterClick(option.id)}
@@ -86,8 +86,8 @@ export default function PreferenceFilter({
           border border-red-400 font-medium text-sm whitespace-nowrap
           transition-all duration-200
           ${selectedFilters.size === 0
-                        ? 'opacity-50 cursor-not-allowed text-red-400 bg-white'
-                        : 'text-red-500 bg-white hover:bg-red-500 hover:text-white'
+                        ? 'opacity-50 cursor-not-allowed text-red-400'
+                        : 'text-red-500 hover:bg-red-500 hover:text-white'
                     }
         `}
                 onClick={handleReset}

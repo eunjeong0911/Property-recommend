@@ -18,15 +18,16 @@
 
 import PreferenceFilter from '@/components/PreferenceFilter';
 import Map from '@/components/Map';
-
-
+import LandListFilter from '@/components/LandListFilter';
+import LandList from '@/components/LandList';
 
 export default function MainPage() {
     return (
-        <div>
-            <h1>메인 페이지</h1>
+        <div className="max-w-7xl mx-auto px-4">
             <PreferenceFilter />
             <Map />
+            <LandListFilter />
+            <LandList />
         </div>
     );
 }
