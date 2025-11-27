@@ -13,3 +13,21 @@
  * - TemperatureList.tsx (온도 목록)
  * - Footer.tsx (푸터)
  */
+
+'use client';
+
+import PreferenceFilter from '@/components/PreferenceFilter';
+import Map from '@/components/Map';
+import LandListFilter from '@/components/LandListFilter';
+import LandList from '@/components/LandList';
+
+export default function MainPage() {
+    return (
+        <div className="max-w-7xl mx-auto px-4">
+            <PreferenceFilter />
+            <Map />
+            <LandListFilter />
+            <LandList />
+        </div>
+    );
+}
