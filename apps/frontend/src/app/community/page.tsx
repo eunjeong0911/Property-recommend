@@ -9,7 +9,6 @@
 
 'use client'
 
-import { useEffect, useState } from 'react'
 import Button from '@/components/Button'
 import CommunityCard from '@/components/CommunityCard'
 import CommunityDetailModal from '@/components/CommunityDetailModal'
@@ -18,8 +17,6 @@ import CommunityWriteModal from '@/components/CommunityWriteModal'
 import Pagination from '@/components/Pagination'
 import type { CommunityWriteFormValues } from '@/components/CommunityWriteForm'
 import { useCommunityStore } from '@/store/useCommunityStore'
-
-const POSTS_PER_PAGE = 5
 
 interface CommunityPost {
   id: string
@@ -80,35 +77,7 @@ export default function CommunityPage() {
     setEditingPost: state.setEditingPost
   }))
 
-  const [pageByTab, setPageByTab] = useState<{ free: number; region: number }>({
-    free: 1,
-    region: 1
-  })
-
   const posts = activeTab === 'free' ? freePosts : regionPosts
-  const currentPage = pageByTab[activeTab] ?? 1
-  const totalPages = Math.ceil(posts.length / POSTS_PER_PAGE)
-  const startIndex = (currentPage - 1) * POSTS_PER_PAGE
-  const paginatedPosts = posts.slice(startIndex, startIndex + POSTS_PER_PAGE)
-
-  useEffect(() => {
-    const pages = Math.ceil(posts.length / POSTS_PER_PAGE)
-    const nextPage = pages === 0 ? 1 : Math.min(currentPage, pages)
-    if (currentPage !== nextPage) {
-      setPageByTab((prev) => ({
-        ...prev,
-        [activeTab]: nextPage
-      }))
-    }
-  }, [posts.length, activeTab, currentPage])
-
-  const handleTabChange = (tab: 'free' | 'region') => {
-    setActiveTab(tab)
-    setPageByTab((prev) => ({
-      ...prev,
-      [tab]: prev[tab] ?? 1
-    }))
-  }
 
   const handleWriteClick = () => {
     setEditingPost(null)
@@ -117,13 +86,6 @@ export default function CommunityPage() {
 
   const handleCardClick = (post: CommunityPost) => {
     openDetailModal(post)
-  }
-
-  const handlePageChange = (page: number) => {
-    setPageByTab((prev) => ({
-      ...prev,
-      [activeTab]: page
-    }))
   }
 
   const handleSubmitPost = (values: CommunityWriteFormValues, mode: 'free' | 'region') => {
@@ -185,7 +147,7 @@ export default function CommunityPage() {
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-8">
-        <CommunityTab activeTab={activeTab} onTabChange={handleTabChange} />
+        <CommunityTab activeTab={activeTab} onTabChange={setActiveTab} />
 
         <div className="flex justify-end mb-6">
           <Button variant="primary" onClick={handleWriteClick}>
@@ -193,32 +155,18 @@ export default function CommunityPage() {
           </Button>
         </div>
 
-        {posts.length === 0 ? (
-          <div className="bg-white border border-dashed border-gray-300 rounded-lg p-8 text-center text-gray-500">
-            아직 게시글이 없습니다. 첫 번째 글의 주인공이 되어주세요!
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {paginatedPosts.map((post) => (
-              <CommunityCard
-                key={post.id}
-                post={post}
-                onClick={handleCardClick}
-                onToggleLike={handleToggleLike}
-              />
-            ))}
-          </div>
-        )}
-
-        {posts.length > 0 && (
-          <div className="mt-6 flex justify-center">
-            <Pagination
-              currentPage={currentPage}
-              totalPages={Math.max(1, totalPages)}
-              onChange={handlePageChange}
+        <Pagination
+          items={posts}
+          pageSize={5}
+          renderItem={(post) => (
+            <CommunityCard
+              key={post.id}
+              post={post}
+              onClick={handleCardClick}
+              onToggleLike={handleToggleLike}
             />
-          </div>
-        )}
+          )}
+        />
       </main>
 
       <CommunityWriteModal

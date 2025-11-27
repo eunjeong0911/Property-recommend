@@ -12,54 +12,93 @@
 
 'use client'
 
-interface PaginationProps {
-  currentPage: number
-  totalPages: number
-  onChange: (page: number) => void
+import { ReactNode, useEffect, useMemo, useState } from 'react'
+
+interface PaginationProps<T = unknown> {
+  items: T[]
+  renderItem: (item: T, index: number) => ReactNode
+  pageSize?: number
+  emptyMessage?: ReactNode
 }
 
-export default function Pagination({ currentPage, totalPages, onChange }: PaginationProps) {
-  const pages = Array.from({ length: totalPages }, (_, index) => index + 1)
+const DEFAULT_EMPTY = (
+  <div className="bg-white border border-dashed border-gray-300 rounded-lg p-8 text-center text-gray-500">
+    아직 게시글이 없습니다. 첫 번째 글의 주인공이 되어주세요!
+  </div>
+)
+
+export default function Pagination<T>({
+  items,
+  renderItem,
+  pageSize = 5,
+  emptyMessage = DEFAULT_EMPTY
+}: PaginationProps<T>) {
+  const [currentPage, setCurrentPage] = useState(1)
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize))
+
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, totalPages))
+  }, [totalPages])
+
+  const currentItems = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize
+    return {
+      data: items.slice(startIndex, startIndex + pageSize),
+      startIndex
+    }
+  }, [items, currentPage, pageSize])
 
   const handleChange = (page: number) => {
     if (page < 1 || page > totalPages || page === currentPage) return
-    onChange(page)
+    setCurrentPage(page)
+  }
+
+  if (items.length === 0) {
+    return <div className="space-y-4">{emptyMessage}</div>
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <button
-        type="button"
-        onClick={() => handleChange(currentPage - 1)}
-        disabled={currentPage === 1}
-        className="px-3 py-1 rounded-md border border-gray-200 text-sm text-gray-600 disabled:text-gray-300 disabled:border-gray-100"
-      >
-        이전
-      </button>
+    <div className="space-y-6">
+      <div className="space-y-4">
+        {currentItems.data.map((item, offset) =>
+          renderItem(item, currentItems.startIndex + offset)
+        )}
+      </div>
 
-      {pages.map((page) => (
+      <div className="flex items-center justify-center gap-2">
         <button
-          key={page}
           type="button"
-          onClick={() => handleChange(page)}
-          className={`w-8 h-8 rounded-md text-sm font-medium transition-colors ${
-            page === currentPage
-              ? 'bg-blue-500 text-white shadow-sm'
-              : 'text-gray-700 hover:bg-gray-100'
-          }`}
+          onClick={() => handleChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="px-3 py-1 rounded-md border border-gray-200 text-sm text-gray-600 disabled:text-gray-300 disabled:border-gray-100"
         >
-          {page}
+          이전
         </button>
-      ))}
 
-      <button
-        type="button"
-        onClick={() => handleChange(currentPage + 1)}
-        disabled={currentPage === totalPages}
-        className="px-3 py-1 rounded-md border border-gray-200 text-sm text-gray-600 disabled:text-gray-300 disabled:border-gray-100"
-      >
-        다음
-      </button>
+        {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
+          <button
+            key={page}
+            type="button"
+            onClick={() => handleChange(page)}
+            className={`w-8 h-8 rounded-md text-sm font-medium transition-colors ${
+              page === currentPage
+                ? 'bg-blue-500 text-white shadow-sm'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            {page}
+          </button>
+        ))}
+
+        <button
+          type="button"
+          onClick={() => handleChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="px-3 py-1 rounded-md border border-gray-200 text-sm text-gray-600 disabled:text-gray-300 disabled:border-gray-100"
+        >
+          다음
+        </button>
+      </div>
     </div>
   )
 }
