@@ -1,0 +1,16 @@
+이제 다시 VS Code(에디터)로 돌아오세요. 프로젝트 최상위 경로에
+ .env.local 이라는 파일을 만들고 방금 복사한 걸 붙여넣으세요.
+
+Bash
+
+# .env.local 파일
+
+GOOGLE_CLIENT_ID=방금_복사한_클라이언트_ID_붙여넣기
+GOOGLE_CLIENT_SECRET=방금_복사한_보안_비밀_붙여넣기
+
+# NextAuth 비밀번호 (아무거나 길게 입력,
+ 터미널에 `openssl rand -base64 32` 치면 생성됨)
+NEXTAUTH_SECRET=a1b2c3d4...
+NEXTAUTH_URL=http://localhost:3000
+
+이제 키는 준비되었으니, NextAuth 라이브러리를 설치하고 코드를 작성하면 됩니다.
