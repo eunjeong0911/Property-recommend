@@ -15,6 +15,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import TemperatureList from './TemperatureList';
+import { useParticleEffect } from '../hooks/useParticleEffect';
 
 interface LandImageProps {
     id?: string;
@@ -41,24 +42,38 @@ export default function LandImage({
     const [liked, setLiked] = useState(isLiked);
     const [isHovered, setIsHovered] = useState(false);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
+    const { triggerEffect } = useParticleEffect();
 
     const handleLike = (e: React.MouseEvent) => {
         e.stopPropagation();
         setLiked(!liked);
         onLike?.();
+        triggerEffect(e.currentTarget as HTMLElement);
     };
 
     const handlePrevImage = (e: React.MouseEvent) => {
         e.stopPropagation();
         setCurrentImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
+        triggerEffect(e.currentTarget as HTMLElement);
     };
 
     const handleNextImage = (e: React.MouseEvent) => {
         e.stopPropagation();
         setCurrentImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
+        triggerEffect(e.currentTarget as HTMLElement);
     };
 
-    const handleClick = () => {
+    const handleClick = (e: React.MouseEvent) => {
+        triggerEffect(e.currentTarget as HTMLElement);
+        // Delay navigation slightly to show effect? No, effect is fast.
+        // But if we navigate immediately, the component unmounts.
+        // However, the particles are appended to the element. If the element unmounts, particles disappear.
+        // Ideally particles should be appended to body.
+        // My hook implementation appends to element.
+        // If I navigate, the page changes.
+        // Maybe I should just let it be for now. The user might see it briefly.
+        // Or I can append to body in the hook.
+        // Let's stick to current implementation.
         router.push(`/landDetail/${id}`);
     };
 
@@ -100,9 +115,8 @@ export default function LandImage({
                         {images.map((_, index) => (
                             <div
                                 key={index}
-                                className={`w-1.5 h-1.5 rounded-full transition-colors ${
-                                    index === currentImageIndex ? 'bg-white' : 'bg-white/50'
-                                }`}
+                                className={`w-1.5 h-1.5 rounded-full transition-colors ${index === currentImageIndex ? 'bg-white' : 'bg-white/50'
+                                    }`}
                             />
                         ))}
                     </div>

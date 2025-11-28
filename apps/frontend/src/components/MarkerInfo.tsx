@@ -9,6 +9,8 @@
 
 'use client';
 
+import { useParticleEffect } from '../hooks/useParticleEffect';
+
 interface MarkerItem {
     id: string;
     name: string;
@@ -49,30 +51,37 @@ const markerData: MarkerItem[] = [
 ];
 
 export default function MarkerInfo() {
+    const { triggerEffect } = useParticleEffect();
+
+    const handleClick = (e: React.MouseEvent) => {
+        triggerEffect(e.currentTarget as HTMLElement);
+    };
+
     return (
-        <div className="bg-white rounded-lg shadow-md p-6" style={{ height: '500px' }}>
-            <h3 className="text-lg font-bold mb-4">주변 시설 정보</h3>
-            
+        <div className="rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md shadow-xl p-6" style={{ height: '500px' }}>
+            <h3 className="text-lg font-bold mb-4 text-slate-800">주변 시설 정보</h3>
+
             <div className="space-y-6">
                 {markerData.map((marker) => (
-                    <div 
+                    <div
                         key={marker.id}
-                        className="flex items-center gap-4 p-4 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100"
+                        onClick={handleClick}
+                        className="flex items-center gap-4 p-4 rounded-xl hover:bg-white/60 transition-colors border border-white/40 cursor-pointer"
                     >
                         <div className="flex-shrink-0">
-                            <img 
-                                src={marker.icon} 
+                            <img
+                                src={marker.icon}
                                 alt={marker.name}
                                 className="w-10 h-10 object-contain"
                             />
                         </div>
-                        
+
                         <div className="flex-1">
                             <div className="flex items-center justify-between">
-                                <h4 className="font-semibold text-gray-800">{marker.name}</h4>
+                                <h4 className="font-semibold text-slate-800">{marker.name}</h4>
                                 <span className="text-lg font-bold text-blue-600">{marker.count}개</span>
                             </div>
-                            <p className="text-sm text-gray-500 mt-1">{marker.description}</p>
+                            <p className="text-sm text-slate-600 mt-1">{marker.description}</p>
                         </div>
                     </div>
                 ))}

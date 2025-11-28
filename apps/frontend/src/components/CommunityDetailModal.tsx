@@ -20,6 +20,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Button from './Button'
+import { useParticleEffect } from '../hooks/useParticleEffect'
 
 interface Comment {
   id: string
@@ -72,6 +73,7 @@ export default function CommunityDetailModal({
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
   const [editingCommentContent, setEditingCommentContent] = useState('')
   const commentsContainerRef = useRef<HTMLDivElement>(null)
+  const { triggerEffect } = useParticleEffect()
 
   // 모달이 열릴 때 스크롤 방지
   useEffect(() => {
@@ -111,7 +113,8 @@ export default function CommunityDetailModal({
   }
 
   // 댓글 작성
-  const handleAddComment = () => {
+  const handleAddComment = (e?: React.MouseEvent) => {
+    if (e) triggerEffect(e.currentTarget as HTMLElement)
     if (!newComment.trim()) return
 
     const comment: Comment = {
@@ -127,13 +130,15 @@ export default function CommunityDetailModal({
   }
 
   // 댓글 수정 시작
-  const handleStartEditComment = (comment: Comment) => {
+  const handleStartEditComment = (comment: Comment, e: React.MouseEvent) => {
+    triggerEffect(e.currentTarget as HTMLElement)
     setEditingCommentId(comment.id)
     setEditingCommentContent(comment.content)
   }
 
   // 댓글 수정 완료
-  const handleUpdateComment = (commentId: string) => {
+  const handleUpdateComment = (commentId: string, e: React.MouseEvent) => {
+    triggerEffect(e.currentTarget as HTMLElement)
     if (!editingCommentContent.trim()) return
 
     setComments(prev =>
@@ -148,7 +153,8 @@ export default function CommunityDetailModal({
   }
 
   // 댓글 삭제
-  const handleDeleteComment = (commentId: string) => {
+  const handleDeleteComment = (commentId: string, e: React.MouseEvent) => {
+    triggerEffect(e.currentTarget as HTMLElement)
     if (confirm('댓글을 삭제하시겠습니까?')) {
       setComments(prev => prev.filter(comment => comment.id !== commentId))
     }
@@ -162,6 +168,26 @@ export default function CommunityDetailModal({
     }
   }
 
+  const handleClose = (e: React.MouseEvent) => {
+    triggerEffect(e.currentTarget as HTMLElement)
+    onClose()
+  }
+
+  const handleEditPost = (e: React.MouseEvent) => {
+    triggerEffect(e.currentTarget as HTMLElement)
+    onEdit?.()
+  }
+
+  const handleDeletePost = (e: React.MouseEvent) => {
+    triggerEffect(e.currentTarget as HTMLElement)
+    onDelete?.()
+  }
+
+  const handleLikePost = (e: React.MouseEvent) => {
+    triggerEffect(e.currentTarget as HTMLElement)
+    onToggleLike?.(post.id)
+  }
+
   if (!isOpen) return null
 
   return (
@@ -170,15 +196,15 @@ export default function CommunityDetailModal({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col"
+        className="rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/95 to-blue-200/95 backdrop-blur-md shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 헤더 */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900">게시글 상세</h2>
+        <div className="flex items-center justify-between p-6 border-b border-white/40">
+          <h2 className="text-xl font-bold text-slate-800">게시글 상세</h2>
           <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            onClick={handleClose}
+            className="text-slate-400 hover:text-slate-600 transition-colors"
             aria-label="모달 닫기"
           >
             <svg
@@ -222,18 +248,18 @@ export default function CommunityDetailModal({
                 )}
               </div>
               <div>
-                <p className="font-medium text-gray-900">{post.author.name}</p>
-                <p className="text-sm text-gray-500">{formatDate(post.createdAt)}</p>
+                <p className="font-medium text-slate-900">{post.author.name}</p>
+                <p className="text-sm text-slate-500">{formatDate(post.createdAt)}</p>
               </div>
             </div>
 
             {/* 게시글 수정/삭제 버튼 (작성자만) - Button 컴포넌트 사용 */}
             {post.isOwner && (
               <div className="flex gap-2">
-                <Button variant="ghost" size="sm" onClick={onEdit}>
+                <Button variant="ghost" size="sm" onClick={handleEditPost}>
                   수정
                 </Button>
-                <Button variant="danger" size="sm" onClick={onDelete}>
+                <Button variant="danger" size="sm" onClick={handleDeletePost}>
                   삭제
                 </Button>
               </div>
@@ -260,25 +286,24 @@ export default function CommunityDetailModal({
           )}
 
           {/* 게시글 제목 */}
-          <h3 className="text-2xl font-bold text-gray-900 mb-4">{post.title}</h3>
+          <h3 className="text-2xl font-bold text-slate-900 mb-4">{post.title}</h3>
 
           {/* 게시글 내용 */}
-          <p className="text-gray-700 leading-relaxed mb-6 whitespace-pre-wrap">
+          <p className="text-slate-700 leading-relaxed mb-6 whitespace-pre-wrap">
             {post.content}
           </p>
 
           {/* 좋아요 & 댓글 수 */}
-          <div className="flex items-center gap-6 py-4 border-y border-gray-200 mb-6">
+          <div className="flex items-center gap-6 py-4 border-y border-white/40 mb-6">
             <button
-              onClick={() => onToggleLike?.(post.id)}
+              onClick={handleLikePost}
               className="flex items-center gap-2 transition-colors hover:text-red-500 group"
             >
               <svg
-                className={`w-5 h-5 transition-colors ${
-                  post.isLiked
+                className={`w-5 h-5 transition-colors ${post.isLiked
                     ? 'fill-red-600 text-red-600'
-                    : 'fill-none text-gray-600 group-hover:text-red-500'
-                }`}
+                    : 'fill-none text-slate-600 group-hover:text-red-500'
+                  }`}
                 stroke="currentColor"
                 viewBox="0 0 24 24"
               >
@@ -289,11 +314,11 @@ export default function CommunityDetailModal({
                   d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
                 />
               </svg>
-              <span className={`font-medium ${post.isLiked ? 'text-red-600' : 'text-gray-600'}`}>
+              <span className={`font-medium ${post.isLiked ? 'text-red-600' : 'text-slate-600'}`}>
                 {post.likes}
               </span>
             </button>
-            <div className="flex items-center gap-2 text-gray-600">
+            <div className="flex items-center gap-2 text-slate-600">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
@@ -308,18 +333,18 @@ export default function CommunityDetailModal({
 
           {/* 댓글 목록 */}
           <div className="space-y-4 mb-6" ref={commentsContainerRef}>
-            <h4 className="font-semibold text-gray-900 mb-3">
+            <h4 className="font-semibold text-slate-900 mb-3">
               댓글 {comments.length}
             </h4>
             {comments.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-8">
+              <p className="text-sm text-slate-500 text-center py-8">
                 첫 댓글을 작성해보세요!
               </p>
             ) : (
               comments.map((comment) => (
                 <div
                   key={comment.id}
-                  className="bg-gray-50 rounded-lg p-4"
+                  className="bg-white/50 rounded-lg p-4 border border-white/40"
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-3 flex-1">
@@ -343,10 +368,10 @@ export default function CommunityDetailModal({
                         )}
                       </div>
                       <div className="flex-1">
-                        <p className="font-medium text-sm text-gray-900">
+                        <p className="font-medium text-sm text-slate-900">
                           {comment.author.name}
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-slate-500">
                           {formatDate(comment.createdAt)}
                         </p>
                       </div>
@@ -358,14 +383,14 @@ export default function CommunityDetailModal({
                         {editingCommentId === comment.id ? (
                           <>
                             <button
-                              onClick={() => handleUpdateComment(comment.id)}
+                              onClick={(e) => handleUpdateComment(comment.id, e)}
                               className="text-xs text-orange-600 hover:underline"
                             >
                               완료
                             </button>
                             <button
                               onClick={() => setEditingCommentId(null)}
-                              className="text-xs text-gray-600 hover:underline"
+                              className="text-xs text-slate-600 hover:underline"
                             >
                               취소
                             </button>
@@ -373,13 +398,13 @@ export default function CommunityDetailModal({
                         ) : (
                           <>
                             <button
-                              onClick={() => handleStartEditComment(comment)}
+                              onClick={(e) => handleStartEditComment(comment, e)}
                               className="text-xs text-orange-600 hover:underline"
                             >
                               수정
                             </button>
                             <button
-                              onClick={() => handleDeleteComment(comment.id)}
+                              onClick={(e) => handleDeleteComment(comment.id, e)}
                               className="text-xs text-red-600 hover:underline"
                             >
                               삭제
@@ -396,11 +421,11 @@ export default function CommunityDetailModal({
                       type="text"
                       value={editingCommentContent}
                       onChange={(e) => setEditingCommentContent(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white/80"
                       autoFocus
                     />
                   ) : (
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                    <p className="text-sm text-slate-700 whitespace-pre-wrap">
                       {comment.content}
                     </p>
                   )}
@@ -411,7 +436,7 @@ export default function CommunityDetailModal({
         </div>
 
         {/* 댓글 입력 영역 - Button 컴포넌트 사용 */}
-        <div className="p-6 border-t border-gray-200">
+        <div className="p-6 border-t border-white/40">
           <div className="flex gap-2">
             <input
               type="text"
@@ -419,7 +444,7 @@ export default function CommunityDetailModal({
               onChange={(e) => setNewComment(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="댓글을 입력하세요..."
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white/80"
             />
             <Button
               variant="primary"
