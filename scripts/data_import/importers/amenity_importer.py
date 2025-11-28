@@ -34,6 +34,13 @@ class AmenityImporter:
                 h.latitude = row.lat,
                 h.longitude = row.lon,
                 h.location = point({latitude: row.lat, longitude: row.lon})
+            WITH h
+            CALL {
+                WITH h
+                WITH h
+                WHERE h.category = '종합병원'
+                SET h:GeneralHospital
+            }
             """
             
             batch_size = 1000
@@ -65,9 +72,9 @@ class AmenityImporter:
             MATCH (p:Property)
             CALL {
                 WITH p
-                MATCH (h:Hospital)
-                WHERE h.category = '종합병원' AND point.distance(p.location, h.location) < 1000
-                MERGE (p)-[r:NEAR_HOSPITAL]->(h)
+                MATCH (h:GeneralHospital)
+                WHERE point.distance(p.location, h.location) < 1000
+                MERGE (p)-[r:NEAR_GENERAL_HOSPITAL]->(h)
                 SET r.distance = point.distance(p.location, h.location),
                     r.walking_time = (point.distance(p.location, h.location) * 1.3) / 80
             } IN TRANSACTIONS OF 1000 ROWS
