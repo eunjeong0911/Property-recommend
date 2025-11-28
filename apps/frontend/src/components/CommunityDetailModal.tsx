@@ -271,13 +271,13 @@ export default function CommunityDetailModal({
           <div className="flex items-center gap-6 py-4 border-y border-gray-200 mb-6">
             <button
               onClick={() => onToggleLike?.(post.id)}
-              className="flex items-center gap-2 transition-colors hover:text-orange-500 group"
+              className="flex items-center gap-2 transition-colors hover:text-red-500 group"
             >
               <svg
                 className={`w-5 h-5 transition-colors ${
                   post.isLiked
-                    ? 'fill-orange-500 text-orange-500'
-                    : 'fill-none text-gray-600 group-hover:text-orange-500'
+                    ? 'fill-red-600 text-red-600'
+                    : 'fill-none text-gray-600 group-hover:text-red-500'
                 }`}
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -289,7 +289,7 @@ export default function CommunityDetailModal({
                   d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
                 />
               </svg>
-              <span className={`font-medium ${post.isLiked ? 'text-orange-500' : 'text-gray-600'}`}>
+              <span className={`font-medium ${post.isLiked ? 'text-red-600' : 'text-gray-600'}`}>
                 {post.likes}
               </span>
             </button>
