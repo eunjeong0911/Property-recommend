@@ -1,0 +1,136 @@
+import os
+import pandas as pd
+from config import Config
+from database import Database
+
+class TransportImporter:
+    def __init__(self):
+        self.driver = Database.get_driver()
+
+    def import_subway(self):
+        file_path = os.path.join(Config.DATA_DIR, "subway", "지하철_노선도.csv")
+        print(f"Loading Subway data from {file_path}...")
+        
+        try:
+            df = pd.read_csv(file_path, encoding='utf-8')
+        except UnicodeDecodeError:
+            df = pd.read_csv(file_path, encoding='cp949')
+            
+        print(f"Found {len(df)} Subway Stations.")
+        
+        with self.driver.session() as session:
+            session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (s:SubwayStation) REQUIRE s.name IS UNIQUE")
+            session.run("CREATE POINT INDEX subway_location_index IF NOT EXISTS FOR (s:SubwayStation) ON (s.location)")
+            
+            query = """
+            UNWIND $batch AS row
+            MERGE (s:SubwayStation {name: row.name, line: row.line})
+            SET s.latitude = row.lat,
+                s.longitude = row.lon,
+                s.location = point({latitude: row.lat, longitude: row.lon})
+            """
+            
+            batch_size = 500
+            batch = []
+            
+            for _, row in df.iterrows():
+                batch.append({
+                    "name": str(row['역명']),
+                    "line": str(row['노선']),
+                    "lat": float(row['위도']),
+                    "lon": float(row['경도'])
+                })
+                
+                if len(batch) >= batch_size:
+                    session.run(query, batch=batch)
+                    batch = []
+                    
+            if batch:
+                session.run(query, batch=batch)
+                
+            print("Finished importing Subway Stations.")
+            self._link_subway(session)
+
+    def _link_subway(self, session):
+        print("Linking Subway Stations (1km)...")
+        query = """
+        MATCH (p:Property)
+        CALL {
+            WITH p
+            MATCH (s:SubwayStation)
+            WHERE point.distance(p.location, s.location) < 1000
+            MERGE (p)-[r:NEAR_SUBWAY]->(s)
+            SET r.distance = point.distance(p.location, s.location),
+                r.walking_time = (point.distance(p.location, s.location) * 1.3) / 80
+        } IN TRANSACTIONS OF 1000 ROWS
+        """
+        session.run(query)
+        print("Linking Subway completed.")
+
+    def import_bus(self):
+        file_path = os.path.join(Config.DATA_DIR, "bus", "국토교통부_전국 버스정류장 위치정보_20241031_utf8_clean.csv")
+        print(f"Loading Bus data from {file_path}...")
+        
+        try:
+            df = pd.read_csv(file_path, encoding='utf-8')
+        except UnicodeDecodeError:
+            df = pd.read_csv(file_path, encoding='cp949')
+            
+        df = df[df['도시명'].str.contains("서울특별시", na=False)]
+        print(f"Found {len(df)} Bus Stations in Seoul.")
+        
+        with self.driver.session() as session:
+            session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (b:BusStation) REQUIRE b.id IS UNIQUE")
+            session.run("CREATE POINT INDEX bus_location_index IF NOT EXISTS FOR (b:BusStation) ON (b.location)")
+            
+            query = """
+            UNWIND $batch AS row
+            MERGE (b:BusStation {id: row.id})
+            SET b.name = row.name,
+                b.latitude = row.lat,
+                b.longitude = row.lon,
+                b.location = point({latitude: row.lat, longitude: row.lon})
+            """
+            
+            batch_size = 1000
+            batch = []
+            
+            for _, row in df.iterrows():
+                batch.append({
+                    "id": str(row['정류장번호']),
+                    "name": str(row['정류장명']),
+                    "lat": float(row['위도']),
+                    "lon": float(row['경도'])
+                })
+                
+                if len(batch) >= batch_size:
+                    session.run(query, batch=batch)
+                    batch = []
+                    
+            if batch:
+                session.run(query, batch=batch)
+                
+            print("Finished importing Bus Stations.")
+            self._link_bus(session)
+
+    def _link_bus(self, session):
+        print("Linking Bus Stations (500m)...")
+        query = """
+        MATCH (p:Property)
+        CALL {
+            WITH p
+            MATCH (b:BusStation)
+            WHERE point.distance(p.location, b.location) < 500
+            MERGE (p)-[r:NEAR_BUS]->(b)
+            SET r.distance = point.distance(p.location, b.location),
+                r.walking_time = (point.distance(p.location, b.location) * 1.3) / 80
+        } IN TRANSACTIONS OF 1000 ROWS
+        """
+        session.run(query)
+        print("Linking Bus completed.")
+
+if __name__ == "__main__":
+    importer = TransportImporter()
+    importer.import_subway()
+    importer.import_bus()
+    Database.close()
