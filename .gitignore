@@ -68,3 +68,10 @@ notebooks/.ipynb_checkpoints/
 # Logs
 *.log
 logs/
+
+*desktop.ini
+
+# 데이터
+data/
+
+.kiro

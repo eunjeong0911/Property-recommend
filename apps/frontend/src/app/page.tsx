@@ -1,8 +1,11 @@
-export default function Home() {
-  return (
-    <main>
-      <h1>Real Estate AI Recommendation</h1>
-      <p>부동산 AI 추천 서비스</p>
-    </main>
-  )
+/**
+ * RootPage
+ *
+ * 기본 진입 시 메인 페이지로 리다이렉트
+ */
+
+import { redirect } from 'next/navigation'
+
+export default function RootPage() {
+  redirect('/main')
 }
