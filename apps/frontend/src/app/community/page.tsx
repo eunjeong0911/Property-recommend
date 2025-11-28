@@ -173,17 +173,17 @@ export default function CommunityPage() {
 
   const editingFormValues: CommunityWriteFormValues | undefined = editingPost
     ? {
-        title: editingPost.title,
-        content: editingPost.content
-      }
+      title: editingPost.title,
+      content: editingPost.content
+    }
     : undefined
 
   const editingRegionData: RegionFilterValues | undefined = editingPost
     ? {
-        region: editingPost.region,
-        dong: editingPost.dong,
-        complexName: editingPost.complexName
-      }
+      region: editingPost.region,
+      dong: editingPost.dong,
+      complexName: editingPost.complexName
+    }
     : undefined
 
   const writeModalTitle = editingPost
@@ -193,7 +193,7 @@ export default function CommunityPage() {
       : '지역 커뮤니티 글쓰기'
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col">
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-8">
         <CommunityTab activeTab={activeTab} onTabChange={setActiveTab} />
 
