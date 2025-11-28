@@ -32,6 +32,7 @@ interface Message {
   type: 'user' | 'ai'
   content: string
   timestamp: Date
+  feedback?: 'like' | 'dislike' | null
 }
 
 interface ChatSession {
@@ -247,6 +248,15 @@ export default function Chatbot() {
     }
   }
 
+  // 피드백 핸들러
+  const handleFeedback = (messageId: string, feedbackType: 'like' | 'dislike') => {
+    setMessages(prev => prev.map(msg =>
+      msg.id === messageId
+        ? { ...msg, feedback: msg.feedback === feedbackType ? null : feedbackType }
+        : msg
+    ))
+  }
+
   return (
     <div className="fixed bottom-6 right-6 z-50">
       {/* 챗봇 아이콘 */}
@@ -438,26 +448,86 @@ export default function Chatbot() {
                 key={message.id}
                 className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
               >
-                <div
-                  className={`
-                    max-w-[80%] rounded-lg p-3 shadow-sm
-                    ${message.type === 'user'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white text-gray-800 border border-gray-200'
-                    }
-                  `}
-                >
-                  <p className="text-sm whitespace-pre-wrap break-words">
-                    {message.content}
-                  </p>
-                  <p
+                <div className={`max-w-[80%] ${message.type === 'ai' ? 'space-y-2' : ''}`}>
+                  <div
                     className={`
-                      text-xs mt-1
-                      ${message.type === 'user' ? 'text-blue-100' : 'text-gray-500'}
+                      rounded-lg p-3 shadow-sm
+                      ${message.type === 'user'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-white text-gray-800 border border-gray-200'
+                      }
                     `}
                   >
-                    {formatTime(message.timestamp)}
-                  </p>
+                    <p className="text-sm whitespace-pre-wrap break-words">
+                      {message.content}
+                    </p>
+                    <p
+                      className={`
+                        text-xs mt-1
+                        ${message.type === 'user' ? 'text-blue-100' : 'text-gray-500'}
+                      `}
+                    >
+                      {formatTime(message.timestamp)}
+                    </p>
+                  </div>
+
+                  {/* AI 메시지에만 피드백 버튼 표시 */}
+                  {message.type === 'ai' && (
+                    <div className="flex gap-2 px-1">
+                      <button
+                        onClick={() => handleFeedback(message.id, 'like')}
+                        className={`
+                          p-1 rounded transition-colors
+                          ${message.feedback === 'like'
+                            ? 'text-blue-600 bg-blue-50'
+                            : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
+                          }
+                        `}
+                        aria-label="좋아요"
+                        title="좋아요"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill={message.feedback === 'like' ? 'currentColor' : 'none'}
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"
+                          />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => handleFeedback(message.id, 'dislike')}
+                        className={`
+                          p-1 rounded transition-colors
+                          ${message.feedback === 'dislike'
+                            ? 'text-red-600 bg-red-50'
+                            : 'text-gray-400 hover:text-red-600 hover:bg-red-50'
+                          }
+                        `}
+                        aria-label="싫어요"
+                        title="싫어요"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill={message.feedback === 'dislike' ? 'currentColor' : 'none'}
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06l3.76.94m-7 10v5a2 2 0 002 2h.096c.5 0 .905-.405.905-.904 0-.715.211-1.413.608-2.008L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))
