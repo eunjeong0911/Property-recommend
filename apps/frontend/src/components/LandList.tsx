@@ -36,8 +36,8 @@ const MOCK_LANDS: Land[] = [
 
 export default function LandList({ lands = MOCK_LANDS }: LandListProps) {
     return (
-        <div className="py-6 overflow-visible">
-            <div className="grid grid-cols-4 gap-10 max-w-7xl mx-auto">
+        <div className="p-6 rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md shadow-xl overflow-visible">
+            <div className="grid grid-cols-4 gap-6">
                 {lands.map((land) => (
                     <LandImage
                         key={land.id}

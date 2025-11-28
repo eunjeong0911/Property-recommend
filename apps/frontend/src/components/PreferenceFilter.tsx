@@ -26,7 +26,7 @@ import React, { Children, cloneElement, useEffect, useMemo, useRef, useState } f
 type DockItemProps = {
     className?: string;
     children: React.ReactNode;
-    onClick?: () => void;
+    onClick?: (event: React.MouseEvent<HTMLDivElement>) => void;
     mouseX: MotionValue<number>;
     spring: SpringOptions;
     distance: number;
@@ -184,80 +184,201 @@ export default function PreferenceFilter({
     const heightRow = useTransform(isHovered, [0, 1], [panelHeight, maxHeight]);
     const height = useSpring(heightRow, spring);
 
-    const handleFilterClick = (filterId: string) => {
+    // Particle Effect Logic
+    const particleCount = 12;
+    const particleDistances: [number, number] = [40, 60];
+    const particleR = 30;
+    const timeVariance = 200;
+    const animationTime = 400;
+    const colors = [1, 2, 3, 4]; // We'll map these to CSS vars or specific colors
+
+    const noise = (n = 1) => n / 2 - Math.random() * n;
+    const getXY = (distance: number, pointIndex: number, totalPoints: number): [number, number] => {
+        const angle = ((360 + noise(8)) / totalPoints) * pointIndex * (Math.PI / 180);
+        return [distance * Math.cos(angle), distance * Math.sin(angle)];
+    };
+    const createParticle = (i: number, t: number, d: [number, number], r: number) => {
+        let rotate = noise(r / 10);
+        return {
+            start: getXY(d[0], particleCount - i, particleCount),
+            end: getXY(d[1] + noise(7), particleCount - i, particleCount),
+            time: t,
+            scale: 1 + noise(0.2),
+            color: colors[Math.floor(Math.random() * colors.length)],
+            rotate: rotate > 0 ? (rotate + r / 20) * 10 : (rotate - r / 20) * 10
+        };
+    };
+
+    const makeParticles = (element: HTMLElement) => {
+        const d: [number, number] = particleDistances;
+        const r = particleR;
+        const bubbleTime = animationTime * 2 + timeVariance;
+        // element.style.setProperty('--time', `${bubbleTime}ms`); // Not strictly needed on the element itself for this implementation
+
+        for (let i = 0; i < particleCount; i++) {
+            const t = animationTime * 2 + noise(timeVariance * 2);
+            const p = createParticle(i, t, d, r);
+
+            const particle = document.createElement('span');
+            const point = document.createElement('span');
+            particle.classList.add('particle');
+            particle.style.setProperty('--start-x', `${p.start[0]}px`);
+            particle.style.setProperty('--start-y', `${p.start[1]}px`);
+            particle.style.setProperty('--end-x', `${p.end[0]}px`);
+            particle.style.setProperty('--end-y', `${p.end[1]}px`);
+            particle.style.setProperty('--time', `${p.time}ms`);
+            particle.style.setProperty('--scale', `${p.scale}`);
+
+            // Map color indices to actual colors
+            const colorMap = ['#60A5FA', '#3B82F6', '#93C5FD', '#2563EB']; // Blue shades
+            const color = colorMap[p.color - 1] || '#3B82F6';
+            particle.style.setProperty('--color', color);
+
+            particle.style.setProperty('--rotate', `${p.rotate}deg`);
+            point.classList.add('point');
+            particle.appendChild(point);
+            element.appendChild(particle);
+
+            setTimeout(() => {
+                try {
+                    if (element.contains(particle)) {
+                        element.removeChild(particle);
+                    }
+                } catch { }
+            }, t);
+        }
+    };
+
+    const handleFilterClick = (filterId: string, event: React.MouseEvent<HTMLElement>) => {
         const newFilters = new Set(selectedFilters);
 
         if (newFilters.has(filterId)) {
             newFilters.delete(filterId);
         } else {
             newFilters.add(filterId);
+            // Trigger particle effect only on selection
+            makeParticles(event.currentTarget as HTMLElement);
         }
 
         setSelectedFilters(newFilters);
         onFilterChange?.(Array.from(newFilters));
     };
 
-    const handleReset = () => {
+    const handleReset = (event: React.MouseEvent<HTMLElement>) => {
         setSelectedFilters(new Set());
         onFilterChange?.([]);
+        // Optional: Trigger effect on reset too
+        makeParticles(event.currentTarget as HTMLElement);
     };
 
     return (
-        <div
-            className="flex justify-center w-full py-4"
-            style={{ height: maxHeight + 32 }}
-        >
-            <div className="flex items-end h-full">
-                <motion.div
-                    onMouseMove={({ pageX }: { pageX: number }) => {
-                        isHovered.set(1);
-                        mouseX.set(pageX);
-                    }}
-                    onMouseLeave={() => {
-                        isHovered.set(0);
-                        mouseX.set(Infinity);
-                    }}
-                    className="relative flex items-end w-fit gap-3 rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md pb-2 px-4 shadow-2xl z-40 mx-auto"
-                    style={{ height: height }}
-                    role="toolbar"
-                    aria-label="Filter dock"
-                >
-                    {FILTER_OPTIONS.map((option) => (
+        <>
+            <style>
+                {`
+                    .particle,
+                    .point {
+                        display: block;
+                        opacity: 0;
+                        width: 10px;
+                        height: 10px;
+                        border-radius: 9999px;
+                        transform-origin: center;
+                        pointer-events: none;
+                    }
+                    .particle {
+                        --time: 600ms;
+                        position: absolute;
+                        top: 50%;
+                        left: 50%;
+                        transform: translate(-50%, -50%);
+                        z-index: 50;
+                        animation: particle var(--time) ease 1 forwards;
+                    }
+                    .point {
+                        background: var(--color);
+                        opacity: 1;
+                        width: 100%;
+                        height: 100%;
+                        animation: point var(--time) ease 1 forwards;
+                    }
+                    @keyframes particle {
+                        0% {
+                            transform: translate(-50%, -50%) rotate(0deg) translate(var(--start-x), var(--start-y));
+                            opacity: 1;
+                        }
+                        100% {
+                            transform: translate(-50%, -50%) rotate(var(--rotate)) translate(var(--end-x), var(--end-y));
+                            opacity: 0;
+                        }
+                    }
+                    @keyframes point {
+                        0% { transform: scale(0); }
+                        50% { transform: scale(var(--scale)); }
+                        100% { transform: scale(0); }
+                    }
+                `}
+            </style>
+            <div
+                className="flex justify-center w-full py-4"
+                style={{ height: maxHeight + 32 }}
+            >
+                <div className="flex items-end h-full">
+                    <motion.div
+                        onMouseMove={({ pageX }: { pageX: number }) => {
+                            isHovered.set(1);
+                            mouseX.set(pageX);
+                        }}
+                        onMouseLeave={() => {
+                            isHovered.set(0);
+                            mouseX.set(Infinity);
+                        }}
+                        className="relative flex items-end w-fit gap-3 rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md pb-2 px-4 shadow-2xl z-40 mx-auto"
+                        style={{ height: height }}
+                        role="toolbar"
+                        aria-label="Filter dock"
+                    >
+                        {FILTER_OPTIONS.map((option) => (
+                            <DockItem
+                                key={option.id}
+                                onClick={(e: any) => handleFilterClick(option.id, e)}
+                                mouseX={mouseX}
+                                spring={spring}
+                                distance={distance}
+                                magnification={magnification}
+                                baseItemSize={baseItemSize}
+                                isSelected={selectedFilters.has(option.id)}
+                                className={`
+                                    ${selectedFilters.has(option.id)
+                                        ? 'bg-blue-600 border-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.6)] ring-2 ring-blue-300'
+                                        : 'bg-white/50 border-white/50 text-slate-600 hover:bg-white/80 hover:border-white/80'
+                                    }
+                                `}
+                            >
+                                <DockIcon>{option.icon}</DockIcon>
+                                <DockLabel>{option.label}</DockLabel>
+                            </DockItem>
+                        ))}
+
+                        {/* Separator */}
+                        <div className="w-[1px] h-8 bg-slate-400/30 mx-1 mb-3" />
+
+                        {/* Reset Button */}
                         <DockItem
-                            key={option.id}
-                            onClick={() => handleFilterClick(option.id)}
+                            onClick={(e: any) => handleReset(e)}
                             mouseX={mouseX}
                             spring={spring}
                             distance={distance}
                             magnification={magnification}
                             baseItemSize={baseItemSize}
-                            isSelected={selectedFilters.has(option.id)}
-                            className="bg-white/50 border-white/50 text-slate-600 hover:bg-white/80 hover:border-white/80"
+                            className={selectedFilters.size === 0 ? 'opacity-50 cursor-not-allowed bg-white/30' : 'text-red-500 border-red-200 bg-white/50 hover:bg-white/80'}
                         >
-                            <DockIcon>{option.icon}</DockIcon>
-                            <DockLabel>{option.label}</DockLabel>
+                            <DockIcon>🔄</DockIcon>
+                            <DockLabel>초기화</DockLabel>
                         </DockItem>
-                    ))}
 
-                    {/* Separator */}
-                    <div className="w-[1px] h-8 bg-slate-400/30 mx-1 mb-3" />
-
-                    {/* Reset Button */}
-                    <DockItem
-                        onClick={handleReset}
-                        mouseX={mouseX}
-                        spring={spring}
-                        distance={distance}
-                        magnification={magnification}
-                        baseItemSize={baseItemSize}
-                        className={selectedFilters.size === 0 ? 'opacity-50 cursor-not-allowed bg-white/30' : 'text-red-500 border-red-200 bg-white/50 hover:bg-white/80'}
-                    >
-                        <DockIcon>🔄</DockIcon>
-                        <DockLabel>초기화</DockLabel>
-                    </DockItem>
-
-                </motion.div>
+                    </motion.div>
+                </div>
             </div>
-        </div>
+        </>
     );
 }
