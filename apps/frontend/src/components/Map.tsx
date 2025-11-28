@@ -95,38 +95,35 @@ export default function Map() {
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 const { latitude, longitude } = position.coords;
-                
+
                 if (mapRef.current && markerRef.current && window.kakao) {
                     // 현재 위치로 지도 중심 이동
                     const moveLatLon = new window.kakao.maps.LatLng(latitude, longitude);
                     mapRef.current.setCenter(moveLatLon);
-                    
+
                     // 커스텀 마커 이미지 생성
                     const imageSrc = '/icons/nowLocation.png';
                     const imageSize = new window.kakao.maps.Size(40, 40); // 마커 이미지 크기
                     const imageOption = { offset: new window.kakao.maps.Point(20, 40) }; // 마커 이미지의 기준점
-                    
+
                     const markerImage = new window.kakao.maps.MarkerImage(
                         imageSrc,
                         imageSize,
                         imageOption
                     );
-                    
-                    // 기존 마커 제거
-                    markerRef.current.setMap(null);
-                    
+
                     // 새로운 커스텀 마커 생성
                     const newMarker = new window.kakao.maps.Marker({
                         position: moveLatLon,
                         image: markerImage
                     });
-                    
+
                     newMarker.setMap(mapRef.current);
                     markerRef.current = newMarker;
-                    
+
                     console.log('현재 위치로 이동:', latitude, longitude);
                 }
-                
+
                 setIsLoading(false);
             },
             (error) => {
@@ -143,16 +140,12 @@ export default function Map() {
     };
 
     return (
-        <div style={{ position: 'relative' }}>
+        <div className="relative w-full h-[450px] rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md shadow-2xl overflow-hidden p-2">
             <div
                 ref={mapContainer}
-                style={{
-                    width: '100%',
-                    height: '500px',
-                    backgroundColor: '#f0f0f0',
-                }}
+                className="w-full h-full rounded-xl overflow-hidden"
             />
-            
+
             {/* 현재 위치 버튼 */}
             <button
                 onClick={moveToCurrentLocation}

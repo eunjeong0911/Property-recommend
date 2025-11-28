@@ -31,14 +31,14 @@ export default function Temperature({ label, value, maxValue = 1 }: TemperatureP
 
     return (
         <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-700 w-24 flex-shrink-0">{label}</span>
-            <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
+            <span className="text-sm font-medium text-slate-700 w-24 flex-shrink-0">{label}</span>
+            <div className="flex-1 bg-white/50 rounded-full h-2.5 overflow-hidden border border-white/40 shadow-inner">
                 <div
-                    className="h-full rounded-full transition-all duration-700 ease-out bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600"
+                    className="h-full rounded-full transition-all duration-1000 ease-out bg-gradient-to-r from-sky-400 to-blue-500 shadow-sm"
                     style={{ width: `${percentage}%` }}
                 />
             </div>
-            <span className="text-sm font-medium text-gray-800 w-12 text-right">
+            <span className="text-sm font-bold text-slate-800 w-12 text-right">
                 {value.toFixed(1)}
             </span>
         </div>
