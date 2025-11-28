@@ -10,7 +10,136 @@
 
 'use client';
 
-import { useState } from 'react';
+import {
+    motion,
+    MotionValue,
+    useMotionValue,
+    useSpring,
+    useTransform,
+    type SpringOptions,
+    AnimatePresence
+} from 'framer-motion';
+import React, { Children, cloneElement, useEffect, useMemo, useRef, useState } from 'react';
+
+// --- Dock Components ---
+
+type DockItemProps = {
+    className?: string;
+    children: React.ReactNode;
+    onClick?: () => void;
+    mouseX: MotionValue<number>;
+    spring: SpringOptions;
+    distance: number;
+    baseItemSize: number;
+    magnification: number;
+    isSelected?: boolean;
+};
+
+function DockItem({
+    children,
+    className = '',
+    onClick,
+    mouseX,
+    spring,
+    distance,
+    magnification,
+    baseItemSize,
+    isSelected
+}: DockItemProps) {
+    const ref = useRef<HTMLDivElement>(null);
+    const isHovered = useMotionValue(0);
+
+    const mouseDistance = useTransform(mouseX, (val: number) => {
+        const rect = ref.current?.getBoundingClientRect() ?? {
+            x: 0,
+            width: baseItemSize
+        };
+        return val - rect.x - baseItemSize / 2;
+    });
+
+    const targetSize = useTransform(mouseDistance, [-distance, 0, distance], [baseItemSize, magnification, baseItemSize]);
+    const size = useSpring(targetSize, spring);
+
+    return (
+        <motion.div
+            ref={ref}
+            style={{
+                width: size,
+                height: size
+            }}
+            onHoverStart={() => isHovered.set(1)}
+            onHoverEnd={() => isHovered.set(0)}
+            onFocus={() => isHovered.set(1)}
+            onBlur={() => isHovered.set(0)}
+            onClick={onClick}
+            className={`
+                relative inline-flex items-center justify-center rounded-full border-2 shadow-md cursor-pointer
+                transition-colors duration-200
+                ${isSelected
+                    ? 'bg-blue-500 border-blue-400 text-white'
+                    : 'bg-white/50 border-white/40 text-slate-600 hover:border-white/80'
+                }
+                ${className}
+            `}
+            tabIndex={0}
+            role="button"
+            aria-pressed={isSelected}
+        >
+            {Children.map(children, child =>
+                React.isValidElement(child)
+                    ? cloneElement(child as React.ReactElement<{ isHovered?: MotionValue<number> }>, { isHovered })
+                    : child
+            )}
+        </motion.div>
+    );
+}
+
+type DockLabelProps = {
+    className?: string;
+    children: React.ReactNode;
+    isHovered?: MotionValue<number>;
+};
+
+function DockLabel({ children, className = '', isHovered }: DockLabelProps) {
+    const [isVisible, setIsVisible] = useState(false);
+
+    useEffect(() => {
+        if (!isHovered) return;
+        const unsubscribe = isHovered.on('change', (latest: number) => {
+            setIsVisible(latest === 1);
+        });
+        return () => unsubscribe();
+    }, [isHovered]);
+
+    return (
+        <AnimatePresence>
+            {isVisible && (
+                <motion.div
+                    initial={{ opacity: 0, y: 0 }}
+                    animate={{ opacity: 1, y: -10 }}
+                    exit={{ opacity: 0, y: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className={`${className} absolute -top-8 left-1/2 w-fit whitespace-pre rounded-md border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-white z-50`}
+                    role="tooltip"
+                    style={{ x: '-50%' }}
+                >
+                    {children}
+                </motion.div>
+            )}
+        </AnimatePresence>
+    );
+}
+
+type DockIconProps = {
+    className?: string;
+    children: React.ReactNode;
+};
+
+function DockIcon({ children, className = '' }: DockIconProps) {
+    return <div className={`flex items-center justify-center text-xl ${className}`}>{children}</div>;
+}
+
+// --- PreferenceFilter Component ---
 
 interface FilterOption {
     id: string;
@@ -40,6 +169,21 @@ export default function PreferenceFilter({
         new Set(initialFilters)
     );
 
+    const mouseX = useMotionValue(Infinity);
+    const isHovered = useMotionValue(0);
+
+    // Dock configuration
+    const spring = { mass: 0.1, stiffness: 150, damping: 12 };
+    const magnification = 60;
+    const distance = 140;
+    const baseItemSize = 45;
+    const panelHeight = 68;
+    const dockHeight = 100;
+
+    const maxHeight = useMemo(() => Math.max(dockHeight, magnification + magnification / 2 + 4), [magnification, dockHeight]);
+    const heightRow = useTransform(isHovered, [0, 1], [panelHeight, maxHeight]);
+    const height = useSpring(heightRow, spring);
+
     const handleFilterClick = (filterId: string) => {
         const newFilters = new Set(selectedFilters);
 
@@ -59,43 +203,61 @@ export default function PreferenceFilter({
     };
 
     return (
-        <div className="flex gap-2 items-center justify-center flex-wrap py-3">
-            {FILTER_OPTIONS.map((option) => (
-                <button
-                    key={option.id}
-                    className={`
-            flex items-center gap-1.5 px-4 py-2 rounded-full
-            border font-medium text-sm whitespace-nowrap
-            transition-all duration-200
-            ${selectedFilters.has(option.id)
-                            ? 'border-blue-500 bg-blue-500 text-white'
-                            : 'border-gray-300 text-gray-700 hover:border-blue-500'
-                        }
-          `}
-                    onClick={() => handleFilterClick(option.id)}
-                    type="button"
+        <div
+            className="flex justify-center w-full py-4"
+            style={{ height: maxHeight + 32 }}
+        >
+            <div className="flex items-end h-full">
+                <motion.div
+                    onMouseMove={({ pageX }: { pageX: number }) => {
+                        isHovered.set(1);
+                        mouseX.set(pageX);
+                    }}
+                    onMouseLeave={() => {
+                        isHovered.set(0);
+                        mouseX.set(Infinity);
+                    }}
+                    className="relative flex items-end w-fit gap-3 rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md pb-2 px-4 shadow-2xl z-40 mx-auto"
+                    style={{ height: height }}
+                    role="toolbar"
+                    aria-label="Filter dock"
                 >
-                    <span className="text-base">{option.icon}</span>
-                    <span>{option.label}</span>
-                </button>
-            ))}
+                    {FILTER_OPTIONS.map((option) => (
+                        <DockItem
+                            key={option.id}
+                            onClick={() => handleFilterClick(option.id)}
+                            mouseX={mouseX}
+                            spring={spring}
+                            distance={distance}
+                            magnification={magnification}
+                            baseItemSize={baseItemSize}
+                            isSelected={selectedFilters.has(option.id)}
+                            className="bg-white/50 border-white/50 text-slate-600 hover:bg-white/80 hover:border-white/80"
+                        >
+                            <DockIcon>{option.icon}</DockIcon>
+                            <DockLabel>{option.label}</DockLabel>
+                        </DockItem>
+                    ))}
 
-            <button
-                className={`
-          flex items-center gap-1.5 px-4 py-2 rounded-full
-          border border-red-400 font-medium text-sm whitespace-nowrap
-          transition-all duration-200
-          ${selectedFilters.size === 0
-                        ? 'opacity-50 cursor-not-allowed text-red-400'
-                        : 'text-red-500 hover:bg-red-500 hover:text-white'
-                    }
-        `}
-                onClick={handleReset}
-                disabled={selectedFilters.size === 0}
-                type="button"
-            >
-                초기화
-            </button>
+                    {/* Separator */}
+                    <div className="w-[1px] h-8 bg-slate-400/30 mx-1 mb-3" />
+
+                    {/* Reset Button */}
+                    <DockItem
+                        onClick={handleReset}
+                        mouseX={mouseX}
+                        spring={spring}
+                        distance={distance}
+                        magnification={magnification}
+                        baseItemSize={baseItemSize}
+                        className={selectedFilters.size === 0 ? 'opacity-50 cursor-not-allowed bg-white/30' : 'text-red-500 border-red-200 bg-white/50 hover:bg-white/80'}
+                    >
+                        <DockIcon>🔄</DockIcon>
+                        <DockLabel>초기화</DockLabel>
+                    </DockItem>
+
+                </motion.div>
+            </div>
         </div>
     );
 }
