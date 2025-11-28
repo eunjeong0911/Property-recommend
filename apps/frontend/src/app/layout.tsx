@@ -7,6 +7,8 @@ import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import Chatbot from '@/components/Chatbot'
 
+import Aurora from '@/components/Aurora'
+
 const inter = Inter({ subsets: ['latin'] })
 
 export default function RootLayout({
@@ -20,10 +22,18 @@ export default function RootLayout({
     return (
         <html lang="ko">
             <body className={inter.className}>
-                <Header />
-                {children}
-                <Footer />
-                {!isLoginPage && <Chatbot />}
+                <div className="fixed inset-0 -z-10 bg-[#F0F8FF]">
+                    <Aurora
+                        colorStops={['#90CAF9', '#80DEEA', '#E1F5FE']}
+                        speed={0.5}
+                    />
+                </div>
+                <div className="relative z-10">
+                    <Header />
+                    {children}
+                    <Footer />
+                    {!isLoginPage && <Chatbot />}
+                </div>
             </body>
         </html>
     )

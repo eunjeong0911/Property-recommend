@@ -28,7 +28,7 @@ export default function Header() {
   }
 
   return (
-    <header className="bg-white border-b border-gray-200 py-4">
+    <header className="bg-white/30 backdrop-blur-md border-b border-white/20 py-4">
       <div className="max-w-7xl mx-auto px-4 flex justify-between items-center">
         {/* 로고 */}
         <Link
