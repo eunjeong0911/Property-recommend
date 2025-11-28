@@ -11,7 +11,6 @@
 
 'use client'
 
-import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import SideTab from '@/components/SideTab'
 import Profile from '@/components/Profile'
@@ -20,7 +19,6 @@ import Button from '@/components/Button'
 import { useStore } from '@/store/useStore'
 
 export default function MyPage() {
-  const [activeTab, setActiveTab] = useState<'mypage' | 'favorites'>('mypage')
   const { setUser } = useStore()
   const router = useRouter()
 
@@ -43,34 +41,25 @@ export default function MyPage() {
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="flex gap-6">
         {/* 좌측 사이드 탭 */}
-        <SideTab activeTab={activeTab} onTabChange={setActiveTab} />
+        <SideTab />
 
         {/* 우측 컨텐츠 영역 */}
         <div className="flex-1">
-          {activeTab === 'mypage' ? (
-            <>
-              {/* 프로필 */}
-              <Profile />
-              {/* 선호도 설정 */}
-              <PreferenceRanking onSubmit={handlePreferenceSubmit} />
+          {/* 프로필 */}
+          <Profile />
+          {/* 선호도 설정 */}
+          <PreferenceRanking onSubmit={handlePreferenceSubmit} />
 
-              {/* 계정 삭제 버튼 - 페이지 맨 하단 */}
-              <div className="w-full max-w-4xl mx-auto mt-8 flex justify-center">
-                <Button
-                  variant="danger"
-                  size="sm"
-                  onClick={handleDeleteAccount}
-                >
-                  계정 삭제
-                </Button>
-              </div>
-            </>
-          ) : (
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-2xl font-bold mb-4">찜 매물 보기</h2>
-              <p className="text-gray-600">찜한 매물 목록이 여기에 표시됩니다.</p>
-            </div>
-          )}
+          {/* 계정 삭제 버튼 - 페이지 맨 하단 */}
+          <div className="w-full max-w-4xl mx-auto mt-8 flex justify-center">
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={handleDeleteAccount}
+            >
+              계정 삭제
+            </Button>
+          </div>
         </div>
       </div>
     </div>

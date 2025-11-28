@@ -10,42 +10,44 @@
 
 'use client'
 
-interface SideTabProps {
-  activeTab: 'mypage' | 'favorites'
-  onTabChange: (tab: 'mypage' | 'favorites') => void
-}
+import { useRouter, usePathname } from 'next/navigation'
 
-export default function SideTab({ activeTab, onTabChange }: SideTabProps) {
+const NAV_ITEMS = [
+  { label: '마이페이지', path: '/my' },
+  { label: '찜 매물 보기', path: '/wishList' }
+] as const
+
+export default function SideTab() {
+  const router = useRouter()
+  const pathname = usePathname()
+
+  const handleNavigate = (path: string) => {
+    if (pathname === path) return
+    router.push(path)
+  }
+
   return (
     <div className="bg-white rounded-lg shadow-sm p-4 w-64">
       <div className="flex flex-col gap-2">
-        {/* 마이페이지 탭 */}
-        <button
-          onClick={() => onTabChange('mypage')}
-          className={`
-            px-6 py-3 font-medium text-sm rounded-md transition-all text-left
-            ${activeTab === 'mypage'
-              ? 'bg-blue-500 text-white shadow-sm'
-              : 'text-gray-600 hover:bg-gray-50'
-            }
-          `}
-        >
-          마이페이지
-        </button>
+        {NAV_ITEMS.map(({ label, path }) => {
+          const isActive = pathname === path
 
-        {/* 찜 매물 보기 탭 */}
-        <button
-          onClick={() => onTabChange('favorites')}
-          className={`
-            px-6 py-3 font-medium text-sm rounded-md transition-all text-left
-            ${activeTab === 'favorites'
-              ? 'bg-blue-500 text-white shadow-sm'
-              : 'text-gray-600 hover:bg-gray-50'
-            }
-          `}
-        >
-          찜 매물 보기
-        </button>
+          return (
+            <button
+              key={path}
+              onClick={() => handleNavigate(path)}
+              className={`
+                px-6 py-3 font-medium text-sm rounded-md transition-all text-left
+                ${isActive
+                  ? 'bg-blue-500 text-white shadow-sm'
+                  : 'text-gray-600 hover:bg-gray-50'
+                }
+              `}
+            >
+              {label}
+            </button>
+          )
+        })}
       </div>
     </div>
   )
