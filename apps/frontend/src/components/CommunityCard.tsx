@@ -17,6 +17,7 @@
 'use client'
 
 import type { MouseEvent } from 'react'
+import { useParticleEffect } from '../hooks/useParticleEffect'
 
 interface Post {
   id: string
@@ -43,6 +44,8 @@ interface CommunityCardProps {
 }
 
 export default function CommunityCard({ post, onClick, onToggleLike }: CommunityCardProps) {
+  const { triggerEffect } = useParticleEffect()
+
   // 날짜 포맷 함수
   const formatDate = (date: Date) => {
     const now = new Date()
@@ -59,24 +62,30 @@ export default function CommunityCard({ post, onClick, onToggleLike }: Community
     return date.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })
   }
 
+  const handleCardClick = (event: MouseEvent<HTMLDivElement>) => {
+    triggerEffect(event.currentTarget as HTMLElement)
+    onClick(post)
+  }
+
   const handleLikeClick = (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation()
+    triggerEffect(event.currentTarget as HTMLElement)
     onToggleLike(post.id)
   }
 
   return (
     <div
-      onClick={() => onClick(post)}
-      className="bg-white rounded-lg border border-gray-200 hover:shadow-md transition-shadow cursor-pointer overflow-hidden"
+      onClick={handleCardClick}
+      className="rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md hover:shadow-xl transition-all cursor-pointer overflow-hidden"
     >
       <div className="p-4">
         {/* 제목 */}
-        <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 text-base">
+        <h3 className="font-semibold text-slate-800 mb-2 line-clamp-2 text-base">
           {post.title}
         </h3>
 
         {/* 내용 미리보기 */}
-        <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+        <p className="text-sm text-slate-600 mb-3 line-clamp-2">
           {post.content}
         </p>
 
@@ -100,7 +109,7 @@ export default function CommunityCard({ post, onClick, onToggleLike }: Community
         )}
 
         {/* 하단 정보 */}
-        <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+        <div className="flex items-center justify-between pt-3 border-t border-white/40">
           {/* 작성자 정보 */}
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
@@ -122,9 +131,9 @@ export default function CommunityCard({ post, onClick, onToggleLike }: Community
                 </div>
               )}
             </div>
-            <span className="text-xs text-gray-600">{post.author.name}</span>
-            <span className="text-xs text-gray-400">·</span>
-            <span className="text-xs text-gray-400">{formatDate(post.createdAt)}</span>
+            <span className="text-xs text-slate-600">{post.author.name}</span>
+            <span className="text-xs text-slate-400">·</span>
+            <span className="text-xs text-slate-400">{formatDate(post.createdAt)}</span>
           </div>
 
           {/* 좋아요 & 댓글 수 */}
@@ -132,9 +141,8 @@ export default function CommunityCard({ post, onClick, onToggleLike }: Community
             <button
               type="button"
               onClick={handleLikeClick}
-              className={`flex items-center gap-1 text-xs font-medium transition-colors ${
-                post.isLiked ? 'text-red-600' : 'text-gray-500 hover:text-red-500'
-              }`}
+              className={`flex items-center gap-1 text-xs font-medium transition-colors ${post.isLiked ? 'text-red-600' : 'text-slate-500 hover:text-red-500'
+                }`}
               aria-pressed={post.isLiked}
               aria-label="좋아요"
             >
@@ -153,7 +161,7 @@ export default function CommunityCard({ post, onClick, onToggleLike }: Community
               </svg>
               <span>{post.likes}</span>
             </button>
-            <div className="flex items-center gap-1 text-gray-500">
+            <div className="flex items-center gap-1 text-slate-500">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"

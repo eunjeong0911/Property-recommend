@@ -10,6 +10,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useParticleEffect } from '../hooks/useParticleEffect';
 
 interface TemperatureProps {
     label: string;
@@ -20,6 +21,7 @@ interface TemperatureProps {
 export default function Temperature({ label, value, maxValue = 1 }: TemperatureProps) {
     const [animatedValue, setAnimatedValue] = useState(0);
     const percentage = (animatedValue / maxValue) * 100;
+    const { triggerEffect } = useParticleEffect();
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -29,8 +31,15 @@ export default function Temperature({ label, value, maxValue = 1 }: TemperatureP
         return () => clearTimeout(timer);
     }, [value]);
 
+    const handleClick = (e: React.MouseEvent) => {
+        triggerEffect(e.currentTarget as HTMLElement);
+    };
+
     return (
-        <div className="flex items-center gap-3">
+        <div
+            className="flex items-center gap-3 cursor-pointer"
+            onClick={handleClick}
+        >
             <span className="text-sm font-medium text-slate-700 w-24 flex-shrink-0">{label}</span>
             <div className="flex-1 bg-white/50 rounded-full h-2.5 overflow-hidden border border-white/40 shadow-inner">
                 <div

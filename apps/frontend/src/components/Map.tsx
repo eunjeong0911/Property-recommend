@@ -13,6 +13,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useParticleEffect } from '../hooks/useParticleEffect';
 
 declare global {
     interface Window {
@@ -25,6 +26,7 @@ export default function Map() {
     const mapRef = useRef<any>(null);
     const markerRef = useRef<any>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const { triggerEffect } = useParticleEffect();
 
     useEffect(() => {
         // window 객체 체크 (SSR 대응)
@@ -84,7 +86,9 @@ export default function Map() {
         }
     };
 
-    const moveToCurrentLocation = () => {
+    const moveToCurrentLocation = (e: React.MouseEvent) => {
+        triggerEffect(e.currentTarget as HTMLElement);
+
         if (!navigator.geolocation) {
             alert('현재 위치를 지원하지 않는 브라우저입니다.');
             return;
