@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import LandDetail from '@/components/LandDetail';
 import Map from '@/components/Map';
+import MarkerInfo from '@/components/MarkerInfo';
 import CommunityCard from '@/components/CommunityCard';
 import CommunityDetailModal from '@/components/CommunityDetailModal';
 import LandList from '@/components/LandList';
@@ -37,10 +38,17 @@ export default function LandDetailPage() {
         <div className="max-w-7xl mx-auto px-4 py-8">
             <LandDetail landId={id} />
             
-            {/* 지도 */}
+            {/* 지도 및 주변 시설 정보 */}
             <div className="mt-8">
-                <h3 className="text-xl font-bold mb-4">위치</h3>
-                <Map />
+                <h3 className="text-xl font-bold mb-4">위치 및 주변 시설</h3>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="lg:col-span-2">
+                        <Map />
+                    </div>
+                    <div className="lg:col-span-1">
+                        <MarkerInfo />
+                    </div>
+                </div>
             </div>
 
             {/* 커뮤니티 게시글 */}
