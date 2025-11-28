@@ -4,7 +4,7 @@
  * 찜 리스트 페이지
  *
  * - LandImage.tsx (매물 이미지)
- * - LandList.tsx (매물 목록) -> 사용 X
+ * - LandList.tsx (매물 목록) -> 체크박스 때문에 현재 사용 X
  * - Pagination.tsx (페이지네이션)
  * - Button.tsx (비교하기 버튼)
  * - Comparison.tsx (매물 비교)
