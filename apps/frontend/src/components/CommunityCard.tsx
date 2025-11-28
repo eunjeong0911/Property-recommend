@@ -133,7 +133,7 @@ export default function CommunityCard({ post, onClick, onToggleLike }: Community
               type="button"
               onClick={handleLikeClick}
               className={`flex items-center gap-1 text-xs font-medium transition-colors ${
-                post.isLiked ? 'text-blue-600' : 'text-gray-500 hover:text-blue-500'
+                post.isLiked ? 'text-red-600' : 'text-gray-500 hover:text-red-500'
               }`}
               aria-pressed={post.isLiked}
               aria-label="좋아요"

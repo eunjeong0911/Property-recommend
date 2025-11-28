@@ -11,48 +11,61 @@
 
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import CommunityWriteForm, { CommunityWriteFormValues } from './CommunityWriteForm'
+import RegionFilter, { RegionFilterValues } from './RegionFilter'
 
 interface CommunityWriteModalProps {
   isOpen: boolean
   onClose: () => void
-  activeTab: 'free' | 'region'
-  onSubmit: (data: CommunityWriteFormValues, mode: 'free' | 'region') => void
+  onSubmit: (data: CommunityWriteFormValues, regionData?: RegionFilterValues) => void
   initialData?: CommunityWriteFormValues
-  isEditing?: boolean
+  initialRegionData?: RegionFilterValues
+  title?: string
+  submitLabel?: string
+  showRegionFilter?: boolean
 }
 
 export default function CommunityWriteModal({
   isOpen,
   onClose,
-  activeTab,
   onSubmit,
   initialData,
-  isEditing = false
+  initialRegionData,
+  title = '글쓰기',
+  submitLabel = '등록하기',
+  showRegionFilter = false
 }: CommunityWriteModalProps) {
+  const [regionData, setRegionData] = useState<RegionFilterValues>(initialRegionData || {})
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden'
+      setRegionData(initialRegionData || {})
     } else {
       document.body.style.overflow = 'unset'
     }
     return () => {
       document.body.style.overflow = 'unset'
     }
-  }, [isOpen])
+  }, [isOpen, initialRegionData])
 
   if (!isOpen) return null
 
-  const formMode: 'free' | 'region' = initialData?.region ? 'region' : activeTab
-  const modalTitle = isEditing
-    ? '게시글 수정'
-    : formMode === 'free'
-      ? '자유게시판 글쓰기'
-      : '지역 커뮤니티 글쓰기'
+  const handleRegionFilterChange = (filter: RegionFilterValues) => {
+    setRegionData(filter)
+  }
 
   const handleSubmit = (values: CommunityWriteFormValues) => {
-    onSubmit(values, formMode)
+    if (showRegionFilter) {
+      if (!regionData.region || !regionData.dong || !regionData.complexName) {
+        alert('지역, 동, 단지명을 모두 선택해주세요.')
+        return
+      }
+      onSubmit(values, regionData)
+    } else {
+      onSubmit(values)
+    }
     onClose()
   }
 
@@ -66,7 +79,7 @@ export default function CommunityWriteModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900">{modalTitle}</h2>
+          <h2 className="text-xl font-bold text-gray-900">{title}</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -79,10 +92,21 @@ export default function CommunityWriteModal({
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
+          {showRegionFilter && (
+            <div className="mb-6">
+              <RegionFilter
+                onFilterChange={handleRegionFilterChange}
+                initialValues={initialRegionData}
+                showButtons={false}
+                autoUpdate={true}
+                showTitle={false}
+              />
+            </div>
+          )}
+
           <CommunityWriteForm
-            mode={formMode}
             initialValues={initialData}
-            submitLabel={isEditing ? '수정하기' : '등록하기'}
+            submitLabel={submitLabel}
             onSubmit={handleSubmit}
             onCancel={onClose}
           />
