@@ -1,0 +1,38 @@
+# -------------------------------
+# CSV 파일 관련 설정
+# -------------------------------
+
+# CSV 파일은 텍스트로 처리하되, 줄바꿈은 OS 상관없이 LF로 통일
+*.csv text eol=lf
+
+# GitHub에서 diff 시 CSV는 일반 텍스트로 보여주도록 설정
+*.csv diff
+
+# CSV 파일 인코딩 문제 방지 (UTF-8로 고정)
+*.csv working-tree-encoding=UTF-8
+
+# -------------------------------
+# 공통 설정
+# -------------------------------
+
+# 기본적으로 텍스트 파일은 자동으로 줄바꿈 정규화
+* text=auto
+
+# Windows 환경에서 개행문자 자동 변환 (CRLF <-> LF)
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+*.sh  text eol=lf
+*.py  text eol=lf
+*.js  text eol=lf
+*.ts  text eol=lf
+*.json text eol=lf
+
+# 이미지나 바이너리 파일은 diff 제외
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.zip binary
+*.pdf binary
+*.xlsx binary
+*.xls binary

@@ -1,19 +1,40 @@
-import type { Metadata } from 'next'
-import './globals.css'
+'use client'
 
-export const metadata: Metadata = {
-  title: 'Real Estate AI - 부동산 AI 추천',
-  description: 'AI 기반 부동산 매물 검색 및 추천 서비스',
-}
+import { Inter } from 'next/font/google'
+import { usePathname } from 'next/navigation'
+import './globals.css'
+import Header from '@/components/Header'
+import Footer from '@/components/Footer'
+import Chatbot from '@/components/Chatbot'
+
+import Aurora from '@/components/Aurora'
+
+const inter = Inter({ subsets: ['latin'] })
 
 export default function RootLayout({
-  children,
+    children,
 }: {
-  children: React.ReactNode
+    children: React.ReactNode
 }) {
-  return (
-    <html lang="ko">
-      <body>{children}</body>
-    </html>
-  )
+    const pathname = usePathname()
+    const isLoginPage = pathname === '/login'
+
+    return (
+        <html lang="ko">
+            <body className={inter.className}>
+                <div className="fixed inset-0 -z-10 bg-[#F0F8FF]">
+                    <Aurora
+                        colorStops={['#90CAF9', '#80DEEA', '#E1F5FE']}
+                        speed={0.5}
+                    />
+                </div>
+                <div className="relative z-10">
+                    <Header />
+                    {children}
+                    <Footer />
+                    {!isLoginPage && <Chatbot />}
+                </div>
+            </body>
+        </html>
+    )
 }
