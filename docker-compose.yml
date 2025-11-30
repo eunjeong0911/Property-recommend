@@ -58,6 +58,8 @@ services:
       - "8001:8001"
     env_file:
       - .env
+    environment:
+      - NEO4J_URI=bolt://neo4j:7687
     depends_on:
       - postgres
       - neo4j
@@ -78,6 +80,8 @@ services:
     build:
       context: .
       dockerfile: infra/docker/frontend.Dockerfile
+      target: deps
+    command: npm run dev
     volumes:
       - ./apps/frontend:/app
       - /app/node_modules
