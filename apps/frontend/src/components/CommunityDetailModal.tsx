@@ -168,23 +168,23 @@ export default function CommunityDetailModal({
     }
   }
 
-  const handleClose = (e: React.MouseEvent) => {
-    triggerEffect(e.currentTarget as HTMLElement)
+  const handleClose = (e?: React.MouseEvent) => {
+    if (e) triggerEffect(e.currentTarget as HTMLElement)
     onClose()
   }
 
-  const handleEditPost = (e: React.MouseEvent) => {
-    triggerEffect(e.currentTarget as HTMLElement)
+  const handleEditPost = (e?: React.MouseEvent) => {
+    if (e) triggerEffect(e.currentTarget as HTMLElement)
     onEdit?.()
   }
 
-  const handleDeletePost = (e: React.MouseEvent) => {
-    triggerEffect(e.currentTarget as HTMLElement)
+  const handleDeletePost = (e?: React.MouseEvent) => {
+    if (e) triggerEffect(e.currentTarget as HTMLElement)
     onDelete?.()
   }
 
-  const handleLikePost = (e: React.MouseEvent) => {
-    triggerEffect(e.currentTarget as HTMLElement)
+  const handleLikePost = (e?: React.MouseEvent) => {
+    if (e) triggerEffect(e.currentTarget as HTMLElement)
     onToggleLike?.(post.id)
   }
 
