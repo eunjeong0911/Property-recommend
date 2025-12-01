@@ -43,6 +43,9 @@ services:
       - "8000:8000"
     env_file:
       - .env
+    environment:
+      - POSTGRES_HOST=postgres
+      - NEO4J_URI=bolt://neo4j:7687
     depends_on:
       - postgres
       - redis
@@ -89,7 +92,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://backend:8000
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
     depends_on:
       - backend
 
