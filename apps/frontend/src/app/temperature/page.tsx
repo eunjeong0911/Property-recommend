@@ -17,7 +17,7 @@ export default function TemperaturePage() {
         {
             icon: '🚇',
             title: '교통온도',
-            description: '지하철과 버스의 접근성을 나타내는 지표입니다. 출퇴근과 일상생활 이동의 편리함을 평가합니다.',
+            description: '지하철과 버스의 접근성을 나타내는 지표로 출퇴근과 일상생활 이동의 편리함을 평가합니다.',
             color: 'from-blue-100/80 to-blue-200/80',
             details: {
                 subtitle: '어떻게 계산되나요?',
