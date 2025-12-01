@@ -5,9 +5,17 @@ import { usePathname } from 'next/navigation'
 import './globals.css'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
-import Chatbot from '@/components/Chatbot'
+import dynamic from 'next/dynamic'
 
-import Aurora from '@/components/Aurora'
+// 무거운 컴포넌트들을 lazy loading으로 변경하여 초기 로딩 성능 개선
+const Aurora = dynamic(() => import('@/components/Aurora'), {
+    ssr: false, // 서버 사이드 렌더링 비활성화
+    loading: () => <div className="w-full h-full bg-[#F0F8FF]" /> // 로딩 중 기본 배경색
+})
+
+const Chatbot = dynamic(() => import('@/components/Chatbot'), {
+    ssr: false, // 서버 사이드 렌더링 비활성화
+})
 
 const inter = Inter({ subsets: ['latin'] })
 

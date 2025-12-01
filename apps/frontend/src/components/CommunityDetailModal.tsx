@@ -168,8 +168,8 @@ export default function CommunityDetailModal({
     }
   }
 
-  const handleClose = (e: React.MouseEvent) => {
-    triggerEffect(e.currentTarget as HTMLElement)
+  const handleClose = (e?: React.MouseEvent) => {
+    if (e) triggerEffect(e.currentTarget as HTMLElement)
     onClose()
   }
 

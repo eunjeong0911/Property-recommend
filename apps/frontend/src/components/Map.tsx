@@ -32,10 +32,25 @@ export default function Map() {
         // window 객체 체크 (SSR 대응)
         if (typeof window === 'undefined') return;
 
+        // 이미 스크립트가 로드되어 있는지 확인
+        const existingScript = document.querySelector('script[src*="dapi.kakao.com"]');
+
+        if (existingScript) {
+            // 이미 로드된 경우 바로 초기화
+            if (window.kakao && window.kakao.maps) {
+                initializeMap();
+            } else {
+                // 스크립트는 있지만 아직 로드 안된 경우 대기
+                existingScript.addEventListener('load', initializeMap);
+            }
+            return;
+        }
+
         // 카카오맵 스크립트 동적 로드
         const script = document.createElement('script');
         script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${process.env.NEXT_PUBLIC_KAKAO_MAP_KEY}&libraries=services&autoload=false`;
         script.async = true;
+        script.defer = true; // defer 추가로 성능 개선
 
         script.onload = () => {
             console.log('카카오 지도 스크립트 로드 완료');
@@ -44,13 +59,14 @@ export default function Map() {
 
         script.onerror = () => {
             console.error('카카오 지도 스크립트 로드 실패');
+            setIsLoading(false);
         };
 
         document.head.appendChild(script);
 
         return () => {
-            // 컴포넌트 언마운트 시 스크립트 제거
-            document.head.removeChild(script);
+            // 컴포넌트 언마운트 시에도 스크립트는 유지 (재사용을 위해)
+            // document.head.removeChild(script);
         };
     }, []);
 

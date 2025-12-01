@@ -48,15 +48,26 @@ export default function Header() {
             커뮤니티
           </Link>
 
-          {/* 로그인/마이페이지 버튼 */}
-          {user ? (
+          {/* 온도 상세보기 버튼 */}
+          <Link
+            href="/temperature"
+            className="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors font-medium"
+          >
+            온도 상세보기
+          </Link>
+
+          {/* 마이페이지 버튼 (로그인 상태일 때) */}
+          {user && (
             <Link
               href="/my"
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
             >
               마이페이지
             </Link>
-          ) : (
+          )}
+
+          {/* 로그인 버튼 (비로그인 상태일 때 - 가장 오른쪽) */}
+          {!user && (
             <Link
               href="/login"
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
