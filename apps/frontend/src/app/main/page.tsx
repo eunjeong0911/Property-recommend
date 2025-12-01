@@ -48,10 +48,34 @@ const Map = dynamic(() => import('@/components/Map'), {
 export default function MainPage() {
     return (
         <div className="max-w-5xl mx-auto px-4 space-y-8 mb-24">
-            <PreferenceFilter />
-            <Map />
-            <LandListFilter />
-            <LandList />
+            {/* 섹션 1: 나만의 좋은 지역 찾기 */}
+            <section className="space-y-6">
+                <div className="text-center space-y-2 pt-8">
+                    <h2 className="text-3xl font-bold text-slate-800 flex items-center justify-center gap-2">
+                        <span>나만의 좋은 지역 찾기</span>
+                        <span className="text-2xl">✨</span>
+                    </h2>
+                    <p className="text-slate-600 text-sm">
+                        필터를 선택하여 원하는 조건의 지역을 찾아보세요
+                    </p>
+                </div>
+                <PreferenceFilter />
+            </section>
+            
+            {/* 섹션 3: 매물 추천 리스트 */}
+            <section className="space-y-6">
+                <div className="text-center space-y-2">
+                    <h2 className="text-3xl font-bold text-slate-800 flex items-center justify-center gap-2">
+                        <span>매물 추천 리스트</span>
+                        <span className="text-2xl">🏠</span>
+                    </h2>
+                    <p className="text-slate-600 text-sm">
+                        회원님의 선호도에 맞는 매물을 추천해드립니다
+                    </p>
+                </div>
+                <LandListFilter />
+                <LandList />
+            </section>
         </div>
     );
 }

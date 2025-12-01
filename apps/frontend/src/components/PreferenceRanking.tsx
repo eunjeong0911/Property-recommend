@@ -4,8 +4,8 @@ import { useState } from "react";
 import { useParticleEffect } from "../hooks/useParticleEffect";
 
 const JOBS = ["직장인", "학생", "취준생", "프리랜서", "자영업"];
-const FEATURES = ["주변공원", "편의시설", "대학가", "인구밀집도", "치안/안전", "허위매물"];
-const RANKS = [1, 2, 3, 4, 5];
+const FEATURES = ["주변공원", "편의시설", "역세권", "치안/안전", "허위매물"];
+const RANKS = [1, 2, 3];
 
 interface Props {
     onSubmit: (data: { job: string; priorities: Record<string, number> }) => Promise<void>;
@@ -82,7 +82,7 @@ export default function PreferenceRanking({ onSubmit }: Props) {
             <div className="mb-10">
                 <div className="flex items-center mb-4">
                     <span className="bg-blue-500 text-white font-bold rounded-full w-8 h-8 flex items-center justify-center mr-3 shadow-lg shadow-blue-500/30">02</span>
-                    <h3 className="text-lg font-bold text-slate-800">매물 선택 우선순위 (5순위까지)</h3>
+                    <h3 className="text-lg font-bold text-slate-800">매물 선택 우선순위 (3순위까지)</h3>
                     <span className="ml-2 text-sm text-slate-500">*해당 우선순위는 매물 추천에 반영됩니다.(추후에 변경 가능합니다)</span>
                 </div>
 
