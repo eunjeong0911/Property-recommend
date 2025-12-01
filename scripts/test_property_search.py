@@ -5,7 +5,7 @@ import time
 def test_property_search():
     url = "http://localhost:8001/query"
     # Question: Find a house near Yonsei University
-    data = {"question": "연세대학교 근처에 있는 집 찾아줘"}
+    data = {"question": "연세대 근처 하숙집 찾아줘"}
     headers = {'Content-Type': 'application/json'}
     
     req = urllib.request.Request(url, data=json.dumps(data).encode('utf-8'), headers=headers)
