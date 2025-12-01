@@ -168,23 +168,23 @@ export default function CommunityDetailModal({
     }
   }
 
-  const handleClose = (e: React.MouseEvent) => {
-    triggerEffect(e.currentTarget as HTMLElement)
+  const handleClose = (e?: React.MouseEvent) => {
+    if (e) triggerEffect(e.currentTarget as HTMLElement)
     onClose()
   }
 
-  const handleEditPost = (e: React.MouseEvent) => {
-    triggerEffect(e.currentTarget as HTMLElement)
+  const handleEditPost = (e?: React.MouseEvent<HTMLButtonElement>) => {
+    if (e) triggerEffect(e.currentTarget)
     onEdit?.()
   }
 
-  const handleDeletePost = (e: React.MouseEvent) => {
-    triggerEffect(e.currentTarget as HTMLElement)
+  const handleDeletePost = (e?: React.MouseEvent<HTMLButtonElement>) => {
+    if (e) triggerEffect(e.currentTarget)
     onDelete?.()
   }
 
-  const handleLikePost = (e: React.MouseEvent) => {
-    triggerEffect(e.currentTarget as HTMLElement)
+  const handleLikePost = (e: React.MouseEvent<HTMLButtonElement>) => {
+    triggerEffect(e.currentTarget)
     onToggleLike?.(post.id)
   }
 
@@ -196,12 +196,12 @@ export default function CommunityDetailModal({
       onClick={onClose}
     >
       <div
-        className="rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/95 to-blue-200/95 backdrop-blur-md shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col"
+        className="rounded-3xl border-2 border-white/40 bg-gradient-to-b from-sky-100/95 to-blue-200/95 backdrop-blur-xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 헤더 */}
-        <div className="flex items-center justify-between p-6 border-b border-white/40">
-          <h2 className="text-xl font-bold text-slate-800">게시글 상세</h2>
+        <div className="flex items-center justify-between p-4 border-b border-white/40">
+          <h2 className="text-lg font-bold text-slate-800">게시글 상세</h2>
           <button
             onClick={handleClose}
             className="text-slate-400 hover:text-slate-600 transition-colors"
@@ -224,11 +224,11 @@ export default function CommunityDetailModal({
         </div>
 
         {/* 내용 */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-4">
           {/* 작성자 정보 */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
                 {post.author.profileImage ? (
                   <img
                     src={post.author.profileImage}
@@ -237,7 +237,7 @@ export default function CommunityDetailModal({
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-gray-600">
-                    <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
                       <path
                         fillRule="evenodd"
                         d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
@@ -248,8 +248,8 @@ export default function CommunityDetailModal({
                 )}
               </div>
               <div>
-                <p className="font-medium text-slate-900">{post.author.name}</p>
-                <p className="text-sm text-slate-500">{formatDate(post.createdAt)}</p>
+                <p className="font-medium text-sm text-slate-900">{post.author.name}</p>
+                <p className="text-xs text-slate-500">{formatDate(post.createdAt)}</p>
               </div>
             </div>
 
@@ -268,17 +268,17 @@ export default function CommunityDetailModal({
 
           {/* 지역 태그 */}
           {post.region && (
-            <div className="mb-4 flex flex-wrap gap-2">
-              <span className="inline-block px-3 py-1 bg-orange-50 text-orange-600 text-sm font-medium rounded">
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              <span className="inline-block px-2 py-1 bg-orange-50 text-orange-600 text-xs font-medium rounded">
                 {post.region}
               </span>
               {post.dong && (
-                <span className="inline-block px-3 py-1 bg-orange-50 text-orange-600 text-sm font-medium rounded">
+                <span className="inline-block px-2 py-1 bg-orange-50 text-orange-600 text-xs font-medium rounded">
                   {post.dong}
                 </span>
               )}
               {post.complexName && (
-                <span className="inline-block px-3 py-1 bg-blue-50 text-blue-600 text-sm font-medium rounded">
+                <span className="inline-block px-2 py-1 bg-blue-50 text-blue-600 text-xs font-medium rounded">
                   {post.complexName}
                 </span>
               )}
@@ -286,10 +286,10 @@ export default function CommunityDetailModal({
           )}
 
           {/* 게시글 제목 */}
-          <h3 className="text-2xl font-bold text-slate-900 mb-4">{post.title}</h3>
+          <h3 className="text-xl font-bold text-slate-900 mb-3">{post.title}</h3>
 
           {/* 게시글 내용 */}
-          <p className="text-slate-700 leading-relaxed mb-6 whitespace-pre-wrap">
+          <p className="text-sm text-slate-700 leading-relaxed mb-4 whitespace-pre-wrap">
             {post.content}
           </p>
 
@@ -301,8 +301,8 @@ export default function CommunityDetailModal({
             >
               <svg
                 className={`w-5 h-5 transition-colors ${post.isLiked
-                    ? 'fill-red-600 text-red-600'
-                    : 'fill-none text-slate-600 group-hover:text-red-500'
+                  ? 'fill-red-600 text-red-600'
+                  : 'fill-none text-slate-600 group-hover:text-red-500'
                   }`}
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -344,7 +344,7 @@ export default function CommunityDetailModal({
               comments.map((comment) => (
                 <div
                   key={comment.id}
-                  className="bg-white/50 rounded-lg p-4 border border-white/40"
+                  className="bg-white/40 rounded-2xl p-4 border border-white/40 shadow-sm backdrop-blur-sm"
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-3 flex-1">
@@ -421,7 +421,7 @@ export default function CommunityDetailModal({
                       type="text"
                       value={editingCommentContent}
                       onChange={(e) => setEditingCommentContent(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white/80"
+                      className="w-full px-4 py-2 border border-white/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/60 backdrop-blur-sm"
                       autoFocus
                     />
                   ) : (
@@ -436,7 +436,7 @@ export default function CommunityDetailModal({
         </div>
 
         {/* 댓글 입력 영역 - Button 컴포넌트 사용 */}
-        <div className="p-6 border-t border-white/40">
+        <div className="p-4 border-t border-white/40">
           <div className="flex gap-2">
             <input
               type="text"
@@ -444,7 +444,7 @@ export default function CommunityDetailModal({
               onChange={(e) => setNewComment(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="댓글을 입력하세요..."
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white/80"
+              className="flex-1 px-3 py-1.5 text-sm border border-white/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/60 backdrop-blur-sm placeholder-slate-400"
             />
             <Button
               variant="primary"
