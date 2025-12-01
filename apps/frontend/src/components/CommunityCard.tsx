@@ -76,16 +76,16 @@ export default function CommunityCard({ post, onClick, onToggleLike }: Community
   return (
     <div
       onClick={handleCardClick}
-      className="rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md hover:shadow-xl transition-all cursor-pointer overflow-hidden"
+      className="rounded-2xl border-2 border-white/40 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md shadow-lg hover:shadow-[0_0_20px_rgba(37,99,235,0.3)] hover:border-white/60 transition-all duration-300 cursor-pointer overflow-hidden group"
     >
-      <div className="p-4">
+      <div className="p-3">
         {/* 제목 */}
-        <h3 className="font-semibold text-slate-800 mb-2 line-clamp-2 text-base">
+        <h3 className="font-semibold text-slate-800 mb-1.5 line-clamp-2 text-sm">
           {post.title}
         </h3>
 
         {/* 내용 미리보기 */}
-        <p className="text-sm text-slate-600 mb-3 line-clamp-2">
+        <p className="text-xs text-slate-600 mb-2 line-clamp-2">
           {post.content}
         </p>
 
@@ -111,8 +111,8 @@ export default function CommunityCard({ post, onClick, onToggleLike }: Community
         {/* 하단 정보 */}
         <div className="flex items-center justify-between pt-3 border-t border-white/40">
           {/* 작성자 정보 */}
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
+          <div className="flex items-center gap-1.5">
+            <div className="w-5 h-5 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
               {post.author.profileImage ? (
                 <img
                   src={post.author.profileImage}
@@ -121,7 +121,7 @@ export default function CommunityCard({ post, onClick, onToggleLike }: Community
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-gray-500">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
                     <path
                       fillRule="evenodd"
                       d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
@@ -147,7 +147,7 @@ export default function CommunityCard({ post, onClick, onToggleLike }: Community
               aria-label="좋아요"
             >
               <svg
-                className="w-4 h-4"
+                className="w-3.5 h-3.5"
                 fill={post.isLiked ? 'currentColor' : 'none'}
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -162,7 +162,7 @@ export default function CommunityCard({ post, onClick, onToggleLike }: Community
               <span>{post.likes}</span>
             </button>
             <div className="flex items-center gap-1 text-slate-500">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"

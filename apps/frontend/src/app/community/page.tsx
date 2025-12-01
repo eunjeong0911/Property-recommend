@@ -194,7 +194,7 @@ export default function CommunityPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-8">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8">
         <CommunityTab activeTab={activeTab} onTabChange={setActiveTab} />
 
         <div className="flex justify-end mb-6">
