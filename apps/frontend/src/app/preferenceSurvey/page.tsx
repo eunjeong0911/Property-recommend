@@ -36,8 +36,8 @@ function SurveyPageContent() {
     };
 
     return (
-        <div className="min-h-screen flex flex-col bg-white">
-            <main className="flex-grow container mx-auto py-12 px-4">
+        <div className="min-h-screen flex flex-col">
+            <main className="flex-grow max-w-5xl w-full mx-auto py-12 px-4">
                 <PreferenceRanking onSubmit={handleSurveySubmit} />
             </main>
         </div>
