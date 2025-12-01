@@ -8,7 +8,7 @@ class TransportImporter:
         self.driver = Database.get_driver()
 
     def import_subway(self):
-        file_path = os.path.join(Config.DATA_DIR, "subway", "지하철_노선도.csv")
+        file_path = os.path.join(Config.DATA_DIR, "subway_station", "지하철_노선도.csv")
         print(f"Loading Subway data from {file_path}...")
         
         try:
@@ -35,10 +35,10 @@ class TransportImporter:
             
             for _, row in df.iterrows():
                 batch.append({
-                    "name": str(row['역명']),
-                    "line": str(row['노선']),
-                    "lat": float(row['위도']),
-                    "lon": float(row['경도'])
+                    "name": str(row['역사명']),
+                    "line": str(row['노선명']),
+                    "lat": float(row['역위도']),
+                    "lon": float(row['역경도'])
                 })
                 
                 if len(batch) >= batch_size:
@@ -52,13 +52,13 @@ class TransportImporter:
             self._link_subway(session)
 
     def _link_subway(self, session):
-        print("Linking Subway Stations (1km)...")
+        print("Linking Subway Stations (1.5km)...")
         query = """
         MATCH (p:Property)
         CALL {
             WITH p
             MATCH (s:SubwayStation)
-            WHERE point.distance(p.location, s.location) < 1000
+            WHERE point.distance(p.location, s.location) < 1500
             MERGE (p)-[r:NEAR_SUBWAY]->(s)
             SET r.distance = point.distance(p.location, s.location),
                 r.walking_time = (point.distance(p.location, s.location) * 1.3) / 80
@@ -114,13 +114,13 @@ class TransportImporter:
             self._link_bus(session)
 
     def _link_bus(self, session):
-        print("Linking Bus Stations (500m)...")
+        print("Linking Bus Stations (200m)...")
         query = """
         MATCH (p:Property)
         CALL {
             WITH p
             MATCH (b:BusStation)
-            WHERE point.distance(p.location, b.location) < 500
+            WHERE point.distance(p.location, b.location) < 200
             MERGE (p)-[r:NEAR_BUS]->(b)
             SET r.distance = point.distance(p.location, b.location),
                 r.walking_time = (point.distance(p.location, b.location) * 1.3) / 80

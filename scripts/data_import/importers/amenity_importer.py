@@ -131,14 +131,14 @@ class AmenityImporter:
         self._link_pharmacy()
 
     def _link_pharmacy(self):
-        print("Linking Pharmacies (500m)...")
+        print("Linking Pharmacies (200m)...")
         with self.driver.session() as session:
             session.run("""
             MATCH (p:Property)
             CALL {
                 WITH p
                 MATCH (ph:Pharmacy)
-                WHERE point.distance(p.location, ph.location) < 500
+                WHERE point.distance(p.location, ph.location) < 200
                 MERGE (p)-[r:NEAR_PHARMACY]->(ph)
                 SET r.distance = point.distance(p.location, ph.location),
                     r.walking_time = (point.distance(p.location, ph.location) * 1.3) / 80
@@ -239,7 +239,7 @@ class AmenityImporter:
             CALL {
                 WITH s, row
                 WITH s, row
-                WHERE row.category IN ['편의점', '슈퍼마켓']
+                WHERE row.category = '편의점'
                 SET s:Convenience
             }
             """
@@ -332,14 +332,14 @@ class AmenityImporter:
         self._link_park()
 
     def _link_park(self):
-        print("Linking Parks (1km)...")
+        print("Linking Parks (500m)...")
         with self.driver.session() as session:
             session.run("""
             MATCH (p:Property)
             CALL {
                 WITH p
                 MATCH (pk:Park)
-                WHERE point.distance(p.location, pk.location) < 1000
+                WHERE point.distance(p.location, pk.location) < 500
                 MERGE (p)-[r:NEAR_PARK]->(pk)
                 SET r.distance = point.distance(p.location, pk.location),
                     r.walking_time = (point.distance(p.location, pk.location) * 1.3) / 80
