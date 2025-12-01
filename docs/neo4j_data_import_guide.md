@@ -38,7 +38,7 @@ python scripts/data_import/main.py
 - **대상**: 지하철역, 버스정류장
 - **기능**:
   - 서울시 내의 역/정류장을 필터링하여 저장합니다.
-  - **연결**: 매물(Property) 기준 지하철 **1.5km**, 버스 **200m** 이내 `NEAR_SUBWAY`, `NEAR_BUS` 관계 생성.
+  - **연결**: 매물(Property) 기준 지하철 **1km**, 버스 **200m** 이내 `NEAR_SUBWAY`, `NEAR_BUS` 관계 생성.
 
 ### 4.2 Amenity Importer (`amenity_importer.py`)
 
@@ -48,13 +48,13 @@ python scripts/data_import/main.py
   - **약국**: 200m 이내 연결.
   - **상가**: 편의점/슈퍼마켓만 `Convenience`로 분류하여 200m 이내 연결.
   - **공원**: 500m 이내 연결.
-  - **대학교**: 2km 이내 연결.
+  - **대학교**: 1km 이내 연결.
 
 ### 4.3 Safety Importer (`safety_importer.py`)
 
 - **대상**: CCTV, 비상벨, 경찰서, 소방서
 - **기능**:
-  - **안전시설(CCTV/비상벨)**: 300m 이내 연결 (`NEAR_CCTV`, `NEAR_BELL`).
+  - **안전시설(CCTV/비상벨)**: 100m 이내 연결 (`NEAR_CCTV`, `NEAR_BELL`).
   - **관공서**: 경찰서(1km), 소방서(2.5km) 이내 연결.
 
 ### 4.4 Property Importer (`property_importer.py`)

@@ -192,14 +192,14 @@ class AmenityImporter:
         self._link_college()
 
     def _link_college(self):
-        print("Linking Colleges (2km)...")
+        print("Linking Colleges (1km)...")
         with self.driver.session() as session:
             session.run("""
             MATCH (p:Property)
             CALL {
                 WITH p
                 MATCH (c:College)
-                WHERE point.distance(p.location, c.location) < 2000
+                WHERE point.distance(p.location, c.location) < 1000
                 MERGE (p)-[r:NEAR_COLLEGE]->(c)
                 SET r.distance = point.distance(p.location, c.location),
                     r.walking_time = (point.distance(p.location, c.location) * 1.3) / 80

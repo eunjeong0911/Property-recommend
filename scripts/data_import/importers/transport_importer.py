@@ -52,13 +52,13 @@ class TransportImporter:
             self._link_subway(session)
 
     def _link_subway(self, session):
-        print("Linking Subway Stations (1.5km)...")
+        print("Linking Subway Stations (1km)...")
         query = """
         MATCH (p:Property)
         CALL {
             WITH p
             MATCH (s:SubwayStation)
-            WHERE point.distance(p.location, s.location) < 1500
+            WHERE point.distance(p.location, s.location) < 1000
             MERGE (p)-[r:NEAR_SUBWAY]->(s)
             SET r.distance = point.distance(p.location, s.location),
                 r.walking_time = (point.distance(p.location, s.location) * 1.3) / 80
