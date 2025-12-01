@@ -49,11 +49,16 @@ Schema:
    - 반드시: `facility.name, r.distance, r.walking_time` 모두 RETURN
    - 예: `c.name as convenience_name, r2.distance as convenience_dist, r2.walking_time as convenience_time`
 
+5. **지하철역 정보는 항상 조회 (Always retrieve Subway Info)**
+   - 사용자가 언급하지 않아도 `OPTIONAL MATCH (p)-[r_sub:NEAR_SUBWAY]->(s:SubwayStation)`을 사용하여 조회하고 반환하세요.
+   - 단, 이미 `MATCH (p)-[r:NEAR_SUBWAY]->(s:SubwayStation)`을 사용했다면 중복해서 `OPTIONAL MATCH` 하지 마세요.
+
 필수 RETURN 항목:
 - p.id (매물 ID - 필수!)
 - p.address, p.bldg_type
 - p.trade_type_raw (가격 정보 - "월세 1,000만원/70만원" 형식)
 - p.deposit, p.monthly_rent, p.maintenance_fee
+- **s.name as subway_station_name, r_sub.distance (or r.distance) as subway_station_dist, r_sub.walking_time (or r.walking_time) as subway_station_time** (지하철 정보 필수)
 - 질문에 언급된 시설의 name, distance, walking_time
 - cctv_count, bell_count (질문에 언급 시)
 
@@ -101,6 +106,17 @@ RETURN p.id, p.address, p.bldg_type, p.deposit, p.monthly_rent, p.maintenance_fe
        r2.distance as convenience_dist, 
        r2.walking_time as convenience_time
 ORDER BY (CASE WHEN c IS NOT NULL THEN 1 ELSE 0 END) DESC, r1.walking_time ASC
+LIMIT 5
+
+예시 5: "보증금 1000만원 이하 월세 찾아줘" (지하철 언급 없음 -> OPTIONAL MATCH 사용)
+MATCH (p:Property)
+WHERE p.deposit <= 1000 AND p.monthly_rent > 0
+OPTIONAL MATCH (p)-[r_sub:NEAR_SUBWAY]->(s:SubwayStation)
+RETURN p.id, p.address, p.bldg_type, p.trade_type_raw, p.deposit, p.monthly_rent, p.maintenance_fee,
+       s.name as subway_station_name,
+       r_sub.distance as subway_station_dist,
+       r_sub.walking_time as subway_station_time
+ORDER BY p.monthly_rent ASC
 LIMIT 5
 
 질문:
