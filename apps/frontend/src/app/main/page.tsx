@@ -48,7 +48,6 @@ const Map = dynamic(() => import('@/components/Map'), {
 export default function MainPage() {
     return (
         <div className="max-w-5xl mx-auto px-4 space-y-8 mb-24">
-            {/* 섹션 1: 나만의 좋은 지역 찾기 */}
             <section className="space-y-6">
                 <div className="text-center space-y-2 pt-8">
                     <h2 className="text-3xl font-bold text-slate-800 flex items-center justify-center gap-2">
@@ -59,9 +58,9 @@ export default function MainPage() {
                         필터를 선택하여 원하는 조건의 지역을 찾아보세요
                     </p>
                 </div>
-                <PreferenceFilter />
+            <PreferenceFilter />
+            <Map />
             </section>
-            
             {/* 섹션 3: 매물 추천 리스트 */}
             <section className="space-y-6">
                 <div className="text-center space-y-2">
