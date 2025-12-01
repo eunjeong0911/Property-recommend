@@ -13,6 +13,7 @@
 'use client'
 
 import { ReactNode, useEffect, useMemo, useState } from 'react'
+import { useParticleEffect } from '../hooks/useParticleEffect'
 
 interface PaginationProps<T = unknown> {
   items: T[]
@@ -22,7 +23,7 @@ interface PaginationProps<T = unknown> {
 }
 
 const DEFAULT_EMPTY = (
-  <div className="bg-white border border-dashed border-gray-300 rounded-lg p-8 text-center text-gray-500">
+  <div className="bg-white/50 border-2 border-white/40 backdrop-blur-md rounded-2xl p-8 text-center text-slate-500 shadow-lg">
     아직 게시글이 없습니다. 첫 번째 글의 주인공이 되어주세요!
   </div>
 )
@@ -35,6 +36,7 @@ export default function Pagination<T>({
 }: PaginationProps<T>) {
   const [currentPage, setCurrentPage] = useState(1)
   const totalPages = Math.max(1, Math.ceil(items.length / pageSize))
+  const { triggerEffect } = useParticleEffect()
 
   useEffect(() => {
     setCurrentPage((prev) => Math.min(prev, totalPages))
@@ -48,7 +50,8 @@ export default function Pagination<T>({
     }
   }, [items, currentPage, pageSize])
 
-  const handleChange = (page: number) => {
+  const handleChange = (page: number, event?: React.MouseEvent<HTMLButtonElement>) => {
+    if (event) triggerEffect(event.currentTarget)
     if (page < 1 || page > totalPages || page === currentPage) return
     setCurrentPage(page)
   }
@@ -68,23 +71,21 @@ export default function Pagination<T>({
       <div className="flex items-center justify-center gap-2">
         <button
           type="button"
-          onClick={() => handleChange(currentPage - 1)}
+          onClick={(e) => handleChange(currentPage - 1, e)}
           disabled={currentPage === 1}
-          className="px-3 py-1 rounded-md border border-gray-200 text-sm text-gray-600 disabled:text-gray-300 disabled:border-gray-100"
+          className="px-3 py-1 rounded-full border-2 border-white/40 bg-white/50 text-sm text-slate-600 disabled:text-slate-300 disabled:border-white/20 hover:bg-white/80 transition-all backdrop-blur-sm"
         >
           이전
         </button>
-
         {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
           <button
             key={page}
             type="button"
-            onClick={() => handleChange(page)}
-            className={`w-8 h-8 rounded-md text-sm font-medium transition-colors ${
-              page === currentPage
-                ? 'bg-blue-500 text-white shadow-sm'
-                : 'text-gray-700 hover:bg-gray-100'
-            }`}
+            onClick={(e) => handleChange(page, e)}
+            className={`w-7 h-7 rounded-full text-xs font-medium transition-all duration-200 border-2 ${page === currentPage
+                ? 'bg-blue-600 border-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.6)] ring-2 ring-blue-300'
+                : 'bg-white/50 border-white/40 text-slate-600 hover:bg-white/80 hover:border-white/80'
+              }`}
           >
             {page}
           </button>
@@ -92,9 +93,9 @@ export default function Pagination<T>({
 
         <button
           type="button"
-          onClick={() => handleChange(currentPage + 1)}
+          onClick={(e) => handleChange(currentPage + 1, e)}
           disabled={currentPage === totalPages}
-          className="px-3 py-1 rounded-md border border-gray-200 text-sm text-gray-600 disabled:text-gray-300 disabled:border-gray-100"
+          className="px-3 py-1 rounded-full border-2 border-white/40 bg-white/50 text-sm text-slate-600 disabled:text-slate-300 disabled:border-white/20 hover:bg-white/80 transition-all backdrop-blur-sm"
         >
           다음
         </button>
