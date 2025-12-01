@@ -38,15 +38,17 @@ python scripts/data_import/main.py
 - **대상**: 지하철역, 버스정류장
 - **기능**:
   - 서울시 내의 역/정류장을 필터링하여 저장합니다.
-  - **연결**: 매물(Property) 기준 지하철 1km, 버스 500m 이내 `NEAR_SUBWAY`, `NEAR_BUS` 관계 생성.
+  - **연결**: 매물(Property) 기준 지하철 **1.5km**, 버스 **200m** 이내 `NEAR_SUBWAY`, `NEAR_BUS` 관계 생성.
 
 ### 4.2 Amenity Importer (`amenity_importer.py`)
 
 - **대상**: 병원, 약국, 대학교, 상가(편의점/슈퍼마켓), 공원
 - **기능**:
   - **병원**: 종합병원(1km), 일반병원(500m) 구분 연결.
+  - **약국**: 200m 이내 연결.
   - **상가**: 편의점/슈퍼마켓만 `Convenience`로 분류하여 200m 이내 연결.
-  - **공원**: 1km 이내 연결.
+  - **공원**: 500m 이내 연결.
+  - **대학교**: 2km 이내 연결.
 
 ### 4.3 Safety Importer (`safety_importer.py`)
 
@@ -69,5 +71,5 @@ python scripts/data_import/main.py
 NEO4J_URI=bolt://localhost:7687
 NEO4J_USER=neo4j
 NEO4J_PASSWORD=your_password
-KAKAO_API_KEY=your_kakao_api_key
+KAKAO_API_KEY=your_kakao_api_key -> neo4j에 데이터 적재시 geocoding용으로 필요함
 ```
