@@ -23,6 +23,10 @@ scripts/data_import/
 
 ## 3. 실행 방법
 
+.env에 카카오 rest api key 등록 -> geocoding용 api
+
+(이미 데이터가 있는 경우)neo4j graphDB 초기화 -> scripts/data_import/importers/rest_db.py 실행
+
 전체 데이터를 순서대로 임포트하려면 `main.py`를 실행하세요.
 
 ```bash
@@ -73,3 +77,4 @@ NEO4J_USER=neo4j
 NEO4J_PASSWORD=your_password
 KAKAO_API_KEY=your_kakao_api_key -> neo4j에 데이터 적재시 geocoding용으로 필요함
 ```
+
