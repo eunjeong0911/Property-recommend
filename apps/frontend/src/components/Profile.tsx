@@ -45,11 +45,11 @@ export default function Profile() {
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+    <div className="w-full max-w-4xl mx-auto p-8 rounded-3xl border-2 border-white/40 bg-gradient-to-b from-sky-100/95 to-blue-200/95 backdrop-blur-xl shadow-2xl mb-6">
       {/* 프로필 정보 */}
       <div className="flex flex-col items-center mb-6">
         {/* 프로필 이미지 */}
-        <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden mb-4">
+        <div className="w-24 h-24 rounded-full bg-white/40 border-2 border-white/60 flex items-center justify-center overflow-hidden mb-4 shadow-md">
           {user?.profileImage ? (
             <img
               src={user.profileImage}
@@ -58,7 +58,7 @@ export default function Profile() {
             />
           ) : (
             <svg
-              className="w-16 h-16 text-gray-400"
+              className="w-16 h-16 text-white/60"
               fill="currentColor"
               viewBox="0 0 20 20"
             >

@@ -38,7 +38,7 @@ export default function MyPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="max-w-5xl mx-auto px-4 py-8">
       <div className="flex gap-6">
         {/* 좌측 사이드 탭 */}
         <SideTab />
@@ -54,7 +54,7 @@ export default function MyPage() {
           <div className="w-full max-w-4xl mx-auto mt-8 flex justify-center">
             <Button
               variant="danger"
-              size="sm"
+              size="lg"
               onClick={handleDeleteAccount}
             >
               계정 삭제

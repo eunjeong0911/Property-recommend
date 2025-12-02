@@ -101,7 +101,7 @@ export default function CommunityWriteForm({
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-xs font-medium text-gray-700 mb-1.5">
           제목 <span className="text-red-500">*</span>
         </label>
         <input
@@ -109,7 +109,7 @@ export default function CommunityWriteForm({
           value={formValues.title}
           onChange={(e) => handleChange('title', e.target.value)}
           placeholder="제목을 입력해주세요."
-          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+          className="w-full px-3 py-2 border border-white/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/60 backdrop-blur-sm placeholder-slate-400"
           maxLength={TITLE_LIMIT}
         />
         <div className="flex justify-between items-center mt-1">
@@ -121,15 +121,15 @@ export default function CommunityWriteForm({
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-xs font-medium text-gray-700 mb-1.5">
           내용 <span className="text-red-500">*</span>
         </label>
         <textarea
           value={formValues.content}
           onChange={(e) => handleChange('content', e.target.value)}
           placeholder="이웃과 함께 나누고 싶은 이야기를 자유롭게 작성해주세요."
-          rows={12}
-          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none"
+          rows={8}
+          className="w-full px-3 py-2 border border-white/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none bg-white/60 backdrop-blur-sm placeholder-slate-400"
           maxLength={CONTENT_LIMIT}
         />
         <div className="flex justify-between items-center mt-1">
@@ -140,7 +140,7 @@ export default function CommunityWriteForm({
         </div>
       </div>
 
-      <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+      <div className="flex justify-end gap-3 pt-4 border-t border-white/40">
         {onCancel && (
           <Button variant="secondary" onClick={onCancel} type="button">
             취소
