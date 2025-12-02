@@ -20,7 +20,8 @@ class AmenityImporter:
     def _import_hospital(self, file_path):
         print(f"Loading Hospital data from {file_path}...")
         df = pd.read_excel(file_path)
-        df = df[df['도로명전체주소'].str.contains("서울특별시", na=False)]
+        # df = df[df['도로명전체주소'].str.contains("서울특별시", na=False)]
+        df = df[df['주소'].str.contains("서울특별시", na=False)]
         
         with self.driver.session() as session:
             session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (h:Hospital) REQUIRE h.id IS UNIQUE")
@@ -95,7 +96,9 @@ class AmenityImporter:
     def _import_pharmacy(self, file_path):
         print(f"Loading Pharmacy data from {file_path}...")
         df = pd.read_excel(file_path)
-        df = df[df['도로명전체주소'].str.contains("서울특별시", na=False)]
+        # df = df[df['도로명전체주소'].str.contains("서울특별시", na=False)]
+        df = df[df['주소'].str.contains("서울특별시", na=False)]
+        df = df.dropna(subset=['좌표(X)', '좌표(Y)'])
         
         with self.driver.session() as session:
             session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (p:Pharmacy) REQUIRE p.id IS UNIQUE")
@@ -207,7 +210,7 @@ class AmenityImporter:
             """)
 
     def import_store(self):
-        file_path = os.path.join(Config.DATA_DIR, "store_data", "소상공인시장진흥공단_상가(상권)정보_서울_202409.csv")
+        file_path = os.path.join(Config.DATA_DIR, "store_data", "소상공인시장진흥공단_상가(상권)정보_서울_cleaned.csv")
         print(f"Loading Store data from {file_path}...")
         
         try:

@@ -36,7 +36,8 @@ class SafetyImporter:
             batch = []
             
             for _, row in df.iterrows():
-                cctv_id = f"CCTV_{row['관리번호']}_{row['번호']}"
+                # cctv_id = f"CCTV_{row['관리번호']}_{row['번호']}"
+                cctv_id = f"CCTV_{row['번호']}"
                 address = str(row['소재지도로명주소'])
                 
                 batch.append({

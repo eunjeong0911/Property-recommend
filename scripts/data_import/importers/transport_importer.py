@@ -12,9 +12,9 @@ class TransportImporter:
         print(f"Loading Subway data from {file_path}...")
         
         try:
-            df = pd.read_csv(file_path, encoding='utf-8')
+            df = pd.read_csv(file_path, encoding='utf-8', on_bad_lines='skip')
         except UnicodeDecodeError:
-            df = pd.read_csv(file_path, encoding='cp949')
+            df = pd.read_csv(file_path, encoding='cp949', on_bad_lines='skip')
             
         print(f"Found {len(df)} Subway Stations.")
         
@@ -75,7 +75,8 @@ class TransportImporter:
         print("Linking Subway completed.")
 
     def import_bus(self):
-        file_path = os.path.join(Config.DATA_DIR, "bus_station", "국토교통부_전국 버스정류장 위치정보_20241031_utf8_clean.csv")
+        # file_path = os.path.join(Config.DATA_DIR, "bus_station", "국토교통부_전국 버스정류장 위치정보_20241031_utf8_clean.csv")
+        file_path = os.path.join(Config.DATA_DIR, "bus_station", "bus_data_fixed.csv")
         print(f"Loading Bus data from {file_path}...")
         
         try:
