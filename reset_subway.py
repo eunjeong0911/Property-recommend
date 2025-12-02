@@ -1,3 +1,9 @@
+import sys
+import os
+
+# scripts/data_import 경로를 sys.path에 추가하여 config 모듈을 찾을 수 있게 함
+sys.path.append(os.path.join(os.getcwd(), 'scripts', 'data_import'))
+
 from scripts.data_import.database import Database
 
 def reset_subway():
