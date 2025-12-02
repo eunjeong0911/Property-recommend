@@ -35,7 +35,7 @@ Schema:
    - 스키마에 없는 관계나 속성은 절대 사용 금지
    - 확실한 데이터만 조회
 
-3. CCTV/비상벨 집계 (300m 범위 내 노드 개수)
+3. CCTV/비상벨 집계 (100m 범위 내 노드 개수)
    - 카르테시안 프로덕트 방지: WITH 절로 단계별 집계
    - 패턴:
      ```
@@ -52,6 +52,10 @@ Schema:
 5. **지하철역 정보는 항상 조회 (Always retrieve Subway Info)**
    - 사용자가 언급하지 않아도 `OPTIONAL MATCH (p)-[r_sub:NEAR_SUBWAY]->(s:SubwayStation)`을 사용하여 조회하고 반환하세요.
    - 단, 이미 `MATCH (p)-[r:NEAR_SUBWAY]->(s:SubwayStation)`을 사용했다면 중복해서 `OPTIONAL MATCH` 하지 마세요.
+
+6. **'원룸', '자취방' 등 통칭 검색 시 모든 건물 유형 조회 (Relax Building Type Filter)**
+   - 사용자가 '원룸', '자취방' 등 주거 형태를 통칭하는 단어를 언급하더라도 `WHERE p.bldg_type = ...` 조건을 추가하지 마세요.
+   - 아파트, 오피스텔, 빌라, 원룸 등 모든 건물 유형을 검색 대상에 포함하세요.
 
 필수 RETURN 항목:
 - p.id (매물 ID - 필수!)
@@ -75,14 +79,13 @@ LIMIT 10
 MATCH (p:Property)-[r:NEAR_SUBWAY]->(s:SubwayStation)
 WHERE s.name CONTAINS '홍대' OR s.name CONTAINS '홍익'
 AND r.walking_time <= 10
-AND p.bldg_type = '원룸'
 RETURN p.id, p.address, p.bldg_type, p.trade_type_raw, p.deposit, p.monthly_rent, p.maintenance_fee, s.name as subway_station_name, r.walking_time as subway_station_time, r.distance as subway_station_dist
 ORDER BY (CASE WHEN s IS NOT NULL THEN 1 ELSE 0 END) DESC, r.walking_time ASC
 LIMIT 10
 
 예시 3: "신촌역 도보 15분 이내이고 병원 가까운 원룸 찾아줘"
 MATCH (p:Property)-[r1:NEAR_SUBWAY]->(s:SubwayStation)
-WHERE s.name CONTAINS '신촌' AND r1.walking_time <= 15 AND p.bldg_type = '원룸'
+WHERE s.name CONTAINS '신촌' AND r1.walking_time <= 15
 OPTIONAL MATCH (p)-[r2:NEAR_GENERAL_HOSPITAL|NEAR_HOSPITAL]->(h)
 RETURN p.id, p.address, p.bldg_type, p.deposit, p.monthly_rent, p.maintenance_fee,
        s.name as subway_station_name, 
