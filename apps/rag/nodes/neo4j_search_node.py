@@ -57,6 +57,10 @@ Schema:
    - 사용자가 '원룸', '자취방' 등 주거 형태를 통칭하는 단어를 언급하더라도 `WHERE p.bldg_type = ...` 조건을 추가하지 마세요.
    - 아파트, 오피스텔, 빌라, 원룸 등 모든 건물 유형을 검색 대상에 포함하세요.
 
+7. **우선순위 추천 (Priority Recommendation)**
+   - 질문에 특정 시설(역, 편의점, 병원 등)이 언급되면, 해당 시설과 **가까운 순서(거리 또는 도보시간 오름차순)**로 정렬하세요.
+   - 상위 **3개** 매물만 추천하세요 (`LIMIT 3`).
+
 필수 RETURN 항목:
 - p.id (매물 ID - 필수!)
 - p.address, p.bldg_type
@@ -72,16 +76,16 @@ Note: Cypher 쿼리만 반환하세요.
 MATCH (p:Property)-[r:NEAR_SUBWAY]->(s:SubwayStation)
 WHERE s.name CONTAINS '강남'
 RETURN p.id, p.address, p.bldg_type, p.trade_type_raw, p.deposit, p.monthly_rent, p.maintenance_fee, s.name as subway_station_name, r.walking_time as subway_station_time, r.distance as subway_station_dist
-ORDER BY (CASE WHEN s IS NOT NULL THEN 1 ELSE 0 END) DESC
-LIMIT 10
+ORDER BY r.distance ASC
+LIMIT 3
 
 예시 2: "홍대역 근처 도보 10분 이내 원룸 찾아줘"
 MATCH (p:Property)-[r:NEAR_SUBWAY]->(s:SubwayStation)
 WHERE s.name CONTAINS '홍대' OR s.name CONTAINS '홍익'
 AND r.walking_time <= 10
 RETURN p.id, p.address, p.bldg_type, p.trade_type_raw, p.deposit, p.monthly_rent, p.maintenance_fee, s.name as subway_station_name, r.walking_time as subway_station_time, r.distance as subway_station_dist
-ORDER BY (CASE WHEN s IS NOT NULL THEN 1 ELSE 0 END) DESC, r.walking_time ASC
-LIMIT 10
+ORDER BY r.walking_time ASC
+LIMIT 3
 
 예시 3: "신촌역 도보 15분 이내이고 병원 가까운 원룸 찾아줘"
 MATCH (p:Property)-[r1:NEAR_SUBWAY]->(s:SubwayStation)
@@ -94,8 +98,8 @@ RETURN p.id, p.address, p.bldg_type, p.deposit, p.monthly_rent, p.maintenance_fe
        h.name as hospital_name, 
        r2.distance as hospital_dist, 
        r2.walking_time as hospital_time
-ORDER BY (CASE WHEN h IS NOT NULL THEN 1 ELSE 0 END) DESC, r1.walking_time ASC
-LIMIT 5
+ORDER BY r2.distance ASC, r1.walking_time ASC
+LIMIT 3
 
 예시 4: "홍대입구역 근처 편의점 가까운 오피스텔 찾아줘"
 MATCH (p:Property)-[r1:NEAR_SUBWAY]->(s:SubwayStation)
@@ -108,8 +112,8 @@ RETURN p.id, p.address, p.bldg_type, p.deposit, p.monthly_rent, p.maintenance_fe
        c.name as convenience_name, 
        r2.distance as convenience_dist, 
        r2.walking_time as convenience_time
-ORDER BY (CASE WHEN c IS NOT NULL THEN 1 ELSE 0 END) DESC, r1.walking_time ASC
-LIMIT 5
+ORDER BY r2.distance ASC, r1.walking_time ASC
+LIMIT 3
 
 예시 5: "보증금 1000만원 이하 월세 찾아줘" (지하철 언급 없음 -> OPTIONAL MATCH 사용)
 MATCH (p:Property)
@@ -120,7 +124,7 @@ RETURN p.id, p.address, p.bldg_type, p.trade_type_raw, p.deposit, p.monthly_rent
        r_sub.distance as subway_station_dist,
        r_sub.walking_time as subway_station_time
 ORDER BY p.monthly_rent ASC
-LIMIT 5
+LIMIT 3
 
 질문:
 {question}"""
