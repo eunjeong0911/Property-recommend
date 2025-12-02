@@ -62,6 +62,11 @@ DATABASES = {
     }
 }
 
+# Neo4j 설정 (Django 백엔드에서 GraphDB 접근 시 사용)
+NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")      # Neo4j 접속 주소 (기본값: 로컬)
+NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")                    # Neo4j 사용자 ID
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "neo4j")            # Neo4j 비밀번호
+
 LANGUAGE_CODE = "ko-kr"
 TIME_ZONE = "Asia/Seoul"
 USE_I18N = True
