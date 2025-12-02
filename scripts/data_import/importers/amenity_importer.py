@@ -207,7 +207,7 @@ class AmenityImporter:
             """)
 
     def import_store(self):
-        file_path = os.path.join(Config.DATA_DIR, "store", "소상공인시장진흥공단_상가(상권)정보_서울_202409.csv")
+        file_path = os.path.join(Config.DATA_DIR, "store_data", "소상공인시장진흥공단_상가(상권)정보_서울_202409.csv")
         print(f"Loading Store data from {file_path}...")
         
         try:

@@ -37,6 +37,10 @@ class PropertyImporter:
                         # Geocode address
                         lat, lng = Geocoder.get_coordinates(full_address)
                         
+                        if lat is None or lng is None:
+                            print(f"Skipping {listing_id}: Geocoding failed for {full_address}")
+                            continue
+                        
                         # Prepare properties
                         trade_info = item.get("거래_정보", {})
                         listing_info = item.get("매물_정보", {})

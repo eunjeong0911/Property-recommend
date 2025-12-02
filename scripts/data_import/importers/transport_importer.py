@@ -68,7 +68,7 @@ class TransportImporter:
         print("Linking Subway completed.")
 
     def import_bus(self):
-        file_path = os.path.join(Config.DATA_DIR, "bus", "국토교통부_전국 버스정류장 위치정보_20241031_utf8_clean.csv")
+        file_path = os.path.join(Config.DATA_DIR, "bus_station", "국토교통부_전국 버스정류장 위치정보_20241031_utf8_clean.csv")
         print(f"Loading Bus data from {file_path}...")
         
         try:
