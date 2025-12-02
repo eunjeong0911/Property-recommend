@@ -19,7 +19,14 @@ class TransportImporter:
         print(f"Found {len(df)} Subway Stations.")
         
         with self.driver.session() as session:
-            session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (s:SubwayStation) REQUIRE s.name IS UNIQUE")
+            # session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (s:SubwayStation) REQUIRE s.name IS UNIQUE")
+            # 복합 키(이름 + 노선)로 유니크 제약 조건 설정 (같은 이름의 역이 다른 노선에 있을 수 있음)
+            try:
+                session.run("DROP CONSTRAINT ON (s:SubwayStation) ASSERT s.name IS UNIQUE")
+            except Exception:
+                pass # 제약 조건이 없으면 패스
+            
+            session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (s:SubwayStation) REQUIRE (s.name, s.line) IS UNIQUE")
             session.run("CREATE POINT INDEX subway_location_index IF NOT EXISTS FOR (s:SubwayStation) ON (s.location)")
             
             query = """
