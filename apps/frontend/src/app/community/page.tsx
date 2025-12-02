@@ -1,11 +1,3 @@
-/**
- * CommunityPage
- *
- * 커뮤니티 페이지
- *
- * Header.tsx, Chatbot.tsx, CommunityTab.tsx 등과 함께 동작
- */
-
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -53,9 +45,17 @@ interface ApiCommunityPost {
   complex_name?: string | null
   like_count: number
   comment_count: number
+  is_liked?: boolean
   created_at: string
   updated_at: string
 }
+
+interface LikeToggleResponse {
+  liked: boolean
+  like_count: number
+}
+
+const PAGE_SIZE = 5
 
 export default function CommunityPage() {
   const { data: session } = useSession()
@@ -83,7 +83,7 @@ export default function CommunityPage() {
       dong: item.dong || undefined,
       complexName: item.complex_name || undefined,
       isOwner: item.author_email === session?.user?.email,
-      isLiked: false,
+      isLiked: Boolean((item as any).is_liked),
     }),
     [session?.user?.email]
   )
@@ -118,16 +118,8 @@ export default function CommunityPage() {
   )
 
   useEffect(() => {
-    if (activeTab === 'free') {
-      fetchPosts('free')
-    }
-  }, [activeTab, fetchPosts])
-
-useEffect(() => {
-  if (activeTab === 'region') {
-    fetchPosts('region', regionFilter)
-  }
-}, [activeTab, regionFilter, fetchPosts])
+    fetchPosts(activeTab, activeTab === 'region' ? regionFilter : undefined)
+  }, [activeTab, regionFilter, fetchPosts])
 
   const filteredPosts = useMemo(() => {
     if (activeTab !== 'region') {
@@ -198,27 +190,45 @@ useEffect(() => {
     }
   }
 
-  const handleToggleLike = (postId: string) => {
-    setPosts((prev) =>
-      prev.map((post) =>
-        post.id === postId
-          ? {
-              ...post,
-              isLiked: !post.isLiked,
-              likes: post.isLiked ? post.likes - 1 : post.likes + 1,
-            }
-          : post
+  const handleToggleLike = async (postId: string) => {
+    if (!session) {
+      alert('로그인이 필요합니다.')
+      return
+    }
+    const target = posts.find((post) => post.id === postId)
+    const nextLiked = target ? !target.isLiked : true
+    try {
+      let response
+      if (nextLiked) {
+        response = await axiosInstance.post<LikeToggleResponse>(`/api/community/posts/${postId}/like/`)
+      } else {
+        response = await axiosInstance.delete<LikeToggleResponse>(`/api/community/posts/${postId}/like/`)
+      }
+      const { liked, like_count } = response.data
+      setPosts((prev) =>
+        prev.map((post) =>
+          post.id === postId
+            ? {
+                ...post,
+                isLiked: liked,
+                likes: like_count,
+              }
+            : post
+        )
       )
-    )
-    setSelectedPost((prev) =>
-      prev && prev.id === postId
-        ? {
-            ...prev,
-            isLiked: !prev.isLiked,
-            likes: prev.isLiked ? prev.likes - 1 : prev.likes + 1,
-          }
-        : prev
-    )
+      setSelectedPost((prev) =>
+        prev && prev.id === postId
+          ? {
+              ...prev,
+              isLiked: liked,
+              likes: like_count,
+            }
+          : prev
+      )
+    } catch (toggleError) {
+      console.error(toggleError)
+      alert('좋아요 처리에 실패했습니다. 잠시 후 다시 시도해주세요.')
+    }
   }
 
   const handleDeletePost = async () => {
@@ -288,7 +298,7 @@ useEffect(() => {
         ) : (
           <Pagination
             items={filteredPosts}
-            pageSize={5}
+            pageSize={PAGE_SIZE}
             renderItem={(post) => (
               <CommunityCard
                 key={post.id}

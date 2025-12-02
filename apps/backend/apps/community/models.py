@@ -79,3 +79,35 @@ class CommunityComment(models.Model):
 
     def __str__(self):
         return f"Comment on '{self.post.title}' by {self.user.email}"
+
+
+class CommunityPostLike(models.Model):
+    """
+    커뮤니티 게시글 좋아요
+    - 사용자와 게시글 간 좋아요 관계 저장
+    """
+    post = models.ForeignKey(
+        CommunityPost,
+        on_delete=models.CASCADE,
+        related_name='likes',
+        help_text="게시글"
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='community_post_likes',
+        help_text="사용자"
+    )
+    created_at = models.DateTimeField(auto_now_add=True, help_text="좋아요 시간")
+
+    class Meta:
+        db_table = 'community_post_likes'
+        unique_together = [('post', 'user')]
+        indexes = [
+            models.Index(fields=['post', 'user']),
+        ]
+        verbose_name = '커뮤니티 게시글 좋아요'
+        verbose_name_plural = '커뮤니티 게시글 좋아요 목록'
+
+    def __str__(self):
+        return f"{self.user.email} likes {self.post_id}"
