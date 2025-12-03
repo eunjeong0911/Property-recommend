@@ -140,13 +140,30 @@ LIMIT 3
         graph=graph, 
         verbose=True,
         allow_dangerous_requests=True,
-        cypher_prompt=CYPHER_GENERATION_PROMPT
+        cypher_prompt=CYPHER_GENERATION_PROMPT,
+        return_intermediate_steps=True  # 원본 데이터 반환
     )
 
     try:
         # Run the chain
         result = chain.invoke({"query": question})
-        return {"graph_results": [result["result"]]}
+        
+        # intermediate_steps에서 원본 Cypher 쿼리 결과 추출
+        # intermediate_steps = [generated_cypher, raw_results]
+        intermediate_steps = result.get("intermediate_steps", [])
+        
+        raw_results = []
+        if len(intermediate_steps) >= 2:
+            # 두 번째 요소가 Cypher 쿼리 실행 결과 (리스트 형태)
+            raw_results = intermediate_steps[1]
+            print(f"[Neo4j] Raw results count: {len(raw_results) if isinstance(raw_results, list) else 'N/A'}")
+            print(f"[Neo4j] Raw results: {raw_results}")
+        
+        # 원본 데이터와 LLM 요약 둘 다 반환
+        return {
+            "graph_results": raw_results if raw_results else [result["result"]],
+            "graph_summary": result["result"]  # LLM 요약도 보존
+        }
     except Exception as e:
         import traceback
         traceback.print_exc()

@@ -66,6 +66,9 @@ docker-compose --profile analytics up -d analytics
 # 개별 데이터 Import 실행
 docker-compose --profile scripts run --rm scripts python data_import/importers/transport_importer.py
 docker-compose --profile scripts run --rm scripts python data_import/importers/property_importer.py
+
+# PostgreSQL Land 테이블만 데이터 적재 (빌라주택, 아파트, 오피스텔, 원투룸)
+docker-compose --profile scripts run --rm scripts python data_import/import_postgres_only.py
 ```
 
 ## 문제 해결
