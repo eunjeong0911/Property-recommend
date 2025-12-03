@@ -80,10 +80,12 @@ SKN18-FINAL-1TEAM/
 
 docker-compose up -d
 
+uv venv .venv --python 3.13
+.\venv\Scripts\activate
+
 cd apps/backend
 
 uv pip install -r requirements.txt
-uv pip install Pillow
 
 # 마이그레이션 실행
 python manage.py makemigrations users community

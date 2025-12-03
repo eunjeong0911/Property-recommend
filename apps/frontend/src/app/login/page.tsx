@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import Login from "@/components/Login";
 import { signIn, useSession } from "next-auth/react";
@@ -38,7 +38,9 @@ function LoginContent() {
 
     return (
         <div className="flex flex-col items-center justify-center min-h-screen py-2">
+            <Suspense fallback={<div>로딩중...</div>}>
             <Login />
+            </Suspense>
             <div className="mt-4">
                 <button
                     onClick={() => signIn("google")}
