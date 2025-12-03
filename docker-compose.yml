@@ -10,6 +10,12 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   neo4j:
     image: neo4j:5.15
@@ -22,6 +28,12 @@ services:
     volumes:
       - neo4j_data:/data
       - ./infra/neo4j/init.cypher:/var/lib/neo4j/import/init.cypher
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
 
   redis:
     image: redis:7-alpine
@@ -84,10 +96,24 @@ services:
     build:
       context: .
       dockerfile: infra/docker/frontend.Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+        - NEXT_PUBLIC_KAKAO_MAP_KEY=${NEXT_PUBLIC_KAKAO_MAP_KEY}
+        - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
+        - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+        - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+        - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
     ports:
       - "3000:3000"
+    env_file:
+      - .env
     environment:
-      - NEXT_PUBLIC_API_URL=http://backend:8000
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+      - NEXT_PUBLIC_KAKAO_MAP_KEY=${NEXT_PUBLIC_KAKAO_MAP_KEY}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
     depends_on:
       - backend
 
@@ -111,12 +137,19 @@ services:
       dockerfile: infra/docker/scripts.Dockerfile
     volumes:
       - ./scripts:/app
+      - ./libs:/libs
       - ./data:/data
+      - ./GraphDB_data:/GraphDB_data
     env_file:
       - .env
+    environment:
+      - NEO4J_URI=bolt://neo4j:7687
+      - POSTGRES_HOST=postgres
     depends_on:
-      - postgres
-      - neo4j
+      postgres:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
     profiles:
       - scripts
 
