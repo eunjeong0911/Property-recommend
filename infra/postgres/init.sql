@@ -4,11 +4,19 @@ CREATE EXTENSION IF NOT EXISTS vector;
 -- Create initial schema
 CREATE TABLE IF NOT EXISTS listings (
     id SERIAL PRIMARY KEY,
+    listing_id VARCHAR(50) UNIQUE NOT NULL,
     title VARCHAR(255),
     address TEXT,
-    price BIGINT,
-    area FLOAT,
-    room_count INT,
+    url TEXT,
+    images JSONB,
+    address_info JSONB,
+    floor_plan_url TEXT[],
+    trade_info JSONB,
+    listing_info JSONB,
+    additional_options TEXT[],
+    nearby_schools TEXT[],
+    description TEXT,
+    agent_info JSONB,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

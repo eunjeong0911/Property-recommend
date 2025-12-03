@@ -26,6 +26,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { sendChatQuestion } from '../api/chatApi'
 
 interface Message {
   id: string
@@ -162,14 +163,13 @@ export default function Chatbot() {
     setIsLoading(true)
 
     try {
-      // AI 응답 시뮬레이션 (실제로는 API 호출)
-      // TODO: LangGraph API 엔드포인트로 교체 필요
-      await new Promise(resolve => setTimeout(resolve, 1500))
+      // Real API call
+      const answer = await sendChatQuestion(inputValue.trim())
 
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'ai',
-        content: '안녕하세요! 부동산 관련 질문에 답변드리겠습니다. 무엇을 도와드릴까요?',
+        content: answer,
         timestamp: new Date()
       }
 
