@@ -16,7 +16,7 @@ ENV LANGUAGE ko_KR.UTF-8
 ENV LC_ALL ko_KR.UTF-8
 ENV PYTHONIOENCODING=utf-8
 
-COPY apps/rag/requirements.txt .
+COPY infra/docker/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY apps/rag .

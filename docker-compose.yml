@@ -90,6 +90,47 @@ services:
     depends_on:
       - backend
 
+  analytics:
+    build:
+      context: .
+      dockerfile: infra/docker/analytics.Dockerfile
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./analytics:/app
+      - ./data:/data
+    env_file:
+      - .env
+    profiles:
+      - analytics
+
+  scripts:
+    build:
+      context: .
+      dockerfile: infra/docker/scripts.Dockerfile
+    volumes:
+      - ./scripts:/app
+      - ./data:/data
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - neo4j
+    profiles:
+      - scripts
+
+  crawling:
+    build:
+      context: .
+      dockerfile: infra/docker/crawling.Dockerfile
+    volumes:
+      - ./dataCrawling:/app
+      - ./data:/data
+    env_file:
+      - .env
+    profiles:
+      - crawling
+
 volumes:
   postgres_data:
   neo4j_data:
