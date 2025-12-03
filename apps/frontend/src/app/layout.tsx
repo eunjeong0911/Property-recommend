@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import './globals.css'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
+import AuthProvider from '@/components/AuthProvider'
 import dynamic from 'next/dynamic'
 
 // 무거운 컴포넌트들을 lazy loading으로 변경하여 초기 로딩 성능 개선
@@ -30,18 +31,20 @@ export default function RootLayout({
     return (
         <html lang="ko">
             <body className={inter.className}>
-                <div className="fixed inset-0 -z-10 bg-[#F0F8FF]">
-                    <Aurora
-                        colorStops={['#90CAF9', '#80DEEA', '#E1F5FE']}
-                        speed={0.5}
-                    />
-                </div>
-                <div className="relative z-10">
-                    <Header />
-                    {children}
-                    <Footer />
-                    {!isLoginPage && <Chatbot />}
-                </div>
+                <AuthProvider>
+                    <div className="fixed inset-0 -z-10 bg-[#F0F8FF]">
+                        <Aurora
+                            colorStops={['#90CAF9', '#80DEEA', '#E1F5FE']}
+                            speed={0.5}
+                        />
+                    </div>
+                    <div className="relative z-10">
+                        <Header />
+                        {children}
+                        <Footer />
+                        {!isLoginPage && <Chatbot />}
+                    </div>
+                </AuthProvider>
             </body>
         </html>
     )

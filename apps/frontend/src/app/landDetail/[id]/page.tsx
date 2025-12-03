@@ -22,6 +22,7 @@ export default function LandDetailPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [communityPost, setCommunityPost] = useState({
         id: '1',
+        boardType: 'region' as const,
         author: { name: '홍길동' },
         title: '이 동네 살기 어떤가요?',
         content: '이사를 고민중인데 이 동네 분위기가 궁금합니다. 살기 좋은가요?',

@@ -37,6 +37,8 @@ RUN chown nextjs:nodejs .next
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+RUN chown nextjs:nodejs /app/server.js && chmod +x /app/server.js
+
 USER nextjs
 
 EXPOSE 3000
