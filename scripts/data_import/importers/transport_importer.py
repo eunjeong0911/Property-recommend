@@ -56,16 +56,20 @@ class TransportImporter:
                 session.run(query, batch=batch)
                 
             print("Finished importing Subway Stations.")
-            self._link_subway(session)
+            # self._link_subway(session)
 
-    def _link_subway(self, session):
-        print("Linking Subway Stations (1km)...")
+    def link_subway(self):
+        with self.driver.session() as session:
+            self._link_subway_logic(session)
+
+    def _link_subway_logic(self, session):
+        print("Linking Subway Stations (1.5km)...")
         query = """
         MATCH (p:Property)
         CALL {
             WITH p
             MATCH (s:SubwayStation)
-            WHERE point.distance(p.location, s.location) < 1000
+            WHERE point.distance(p.location, s.location) < 1500
             MERGE (p)-[r:NEAR_SUBWAY]->(s)
             SET r.distance = point.distance(p.location, s.location),
                 r.walking_time = (point.distance(p.location, s.location) * 1.3) / 80
@@ -119,9 +123,13 @@ class TransportImporter:
                 session.run(query, batch=batch)
                 
             print("Finished importing Bus Stations.")
-            self._link_bus(session)
+            # self._link_bus(session)
 
-    def _link_bus(self, session):
+    def link_bus(self):
+        with self.driver.session() as session:
+            self._link_bus_logic(session)
+
+    def _link_bus_logic(self, session):
         print("Linking Bus Stations (200m)...")
         query = """
         MATCH (p:Property)

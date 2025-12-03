@@ -19,6 +19,12 @@ class PropertyImporter:
         print(f"Found {len(json_files)} JSON files to process.")
 
         with self.driver.session() as session:
+            # Fetch existing property IDs to skip redundant processing
+            print("Fetching existing properties...")
+            result = session.run("MATCH (p:Property) RETURN p.id AS id")
+            existing_ids = {record["id"] for record in result}
+            print(f"Found {len(existing_ids)} existing properties.")
+
             for json_file in json_files:
                 file_path = os.path.join(data_dir, json_file)
                 print(f"Processing {json_file}...")
@@ -28,10 +34,17 @@ class PropertyImporter:
 
                     for item in data:
                         listing_id = item.get("매물번호")
+                        
+                        if not listing_id:
+                            continue
+                            
+                        if listing_id in existing_ids:
+                            continue
+
                         address_info = item.get("주소_정보", {})
                         full_address = address_info.get("전체주소")
                         
-                        if not listing_id or not full_address:
+                        if not full_address:
                             continue
 
                         # Geocode address
@@ -42,29 +55,26 @@ class PropertyImporter:
                             continue
                         
                         # Prepare properties
-                        trade_info = item.get("거래_정보", {})
                         listing_info = item.get("매물_정보", {})
-                        trade_type_raw = trade_info.get("거래방식", "")
-                        bldg_type = listing_info.get("건물형태", "Unknown")
+                        
+                        # Extract name from various possible keys
+                        name = listing_info.get("아파트명") or listing_info.get("건물명") or listing_info.get("오피스텔명") or "Unknown"
 
                         query = """
                         MERGE (p:Property {id: $id})
-                        SET p.address = $address,
+                        SET p.name = $name,
+                            p.address = $address,
                             p.latitude = $latitude,
                             p.longitude = $longitude,
-                            p.location = point({latitude: $latitude, longitude: $longitude}),
-                            p.bldg_type = $bldg_type,
-                            p.trade_type_raw = $trade_type_raw,
-                            p.updated_at = datetime()
+                            p.location = point({latitude: $latitude, longitude: $longitude})
                         """
                         
                         params = {
                             "id": listing_id,
+                            "name": name,
                             "address": full_address,
                             "latitude": lat,
-                            "longitude": lng,
-                            "bldg_type": bldg_type,
-                            "trade_type_raw": trade_type_raw
+                            "longitude": lng
                         }
 
                         session.run(query, params)

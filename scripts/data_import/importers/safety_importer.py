@@ -56,17 +56,17 @@ class SafetyImporter:
                 session.run(query, batch=batch)
                 
         print("Finished importing CCTV.")
-        self._link_cctv()
+        # self._link_cctv()
 
-    def _link_cctv(self):
-        print("Linking CCTV (100m)...")
+    def link_cctv(self):
+        print("Linking CCTV (200m)...")
         with self.driver.session() as session:
             session.run("""
             MATCH (p:Property)
             CALL {
                 WITH p
                 MATCH (c:CCTV)
-                WHERE point.distance(p.location, c.location) < 100
+                WHERE point.distance(p.location, c.location) < 200
                 MERGE (p)-[r:NEAR_CCTV]->(c)
                 SET r.distance = point.distance(p.location, c.location),
                     r.walking_time = (point.distance(p.location, c.location) * 1.3) / 80
@@ -119,17 +119,17 @@ class SafetyImporter:
                 session.run(query, batch=batch)
                 
         print("Finished importing Emergency Bells.")
-        self._link_bell()
+        # self._link_bell()
 
-    def _link_bell(self):
-        print("Linking Emergency Bells (100m)...")
+    def link_bell(self):
+        print("Linking Emergency Bells (200m)...")
         with self.driver.session() as session:
             session.run("""
             MATCH (p:Property)
             CALL {
                 WITH p
                 MATCH (b:EmergencyBell)
-                WHERE point.distance(p.location, b.location) < 100
+                WHERE point.distance(p.location, b.location) < 200
                 MERGE (p)-[r:NEAR_BELL]->(b)
                 SET r.distance = point.distance(p.location, b.location),
                     r.walking_time = (point.distance(p.location, b.location) * 1.3) / 80
@@ -192,9 +192,9 @@ class SafetyImporter:
                 session.run(query, batch=batch)
                 
         print("Finished importing Police Stations.")
-        self._link_police()
+        # self._link_police()
 
-    def _link_police(self):
+    def link_police(self):
         print("Linking Police Stations (1km)...")
         with self.driver.session() as session:
             session.run("""
@@ -265,9 +265,9 @@ class SafetyImporter:
                 session.run(query, batch=batch)
                 
         print("Finished importing Fire Stations.")
-        self._link_fire()
+        # self._link_fire()
 
-    def _link_fire(self):
+    def link_fire(self):
         print("Linking Fire Stations (2.5km)...")
         with self.driver.session() as session:
             session.run("""

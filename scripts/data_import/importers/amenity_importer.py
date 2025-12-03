@@ -63,9 +63,9 @@ class AmenityImporter:
                 session.run(query, batch=batch)
                 
         print("Finished importing Hospitals.")
-        self._link_hospital()
+        # self._link_hospital()
 
-    def _link_hospital(self):
+    def link_hospital(self):
         print("Linking Hospitals...")
         with self.driver.session() as session:
             # General Hospital (1km)
@@ -80,13 +80,13 @@ class AmenityImporter:
                     r.walking_time = (point.distance(p.location, h.location) * 1.3) / 80
             } IN TRANSACTIONS OF 1000 ROWS
             """)
-            # Other Hospital (500m)
+            # Other Hospital (300m)
             session.run("""
             MATCH (p:Property)
             CALL {
                 WITH p
                 MATCH (h:Hospital)
-                WHERE h.category <> '종합병원' AND point.distance(p.location, h.location) < 500
+                WHERE h.category <> '종합병원' AND point.distance(p.location, h.location) < 300
                 MERGE (p)-[r:NEAR_HOSPITAL]->(h)
                 SET r.distance = point.distance(p.location, h.location),
                     r.walking_time = (point.distance(p.location, h.location) * 1.3) / 80
@@ -131,9 +131,9 @@ class AmenityImporter:
                 session.run(query, batch=batch)
                 
         print("Finished importing Pharmacies.")
-        self._link_pharmacy()
+        # self._link_pharmacy()
 
-    def _link_pharmacy(self):
+    def link_pharmacy(self):
         print("Linking Pharmacies (200m)...")
         with self.driver.session() as session:
             session.run("""
@@ -192,17 +192,17 @@ class AmenityImporter:
                 session.run(query, batch=batch)
                 
         print("Finished importing Colleges.")
-        self._link_college()
+        # self._link_college()
 
-    def _link_college(self):
-        print("Linking Colleges (1km)...")
+    def link_college(self):
+        print("Linking Colleges (2km)...")
         with self.driver.session() as session:
             session.run("""
             MATCH (p:Property)
             CALL {
                 WITH p
                 MATCH (c:College)
-                WHERE point.distance(p.location, c.location) < 1000
+                WHERE point.distance(p.location, c.location) < 2000
                 MERGE (p)-[r:NEAR_COLLEGE]->(c)
                 SET r.distance = point.distance(p.location, c.location),
                     r.walking_time = (point.distance(p.location, c.location) * 1.3) / 80
@@ -266,9 +266,9 @@ class AmenityImporter:
                 session.run(query, batch=batch)
                 
         print("Finished importing Stores.")
-        self._link_convenience()
+        # self._link_convenience()
 
-    def _link_convenience(self):
+    def link_convenience(self):
         print("Linking Convenience Stores (200m)...")
         with self.driver.session() as session:
             session.run("""
@@ -332,9 +332,9 @@ class AmenityImporter:
                     session.run(query, batch=batch)
                     
         print("Finished importing Parks.")
-        self._link_park()
+        # self._link_park()
 
-    def _link_park(self):
+    def link_park(self):
         print("Linking Parks (500m)...")
         with self.driver.session() as session:
             session.run("""
