@@ -8,6 +8,7 @@ from importers.transport_importer import TransportImporter
 from importers.amenity_importer import AmenityImporter
 from importers.safety_importer import SafetyImporter
 from importers.property_importer import PropertyImporter
+from importers.postgres_importer import PostgresImporter
 from database import Database
 
 def main():
@@ -36,11 +37,37 @@ def main():
     safety.import_fire()
     
     # 4. Property (Home)
-    # Note: Property import relies on geocoding which can be slow and rate-limited.
-    # It might be better to run this separately or last.
-    print("\n--- Importing Property Data ---")
+    print("\n--- Importing Property Data (Neo4j) ---")
     prop = PropertyImporter()
     prop.import_properties()
+
+    # 5. Property (Postgres)
+    print("\n--- Importing Property Data (PostgreSQL) ---")
+    pg_importer = PostgresImporter()
+    try:
+        pg_importer.import_properties()
+    finally:
+        pg_importer.close()
+
+    # 6. Linking Data (Must be done after Property import)
+    print("\n--- Linking Data ---")
+    
+    # Transport Linking
+    transport.link_subway()
+    transport.link_bus()
+    
+    # Amenity Linking
+    amenity.link_hospital()
+    amenity.link_pharmacy()
+    amenity.link_college()
+    amenity.link_convenience()
+    amenity.link_park()
+    
+    # Safety Linking
+    safety.link_cctv()
+    safety.link_bell()
+    safety.link_police()
+    safety.link_fire()
     
     Database.close()
     print("\nData Import Pipeline Completed Successfully!")
