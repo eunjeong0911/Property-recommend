@@ -21,6 +21,7 @@ import { useParticleEffect } from '../hooks/useParticleEffect'
 
 interface Post {
   id: string
+  boardType: 'free' | 'region'
   author: {
     name: string
     profileImage?: string

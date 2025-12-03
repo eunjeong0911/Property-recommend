@@ -1,25 +1,7 @@
-/**
- * CommunityPage
- * 
- * 커뮤니티 페이지
- * 
- * Header.tsx (헤더)
- * Chatbot.tsx (챗봇)
- * CommunityTab.tsx (커뮤니티)
- * CommunityCard.tsx (커뮤니티 게시글 카드)
- * CommunityDetailModal.tsx (커뮤니티 게시글 상세 모달)
- * CommunityWriteModal.tsx (커뮤니티 게시글 작성 모달)
- * CommunityWriteForm.tsx (커뮤니티 게시글 작성 폼)
- * RegionFilter.tsx (행정동 커뮤니티 게시글 작성할때 지역 필터)
- * Pagination.tsx (페이지네이션)
- * Button.tsx (등록하기 버튼, 작성 버튼)
- * Footer.tsx (푸터)
- * 
- */
-
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSession } from 'next-auth/react'
 import Button from '@/components/Button'
 import CommunityCard from '@/components/CommunityCard'
 import CommunityDetailModal from '@/components/CommunityDetailModal'
@@ -28,10 +10,13 @@ import CommunityWriteModal from '@/components/CommunityWriteModal'
 import Pagination from '@/components/Pagination'
 import RegionFilter, { type RegionFilterValues } from '@/components/RegionFilter'
 import type { CommunityWriteFormValues } from '@/components/CommunityWriteForm'
-import { useCommunityStore } from '@/store/useCommunityStore'
+import axiosInstance from '@/lib/axios'
+
+type BoardType = 'free' | 'region'
 
 interface CommunityPost {
   id: string
+  boardType: BoardType
   author: {
     name: string
     profileImage?: string
@@ -48,69 +33,105 @@ interface CommunityPost {
   isLiked?: boolean
 }
 
+interface ApiCommunityPost {
+  id: number
+  title: string
+  content: string
+  author_name?: string
+  author_email?: string
+  board_type: BoardType
+  region?: string | null
+  dong?: string | null
+  complex_name?: string | null
+  like_count: number
+  comment_count: number
+  is_liked?: boolean
+  created_at: string
+  updated_at: string
+}
+
+interface LikeToggleResponse {
+  liked: boolean
+  like_count: number
+}
+
+const PAGE_SIZE = 5
+
 export default function CommunityPage() {
-  const {
-    activeTab,
-    setActiveTab,
-    freePosts,
-    regionPosts,
-    addPost,
-    updatePost,
-    deletePost,
-    toggleLike,
-    selectedPost,
-    setSelectedPost,
-    isDetailModalOpen,
-    openDetailModal,
-    closeDetailModal,
-    isWriteModalOpen,
-    openWriteModal,
-    closeWriteModal,
-    editingPost,
-    setEditingPost
-  } = useCommunityStore((state) => ({
-    activeTab: state.activeTab,
-    setActiveTab: state.setActiveTab,
-    freePosts: state.freePosts,
-    regionPosts: state.regionPosts,
-    addPost: state.addPost,
-    updatePost: state.updatePost,
-    deletePost: state.deletePost,
-    toggleLike: state.toggleLike,
-    selectedPost: state.selectedPost,
-    setSelectedPost: state.setSelectedPost,
-    isDetailModalOpen: state.isDetailModalOpen,
-    openDetailModal: state.openDetailModal,
-    closeDetailModal: state.closeDetailModal,
-    isWriteModalOpen: state.isWriteModalOpen,
-    openWriteModal: state.openWriteModal,
-    closeWriteModal: state.closeWriteModal,
-    editingPost: state.editingPost,
-    setEditingPost: state.setEditingPost
-  }))
-
+  const { data: session } = useSession()
+  const [activeTab, setActiveTab] = useState<BoardType>('free')
+  const [posts, setPosts] = useState<CommunityPost[]>([])
+  const [selectedPost, setSelectedPost] = useState<CommunityPost | null>(null)
+  const [editingPost, setEditingPost] = useState<CommunityPost | null>(null)
+  const [isWriteModalOpen, setIsWriteModalOpen] = useState(false)
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [regionFilter, setRegionFilter] = useState<RegionFilterValues>({})
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const posts = activeTab === 'free' ? freePosts : regionPosts
+  const mapApiPost = useCallback(
+    (item: ApiCommunityPost): CommunityPost => ({
+      id: String(item.id),
+      boardType: item.board_type === 'region' ? 'region' : 'free',
+      author: { name: item.author_name || '사용자' },
+      title: item.title,
+      content: item.content,
+      createdAt: new Date(item.created_at),
+      likes: item.like_count ?? 0,
+      comments: item.comment_count ?? 0,
+      region: item.region || undefined,
+      dong: item.dong || undefined,
+      complexName: item.complex_name || undefined,
+      isOwner: item.author_email === session?.user?.email,
+      isLiked: Boolean((item as any).is_liked),
+    }),
+    [session?.user?.email]
+  )
+
+  const fetchPosts = useCallback(
+    async (board: BoardType, filters?: RegionFilterValues) => {
+      setIsLoading(true)
+      setError(null)
+      try {
+        const params: Record<string, string> = { board }
+        if (board === 'region' && filters) {
+          if (filters.region) params.region = filters.region
+          if (filters.dong) params.dong = filters.dong
+          if (filters.complexName) params.complex_name = filters.complexName
+        }
+        const response = await axiosInstance.get<ApiCommunityPost[]>('/api/community/posts/', { params })
+        const mapped = response.data.map(mapApiPost)
+        setPosts(mapped)
+        setSelectedPost((prev) => {
+          if (!prev) return prev
+          const next = mapped.find((post) => post.id === prev.id)
+          return next ?? prev
+        })
+      } catch (fetchError) {
+        console.error(fetchError)
+        setError('게시글을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.')
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [mapApiPost]
+  )
+
+  useEffect(() => {
+    fetchPosts(activeTab, activeTab === 'region' ? regionFilter : undefined)
+  }, [activeTab, regionFilter, fetchPosts])
 
   const filteredPosts = useMemo(() => {
-    if (activeTab === 'free') {
+    if (activeTab !== 'region') {
       return posts
     }
-
     return posts.filter((post) => {
-      if (regionFilter.region && post.region !== regionFilter.region) {
-        return false
-      }
-      if (regionFilter.dong && post.dong !== regionFilter.dong) {
-        return false
-      }
-      if (regionFilter.complexName && !post.complexName?.includes(regionFilter.complexName)) {
-        return false
-      }
+      if (regionFilter.region && post.region !== regionFilter.region) return false
+      if (regionFilter.dong && post.dong !== regionFilter.dong) return false
+      if (regionFilter.complexName && !post.complexName?.includes(regionFilter.complexName)) return false
       return true
     })
-  }, [posts, regionFilter, activeTab])
+  }, [activeTab, posts, regionFilter])
 
   const handleFilterChange = (filter: RegionFilterValues) => {
     setRegionFilter(filter)
@@ -118,72 +139,131 @@ export default function CommunityPage() {
 
   const handleWriteClick = () => {
     setEditingPost(null)
-    openWriteModal()
+    setIsWriteModalOpen(true)
   }
 
   const handleCardClick = (post: CommunityPost) => {
-    openDetailModal(post)
+    setSelectedPost(post)
+    setIsDetailModalOpen(true)
   }
 
-  const handleSubmitPost = (values: CommunityWriteFormValues, regionData?: RegionFilterValues) => {
-    const basePost = editingPost ?? null
+  const closeWriteModal = () => {
+    setIsWriteModalOpen(false)
+  }
 
-    const payload: CommunityPost = {
-      id: basePost?.id ?? Date.now().toString(),
-      author: basePost?.author ?? { name: '현재 사용자' },
+  const closeDetailModal = () => {
+    setIsDetailModalOpen(false)
+    setSelectedPost(null)
+  }
+
+  const handleSubmitPost = async (values: CommunityWriteFormValues, regionData?: RegionFilterValues) => {
+    const targetBoard = editingPost?.boardType ?? activeTab
+    if (targetBoard === 'region' && (!regionData?.region || !regionData?.dong || !regionData?.complexName)) {
+      alert('지역, 동, 단지명을 모두 선택해주세요.')
+      throw new Error('missing region data')
+    }
+
+    const payload: Record<string, unknown> = {
       title: values.title,
       content: values.content,
-      createdAt: basePost?.createdAt ?? new Date(),
-      likes: basePost?.likes ?? 0,
-      comments: basePost?.comments ?? 0,
-      region: regionData?.region,
-      dong: regionData?.dong,
-      complexName: regionData?.complexName,
-      isOwner: true,
-      isLiked: basePost?.isLiked ?? false
+      board_type: targetBoard,
     }
 
-    if (basePost) {
-      updatePost(payload)
-      if (selectedPost && selectedPost.id === payload.id) {
-        setSelectedPost(payload)
+    if (targetBoard === 'region' && regionData) {
+      payload.region = regionData.region
+      payload.dong = regionData.dong
+      payload.complex_name = regionData.complexName
+    }
+
+    try {
+      if (editingPost) {
+        await axiosInstance.patch(`/api/community/posts/${editingPost.id}/`, payload)
+      } else {
+        await axiosInstance.post('/api/community/posts/', payload)
       }
-    } else {
-      addPost(payload)
+      setEditingPost(null)
+      await fetchPosts(targetBoard, targetBoard === 'region' ? regionFilter : undefined)
+    } catch (submitError) {
+      console.error(submitError)
+      alert('게시글 저장에 실패했습니다. 잠시 후 다시 시도해주세요.')
+      throw submitError
     }
   }
 
-  const handleToggleLike = (postId: string) => {
-    toggleLike(postId)
+  const handleToggleLike = async (postId: string) => {
+    if (!session) {
+      alert('로그인이 필요합니다.')
+      return
+    }
+    const target = posts.find((post) => post.id === postId)
+    const nextLiked = target ? !target.isLiked : true
+    try {
+      let response
+      if (nextLiked) {
+        response = await axiosInstance.post<LikeToggleResponse>(`/api/community/posts/${postId}/like/`)
+      } else {
+        response = await axiosInstance.delete<LikeToggleResponse>(`/api/community/posts/${postId}/like/`)
+      }
+      const { liked, like_count } = response.data
+      setPosts((prev) =>
+        prev.map((post) =>
+          post.id === postId
+            ? {
+                ...post,
+                isLiked: liked,
+                likes: like_count,
+              }
+            : post
+        )
+      )
+      setSelectedPost((prev) =>
+        prev && prev.id === postId
+          ? {
+              ...prev,
+              isLiked: liked,
+              likes: like_count,
+            }
+          : prev
+      )
+    } catch (toggleError) {
+      console.error(toggleError)
+      alert('좋아요 처리에 실패했습니다. 잠시 후 다시 시도해주세요.')
+    }
   }
 
-  const handleDeletePost = () => {
+  const handleDeletePost = async () => {
     if (!selectedPost) return
-    deletePost(selectedPost.id)
-    closeDetailModal()
+    if (!confirm('게시글을 삭제하시겠습니까?')) {
+      return
+    }
+    try {
+      await axiosInstance.delete(`/api/community/posts/${selectedPost.id}/`)
+      closeDetailModal()
+      await fetchPosts(activeTab, activeTab === 'region' ? regionFilter : undefined)
+    } catch (deleteError) {
+      console.error(deleteError)
+      alert('게시글 삭제에 실패했습니다.')
+    }
   }
 
   const handleEditSelectedPost = () => {
     if (!selectedPost) return
-    setActiveTab(selectedPost.region ? 'region' : 'free')
+    setActiveTab(selectedPost.boardType)
     setEditingPost(selectedPost)
-    closeDetailModal()
-    openWriteModal()
+    setIsWriteModalOpen(true)
+    setIsDetailModalOpen(false)
   }
 
   const editingFormValues: CommunityWriteFormValues | undefined = editingPost
-    ? {
-      title: editingPost.title,
-      content: editingPost.content
-    }
+    ? { title: editingPost.title, content: editingPost.content }
     : undefined
 
   const editingRegionData: RegionFilterValues | undefined = editingPost
     ? {
-      region: editingPost.region,
-      dong: editingPost.dong,
-      complexName: editingPost.complexName
-    }
+        region: editingPost.region,
+        dong: editingPost.dong,
+        complexName: editingPost.complexName,
+      }
     : undefined
 
   const writeModalTitle = editingPost
@@ -207,18 +287,28 @@ export default function CommunityPage() {
           <RegionFilter onFilterChange={handleFilterChange} />
         )}
 
-        <Pagination
-          items={filteredPosts}
-          pageSize={5}
-          renderItem={(post) => (
-            <CommunityCard
-              key={post.id}
-              post={post}
-              onClick={handleCardClick}
-              onToggleLike={handleToggleLike}
-            />
-          )}
-        />
+        {error && (
+          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+            {error}
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className="py-20 text-center text-slate-500">게시글을 불러오는 중입니다...</div>
+        ) : (
+          <Pagination
+            items={filteredPosts}
+            pageSize={PAGE_SIZE}
+            renderItem={(post) => (
+              <CommunityCard
+                key={post.id}
+                post={post}
+                onClick={handleCardClick}
+                onToggleLike={handleToggleLike}
+              />
+            )}
+          />
+        )}
       </main>
 
       <CommunityWriteModal
@@ -228,7 +318,7 @@ export default function CommunityPage() {
         initialData={editingFormValues}
         initialRegionData={editingRegionData}
         submitLabel={editingPost ? '수정하기' : '등록하기'}
-        showRegionFilter={activeTab === 'region'}
+        showRegionFilter={editingPost?.boardType === 'region' || activeTab === 'region'}
         onSubmit={handleSubmitPost}
       />
 

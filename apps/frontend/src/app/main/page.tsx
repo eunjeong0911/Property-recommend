@@ -19,6 +19,7 @@
 import dynamic from 'next/dynamic';
 import LandListFilter from '@/components/LandListFilter';
 import LandList from '@/components/LandList';
+import useBackendUserGuard from '@/hooks/useBackendUserGuard';
 
 // 무거운 컴포넌트들을 lazy loading으로 변경하여 초기 로딩 성능 개선
 const PreferenceFilter = dynamic(() => import('@/components/PreferenceFilter'), {
@@ -46,6 +47,8 @@ const Map = dynamic(() => import('@/components/Map'), {
 });
 
 export default function MainPage() {
+    useBackendUserGuard();
+
     return (
         <div className="max-w-5xl mx-auto px-4 space-y-8 mb-24">
             <section className="space-y-6">
