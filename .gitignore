@@ -76,7 +76,10 @@ data/
 
 .kiro
 
-# 실거래가 ML 모델 실험 결과 로그
+# 실거래가 월/전세 ML 모델 실험 결과 로그
 /apps/models/월세_price_model/models
 /apps/models/월세_price_model/results
 /apps/models/월세_price_model/experiments
+
+/apps/models/전세_price_model/results
+/apps/models/전세_price_models/models
