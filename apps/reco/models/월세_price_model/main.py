@@ -3,7 +3,6 @@
 전체 데이터 처리, 특성 엔지니어링, 모델 학습 및 평가를 실행합니다.
 """
 import os
-import sys
 import numpy as np
 import pandas as pd
 from datetime import datetime
@@ -238,6 +237,6 @@ if __name__ == "__main__":
         run_shap=False,
         save_results=True,
         tune_params=False,
-        experiment_name="clean_features_v1",
-        experiment_notes="기본 설정으로 실행"
+        experiment_name="clean_features_v3",
+        experiment_notes="방당면적, 건물 특성(신축, 리모델링 여부), 프리미엄 옵션, 고층 비율만 적용"
     )
