@@ -3,6 +3,7 @@
 """
 import os
 import warnings
+import json
 import pickle
 from datetime import datetime
 import numpy as np
@@ -40,10 +41,10 @@ def split_data(df: pd.DataFrame, target_col: str = "환산보증금",
 
 
 def create_model(n_estimators: int = 1000, learning_rate: float = 0.05,
-                 max_depth: int = 6, subsample: float = 0.8,
-                 colsample_bytree: float = 0.8, min_child_weight: int = 1,
-                 gamma: float = 0, reg_alpha: float = 0, reg_lambda: float = 1,
-                 random_state: int = 42, n_jobs: int = -1, tree_method: str = 'hist'):
+                max_depth: int = 6, subsample: float = 0.8,
+                colsample_bytree: float = 0.8, min_child_weight: int = 1,
+                gamma: float = 0, reg_alpha: float = 0, reg_lambda: float = 1,
+                random_state: int = 42, n_jobs: int = -1, tree_method: str = 'hist'):
 
     # XGBoost 모델 생성
     model = XGBRegressor(
@@ -141,8 +142,7 @@ def is_fitted_model(m):
         return False
 
 
-def train_model(model, X_train, y_train, X_val=None, y_val=None,
-                early_stopping_rounds: int = 50, verbose: int = 50):
+def train_model(model, X_train, y_train, X_val=None, y_val=None, verbose: int = 50):
     """
     모델을 학습시킵니다.
 
@@ -152,7 +152,6 @@ def train_model(model, X_train, y_train, X_val=None, y_val=None,
         y_train: 학습 타깃
         X_val: 검증 특성 
         y_val: 검증 타깃
-        early_stopping_rounds: 조기 종료 라운드
         verbose: 로그 출력 주기
 
     Returns:
@@ -449,8 +448,6 @@ def save_metrics(metrics: dict, output_dir: str = None, filename: str = None):
     Returns:
         str: 저장된 파일 경로
     """
-    import json
-
     # 기본 저장 디렉토리 설정
     if output_dir is None:
         current_dir = os.path.dirname(os.path.abspath(__file__))
