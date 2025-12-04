@@ -44,39 +44,21 @@ def create_model(n_estimators: int = 1000, learning_rate: float = 0.05,
                  colsample_bytree: float = 0.8, min_child_weight: int = 1,
                  gamma: float = 0, reg_alpha: float = 0, reg_lambda: float = 1,
                  random_state: int = 42, n_jobs: int = -1, tree_method: str = 'hist'):
-    """
-    XGBoost 모델을 생성합니다.
 
-    Args:
-        n_estimators: 트리 개수
-        learning_rate: 학습률
-        max_depth: 트리 최대 깊이
-        subsample: 서브샘플링 비율
-        colsample_bytree: 컬럼 서브샘플링 비율
-        min_child_weight: 최소 자식 가중치
-        gamma: 노드 분할 최소 손실 감소
-        reg_alpha: L1 정규화 (alpha)
-        reg_lambda: L2 정규화 (lambda)
-        random_state: 랜덤 시드
-        n_jobs: 병렬 처리 작업 수
-        tree_method: 트리 생성 방법
-
-    Returns:
-        XGBRegressor: XGBoost 모델
-    """
+    # XGBoost 모델 생성
     model = XGBRegressor(
-        n_estimators=n_estimators,
-        learning_rate=learning_rate,
-        max_depth=max_depth,
-        subsample=subsample,
-        colsample_bytree=colsample_bytree,
-        min_child_weight=min_child_weight,
-        gamma=gamma,
-        reg_alpha=reg_alpha,
-        reg_lambda=reg_lambda,
-        random_state=random_state,
-        n_jobs=n_jobs,
-        tree_method=tree_method
+        n_estimators=n_estimators,          # 부스팅 라운드 수
+        learning_rate=learning_rate,        # 학습률
+        max_depth=max_depth,                # 트리 최대 깊이
+        subsample=subsample,                # 샘플 서브샘플링 비율
+        colsample_bytree=colsample_bytree,  # 특성 서브샘플링 비율
+        min_child_weight=min_child_weight,  # 최소 자식 가중치
+        gamma=gamma,                        # 노드 분할 최소 손실 감소
+        reg_alpha=reg_alpha,                # L1 정규화 계수
+        reg_lambda=reg_lambda,              # L2 정규화 계수
+        random_state=random_state,          # 랜덤 시드
+        n_jobs=n_jobs,                      # 병렬 처리 코어 수
+        tree_method=tree_method             # 트리 생성 방법
     )
 
     return model
@@ -102,7 +84,7 @@ def tune_hyperparameters(X_train, y_train, n_iter: int = 50, cv: int = 5, random
     # 로그 변환
     y_train_log = np.log1p(y_train)
 
-    # 탐색할 파라미터 범위 (더 공격적으로 확장)
+    # 탐색할 파라미터 범위
     param_distributions = {
         'n_estimators': [1500, 2000, 2500, 3000],
         'learning_rate': [0.01, 0.02, 0.03, 0.05, 0.07, 0.1],
