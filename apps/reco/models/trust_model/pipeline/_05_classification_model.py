@@ -1,5 +1,3 @@
-# pipeline/_05_classification_model.py
-
 import os
 import pickle
 import pandas as pd
@@ -17,9 +15,7 @@ def train_classification(df):
 
     df = df.copy()
 
-    # ---------------------------
     # 사용 Feature 지정
-    # ---------------------------
     # 데이터 누수 방지: 거래성사율, 거래완료비율, 거래밀도, 일평균거래 제외
     # 일평균거래 제거 이유: 거래완료/영업일수 = 간접적 누수
     features = [
@@ -47,9 +43,7 @@ def train_classification(df):
     for grade, count in y.value_counts().sort_index().items():
         print(f"      {grade}: {count}개 ({count/len(y)*100:.1f}%)")
 
-    # ---------------------------
-    # Train / Test Split
-    # ---------------------------
+    # Train / Test Split 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y
     )
@@ -58,18 +52,14 @@ def train_classification(df):
     print(f"   - 학습 데이터: {len(X_train)}개 (80%)")
     print(f"   - 테스트 데이터: {len(X_test)}개 (20%)")
 
-    # ---------------------------
-    # Scaling
-    # ---------------------------
+    # RobustScaler - 이상치(outlier)에 덜 민감한 스케일링
     scaler = RobustScaler()
     X_train_s = scaler.fit_transform(X_train)
     X_test_s = scaler.transform(X_test)
 
     print(f"\n✅ RobustScaler 적용 완료")
 
-    # ---------------------------
     # 모델 학습 (단순화 & 일반화 강화)
-    # ---------------------------
     model = RandomForestClassifier(
         n_estimators=50,         # 100 → 50 (트리 수 대폭 감소)
         max_depth=6,             # 8 → 6 (더 얕게)

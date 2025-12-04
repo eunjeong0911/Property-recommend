@@ -1,7 +1,24 @@
-# _01_rule_score.py
 import pandas as pd
 
 def apply_rule_score(df):
+    """
+    규칙 기반 스코어링 (baseline 점수 설계)
+
+    1. 기본 정보 정규화 
+    - 영업일수 계산
+    - 보증보험 유효 여부 (0,1)
+    - 거래성사율 계산(거래완료/총매물수)
+    - 지역 평균 성사율 매핑
+
+    2. rule_score 계산
+    rule score = 거래성사율 *40 
+                + 일평균거래 * 30
+                + 보증보험유효 * 20
+                + 지역평균성사율 * 10
+
+    3. rule_score 기반 등급 분류 
+    - qcut으로 5등급(D~S) 자동 분할.
+    """
     print("\n📊 [2단계] 룰 기반 스코어링")
 
     df = df.copy()

@@ -1,7 +1,14 @@
-# _02_feature_engineering.py
 import numpy as np
 
 def add_features(df):
+    """
+    생성 feature
+    - 등록비율: 등록매물 / 총매물
+    - 규모지수 = log(총매물)
+    - 지역내순위 / 지역내백분위
+    - 지역중개사 수
+    - 지역평균 대비 거래비율
+    """
     print("\n🔧 [3단계] 피처 엔지니어링")
     
     df = df.copy()
