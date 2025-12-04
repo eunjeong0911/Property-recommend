@@ -25,7 +25,9 @@ try:
         full_train_and_evaluate,
         save_model,
         save_predictions,
-        save_metrics
+        save_metrics,
+        log_experiment,
+        compare_experiments
     )
     from .visualization import (
         plot_all_eda,
@@ -50,7 +52,9 @@ except ImportError:
         full_train_and_evaluate,
         save_model,
         save_predictions,
-        save_metrics
+        save_metrics,
+        log_experiment,
+        compare_experiments
     )
     from visualization import (
         plot_all_eda,
@@ -62,7 +66,9 @@ except ImportError:
     )
 
 
-def main(data_path: str, run_eda: bool = False, run_shap: bool = False, save_results: bool = True):
+def main(data_path: str, run_eda: bool = False, run_shap: bool = False,
+         save_results: bool = True, tune_params: bool = False, n_iter: int = 20,
+         experiment_name: str = None, experiment_notes: str = ""):
     """
     전체 파이프라인을 실행합니다.
 
@@ -71,6 +77,10 @@ def main(data_path: str, run_eda: bool = False, run_shap: bool = False, save_res
         run_eda: EDA 시각화 실행 여부
         run_shap: SHAP 분석 실행 여부
         save_results: 결과물 저장 여부 (모델, 예측결과, 그래프 등)
+        tune_params: 하이퍼파라미터 튜닝 실행 여부
+        n_iter: 튜닝 시 탐색할 조합 수
+        experiment_name: 실험 이름 (로깅용)
+        experiment_notes: 실험 노트 (로깅용)
     """
     print("=" * 80)
     print("월세 데이터 분석 및 예측 모델 파이프라인 시작")
@@ -101,7 +111,7 @@ def main(data_path: str, run_eda: bool = False, run_shap: bool = False, save_res
     df_ml = prepare_ml_features(df_walse)
     print(f"✓ ML 특성 준비 완료: {df_ml.shape[1]}개 특성, {len(df_ml)}행")
 
-    # ==================== 5. EDA (옵션) ====================
+    # ==================== 5. EDA ====================
     if run_eda:
         print("\n[EDA] 탐색적 데이터 분석 시각화 중...")
         plot_all_eda(df_ml)
@@ -109,8 +119,15 @@ def main(data_path: str, run_eda: bool = False, run_shap: bool = False, save_res
 
     # ==================== 6. 모델 학습 및 평가 ====================
     print("\n[5/6] 모델 학습 및 평가 중...")
-    model, X_train, X_test, y_train, y_test, y_pred, metrics = full_train_and_evaluate(df_ml)
+    model, X_train, X_test, y_train, y_test, y_pred, metrics = full_train_and_evaluate(
+        df_ml,
+        tune_params=tune_params,
+        n_iter=n_iter
+    )
     print("✓ 모델 학습 및 평가 완료")
+
+    # 실험 결과 로깅
+    log_experiment(model, metrics, experiment_name=experiment_name, notes=experiment_notes)
 
     # ==================== 7. 결과 시각화 ====================
     # 비교 데이터프레임 생성 (전체 테스트 데이터 사용)
@@ -127,13 +144,13 @@ def main(data_path: str, run_eda: bool = False, run_shap: bool = False, save_res
         plot_model_results(y_test, y_pred, df_compare)
         print("✓ 결과 시각화 완료")
 
-    # ==================== 8. SHAP 분석 (옵션) ====================
+    # ==================== 8. SHAP 분석 ====================
     if run_shap:
         print("\n[SHAP] SHAP 분석 중...")
         plot_shap_analysis(model, X_test)
         print("✓ SHAP 분석 완료")
 
-    # ==================== 9. 결과 저장 (옵션) ====================
+    # ==================== 9. 결과 저장 ====================
     saved_files = {}
     if save_results:
         print("\n[결과 저장] 모델 및 결과물 저장 중...")
@@ -159,16 +176,16 @@ def main(data_path: str, run_eda: bool = False, run_shap: bool = False, save_res
         metrics_path = save_metrics(metrics, output_dir=results_dir, filename="metrics.json")
         saved_files['metrics'] = metrics_path
 
-        # 결과 그래프 저장 (images 폴더에 저장)
+        # 결과 그래프 저장
         result_plots = save_model_result_plots(y_test, y_pred, df_compare, output_dir=images_dir)
         saved_files['result_plots'] = result_plots
 
-        # SHAP 그래프 저장 (images 폴더에 저장)
+        # SHAP 그래프 저장 
         print("\n[SHAP 분석] SHAP 그래프 저장 중...")
         shap_plots = save_shap_plots(model, X_test, output_dir=images_dir)
         saved_files['shap_plots'] = shap_plots
 
-        # EDA 그래프 저장 (run_eda가 True인 경우에만, images 폴더에 저장)
+        # EDA 그래프 저장
         if run_eda:
             eda_plots = save_all_eda_plots(df_ml, output_dir=images_dir)
             saved_files['eda_plots'] = eda_plots
@@ -204,15 +221,24 @@ def main(data_path: str, run_eda: bool = False, run_shap: bool = False, save_res
 
 if __name__ == "__main__":
     # 데이터 파일 경로 설정
-    # 현재 스크립트의 data 폴더에서 데이터 파일 찾기
+    # 프로젝트 루트 경로를 기준으로 데이터 파일 찾기
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    data_path = os.path.join(r"C:\dev\SKN18-FINAL-1TEAM\data\통합.csv")
+    project_root = os.path.abspath(os.path.join(current_dir, "..", "..", "..", ".."))
+    data_path = os.path.join(project_root, "data", "통합.csv")
 
     # 파이프라인 실행
     # run_eda=True: EDA 시각화 실행
     # run_shap=True: SHAP 분석 실행
+    # save_results=True: 결과 저장 (모델, 예측, 지표, 그래프)
+    # tune_params=True: 하이퍼파라미터 튜닝 실행
+
+    # 기본 실행 예시
     model, df_ml, X_train, X_test, y_train, y_test, y_pred, metrics = main(
         data_path=data_path,
-        run_eda=False,  # EDA 시각화 필요 시 True로 변경
-        run_shap=False  # SHAP 분석 필요 시 True로 변경
+        run_eda=False,
+        run_shap=False,
+        save_results=True,
+        tune_params=False,
+        experiment_name="clean_features_v1",
+        experiment_notes="기본 설정으로 실행"
     )

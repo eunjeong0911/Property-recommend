@@ -837,6 +837,64 @@ def create_all_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def add_derived_features(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    타깃 누수를 피하면서 유의미한 파생 특성만 추가합니다.
+
+    가설:
+    1. 옵션이 많을수록 가격이 높을 것
+    2. 상대적 층 위치(비율)가 가격에 영향을 줄 것
+
+    Args:
+        df: 특성 엔지니어링이 완료된 데이터프레임
+
+    Returns:
+        pd.DataFrame: 파생 특성이 추가된 데이터프레임
+    """
+    # 1. 총 옵션 개수 (타깃과 독립적)
+    df["옵션개수"] = df["통합옵션"].apply(lambda x: len(x) if isinstance(x, list) else 0)
+
+    # 2. 층 비율 (해당층 / 전체층) - 상대적 위치
+    # 층 정보 추출 함수 재사용
+    def get_floor_ratio(value):
+        if pd.isna(value):
+            return None
+
+        s = str(value).strip()
+        parts = s.split('/')
+
+        if len(parts) != 2:
+            return None
+
+        floor_raw = parts[0].strip()
+        total_raw = parts[1].strip()
+
+        # 숫자 추출
+        import re
+        m_floor = re.search(r'-?\d+', floor_raw)
+        m_total = re.search(r'\d+', total_raw)
+
+        if m_floor and m_total:
+            floor_num = int(m_floor.group(0))
+            total_floors = int(m_total.group(0))
+
+            # 지하층은 비율 계산 안 함
+            if floor_num < 0 or total_floors == 0:
+                return None
+
+            return round(floor_num / total_floors, 3)
+
+        return None
+
+    df["층비율"] = df["매물_정보.해당층/전체층"].apply(get_floor_ratio) if "매물_정보.해당층/전체층" in df.columns else None
+
+    # 층비율이 None인 경우 0.5로 대체 (중간층 가정)
+    if "층비율" in df.columns:
+        df["층비율"] = df["층비율"].fillna(0.5)
+
+    return df
+
+
 def prepare_ml_features(df: pd.DataFrame) -> pd.DataFrame:
     """
     머신러닝 모델 학습을 위한 최종 특성 데이터프레임을 생성합니다.
@@ -847,6 +905,9 @@ def prepare_ml_features(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         pd.DataFrame: 모델 학습용 특성 데이터프레임
     """
+    # 파생 특성 추가
+    df = add_derived_features(df)
+
     feature_cols = [
         "환산보증금",
         "전용면적_평",
@@ -862,6 +923,9 @@ def prepare_ml_features(df: pd.DataFrame) -> pd.DataFrame:
         "구",
         "동",
         "통합옵션",
+        # 파생 특성 (타깃 누수 없이)
+        "옵션개수",
+        "층비율",
     ]
 
     df_ml = df[feature_cols].copy()

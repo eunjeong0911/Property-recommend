@@ -7,7 +7,7 @@ import pickle
 from datetime import datetime
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, RandomizedSearchCV
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.utils.validation import check_is_fitted
 from xgboost import XGBRegressor
@@ -41,8 +41,9 @@ def split_data(df: pd.DataFrame, target_col: str = "환산보증금",
 
 def create_model(n_estimators: int = 1000, learning_rate: float = 0.05,
                  max_depth: int = 6, subsample: float = 0.8,
-                 colsample_bytree: float = 0.8, random_state: int = 42,
-                 n_jobs: int = -1, tree_method: str = 'hist'):
+                 colsample_bytree: float = 0.8, min_child_weight: int = 1,
+                 gamma: float = 0, reg_alpha: float = 0, reg_lambda: float = 1,
+                 random_state: int = 42, n_jobs: int = -1, tree_method: str = 'hist'):
     """
     XGBoost 모델을 생성합니다.
 
@@ -52,6 +53,10 @@ def create_model(n_estimators: int = 1000, learning_rate: float = 0.05,
         max_depth: 트리 최대 깊이
         subsample: 서브샘플링 비율
         colsample_bytree: 컬럼 서브샘플링 비율
+        min_child_weight: 최소 자식 가중치
+        gamma: 노드 분할 최소 손실 감소
+        reg_alpha: L1 정규화 (alpha)
+        reg_lambda: L2 정규화 (lambda)
         random_state: 랜덤 시드
         n_jobs: 병렬 처리 작업 수
         tree_method: 트리 생성 방법
@@ -65,12 +70,76 @@ def create_model(n_estimators: int = 1000, learning_rate: float = 0.05,
         max_depth=max_depth,
         subsample=subsample,
         colsample_bytree=colsample_bytree,
+        min_child_weight=min_child_weight,
+        gamma=gamma,
+        reg_alpha=reg_alpha,
+        reg_lambda=reg_lambda,
         random_state=random_state,
         n_jobs=n_jobs,
         tree_method=tree_method
     )
 
     return model
+
+
+def tune_hyperparameters(X_train, y_train, n_iter: int = 50, cv: int = 5, random_state: int = 42):
+    """
+    RandomizedSearchCV로 하이퍼파라미터를 튜닝합니다.
+
+    Args:
+        X_train: 학습 특성
+        y_train: 학습 타깃
+        n_iter: 탐색할 조합 수
+        cv: 교차 검증 폴드 수
+        random_state: 랜덤 시드
+
+    Returns:
+        dict: 최적 파라미터
+    """
+    print("\n하이퍼파라미터 튜닝 시작...")
+    print(f"탐색 횟수: {n_iter}, 교차 검증: {cv}-fold")
+
+    # 로그 변환
+    y_train_log = np.log1p(y_train)
+
+    # 탐색할 파라미터 범위 (더 공격적으로 확장)
+    param_distributions = {
+        'n_estimators': [1500, 2000, 2500, 3000],
+        'learning_rate': [0.01, 0.02, 0.03, 0.05, 0.07, 0.1],
+        'max_depth': [8, 10, 12, 15, 20],
+        'min_child_weight': [1, 2, 3, 5, 7],
+        'subsample': [0.6, 0.7, 0.8, 0.85, 0.9, 0.95],
+        'colsample_bytree': [0.6, 0.7, 0.8, 0.85, 0.9, 0.95],
+        'gamma': [0, 0.05, 0.1, 0.2, 0.3],
+        'reg_alpha': [0, 0.01, 0.1, 0.5, 1, 2],
+        'reg_lambda': [0.5, 1, 1.5, 2, 3, 5]
+    }
+
+    # 기본 모델 생성
+    base_model = XGBRegressor(
+        random_state=random_state,
+        n_jobs=-1,
+        tree_method='hist'
+    )
+
+    # RandomizedSearchCV 실행
+    random_search = RandomizedSearchCV(
+        estimator=base_model,
+        param_distributions=param_distributions,
+        n_iter=n_iter,
+        cv=cv,
+        scoring='r2',
+        n_jobs=-1,
+        random_state=random_state,
+        verbose=2
+    )
+
+    random_search.fit(X_train, y_train_log)
+
+    print(f"\n최적 파라미터: {random_search.best_params_}")
+    print(f"최적 R² 점수 (CV): {random_search.best_score_:.4f}")
+
+    return random_search.best_params_
 
 
 def is_fitted_model(m):
@@ -242,13 +311,16 @@ def create_comparison_dataframe(y_test, y_pred, num_samples: int = 10):
     return df_compare
 
 
-def full_train_and_evaluate(df_ml: pd.DataFrame, target_col: str = "환산보증금"):
+def full_train_and_evaluate(df_ml: pd.DataFrame, target_col: str = "환산보증금",
+                           tune_params: bool = False, n_iter: int = 20):
     """
     전체 학습 및 평가 파이프라인을 실행합니다.
 
     Args:
         df_ml: 머신러닝용 특성 데이터프레임
         target_col: 타깃 컬럼명
+        tune_params: 하이퍼파라미터 튜닝 실행 여부
+        n_iter: 튜닝 시 탐색할 조합 수
 
     Returns:
         tuple: (model, X_train, X_test, y_train, y_test, y_pred, metrics)
@@ -256,8 +328,13 @@ def full_train_and_evaluate(df_ml: pd.DataFrame, target_col: str = "환산보증
     # 1. 데이터 분할
     X_train, X_test, y_train, y_test = split_data(df_ml, target_col)
 
-    # 2. 모델 생성
-    model = create_model()
+    # 2. 하이퍼파라미터 튜닝 (옵션)
+    if tune_params:
+        best_params = tune_hyperparameters(X_train, y_train, n_iter=n_iter)
+        model = create_model(**best_params)
+    else:
+        # 기본 모델 생성
+        model = create_model()
 
     # 3. 모델 학습
     model = train_model(model, X_train, y_train)
@@ -420,3 +497,105 @@ def save_metrics(metrics: dict, output_dir: str = None, filename: str = None):
 
     print(f"✓ 평가 지표 저장 완료: {filepath}")
     return filepath
+
+
+def log_experiment(model, metrics: dict, experiment_name: str = None, notes: str = ""):
+    """
+    실험 결과를 experiment_log.csv에 기록합니다.
+
+    Args:
+        model: 학습된 XGBoost 모델
+        metrics: 평가 지표 딕셔너리
+        experiment_name: 실험 이름
+        notes: 실험 노트
+
+    Returns:
+        str: 로그 파일 경로
+    """
+    # 로그 파일 경로
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    log_dir = os.path.join(current_dir, "experiments")
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = os.path.join(log_dir, "experiment_log.csv")
+
+    # 타임스탬프
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # 모델 파라미터 추출
+    params = model.get_params()
+
+    # 실험 데이터 준비
+    experiment_data = {
+        "timestamp": timestamp,
+        "experiment_name": experiment_name or f"exp_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+        "n_estimators": params.get('n_estimators'),
+        "learning_rate": params.get('learning_rate'),
+        "max_depth": params.get('max_depth'),
+        "min_child_weight": params.get('min_child_weight'),
+        "subsample": params.get('subsample'),
+        "colsample_bytree": params.get('colsample_bytree'),
+        "gamma": params.get('gamma'),
+        "reg_alpha": params.get('reg_alpha'),
+        "reg_lambda": params.get('reg_lambda'),
+        "MAE": metrics['MAE'],
+        "RMSE": metrics['RMSE'],
+        "R2": metrics['R2'],
+        "MAPE": metrics['MAPE'],
+        "notes": notes
+    }
+
+    # DataFrame으로 변환
+    df_new = pd.DataFrame([experiment_data])
+
+    # 기존 로그 파일이 있으면 추가, 없으면 새로 생성
+    if os.path.exists(log_file):
+        df_existing = pd.read_csv(log_file, encoding='utf-8-sig')
+        df_combined = pd.concat([df_existing, df_new], ignore_index=True)
+    else:
+        df_combined = df_new
+
+    # CSV 저장
+    df_combined.to_csv(log_file, index=False, encoding='utf-8-sig')
+
+    print(f"✓ 실험 결과 로그 저장: {log_file}")
+    return log_file
+
+
+def compare_experiments(top_n: int = 10):
+    """
+    실험 로그를 읽어서 상위 N개의 실험을 R² 기준으로 비교합니다.
+
+    Args:
+        top_n: 상위 N개 실험 표시
+
+    Returns:
+        pd.DataFrame: 상위 실험 결과
+    """
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    log_file = os.path.join(current_dir, "experiments", "experiment_log.csv")
+
+    if not os.path.exists(log_file):
+        print("실험 로그 파일이 없습니다.")
+        return None
+
+    # 로그 파일 읽기
+    df = pd.read_csv(log_file, encoding='utf-8-sig')
+
+    # R² 기준으로 정렬
+    df_sorted = df.sort_values('R2', ascending=False).head(top_n)
+
+    print("\n" + "="*120)
+    print(f"상위 {top_n}개 실험 결과 (R² 기준)")
+    print("="*120)
+
+    # 주요 컬럼만 표시
+    display_cols = ['experiment_name', 'timestamp', 'R2', 'MAE', 'RMSE', 'MAPE',
+                    'learning_rate', 'max_depth', 'n_estimators']
+
+    # 존재하는 컬럼만 필터링
+    display_cols = [col for col in display_cols if col in df_sorted.columns]
+
+    print(df_sorted[display_cols].to_string(index=False))
+    print("="*120)
+
+    return df_sorted
