@@ -289,7 +289,7 @@ export default function Chatbot() {
       <div
         className={`
           absolute bottom-0 right-0
-          w-96 h-[600px] bg-white rounded-lg shadow-2xl
+          w-[500px] h-[650px] bg-white rounded-lg shadow-2xl
           flex flex-col
           transition-all duration-300 ease-in-out
           ${isOpen

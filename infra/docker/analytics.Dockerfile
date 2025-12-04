@@ -4,15 +4,11 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y \
     gcc \
-    postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 COPY infra/docker/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY apps/backend .
-COPY libs /libs
+COPY analytics .
 
-ENV PYTHONPATH=/app:/libs
-
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+CMD ["jupyter", "notebook", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root"]

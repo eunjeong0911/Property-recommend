@@ -7,8 +7,25 @@ def generate(state: RAGState) -> RAGState:
 
     question = state["question"]
     graph_results = state.get("graph_results", [])
+    sql_results = state.get("sql_results", [])
     
-    # Filter out duplicate property IDs (not addresses - same address can have multiple properties)
+    print(f"[Generate] graph_results type: {type(graph_results)}")
+    print(f"[Generate] sql_results count: {len(sql_results) if sql_results else 0}")
+    
+    # graph_results가 딕셔너리이고 'context' 키가 있는 경우 처리
+    if isinstance(graph_results, dict) and 'context' in graph_results:
+        graph_results = graph_results['context']
+        print(f"[Generate] Extracted context, new length: {len(graph_results)}")
+    
+    # PostgreSQL 결과를 매물번호로 인덱싱
+    sql_details = {}
+    for item in sql_results:
+        land_num = item.get('land_num')
+        if land_num:
+            sql_details[str(land_num)] = item
+            print(f"[Generate] Indexed SQL detail for land_num: {land_num}")
+    
+    # Filter out duplicate property IDs and merge with PostgreSQL details
     unique_results = []
     seen_ids = set()
     
@@ -19,9 +36,13 @@ def generate(state: RAGState) -> RAGState:
                 prop_id = item.get('p.id') or item.get('id')
                 if prop_id and prop_id not in seen_ids:
                     seen_ids.add(prop_id)
-                    unique_results.append(item)
+                    # PostgreSQL 상세 정보 병합
+                    merged = {**item}
+                    if str(prop_id) in sql_details:
+                        merged['postgres_details'] = sql_details[str(prop_id)]
+                        print(f"[Generate] Merged postgres_details for {prop_id}")
+                    unique_results.append(merged)
                 elif not prop_id:
-                    # If no ID, fall back to address to avoid truly identical entries
                     address = item.get('p.address') or item.get('address')
                     if address and address not in seen_ids:
                         seen_ids.add(address)
@@ -31,7 +52,11 @@ def generate(state: RAGState) -> RAGState:
             prop_id = result.get('p.id') or result.get('id')
             if prop_id and prop_id not in seen_ids:
                 seen_ids.add(prop_id)
-                unique_results.append(result)
+                merged = {**result}
+                if str(prop_id) in sql_details:
+                    merged['postgres_details'] = sql_details[str(prop_id)]
+                    print(f"[Generate] Merged postgres_details for {prop_id}")
+                unique_results.append(merged)
             elif not prop_id:
                 address = result.get('p.address') or result.get('address')
                 if address and address not in seen_ids:
@@ -40,6 +65,7 @@ def generate(state: RAGState) -> RAGState:
     
     # Use unique results for context
     context = unique_results if unique_results else graph_results
+    print(f"[Generate] Final context count: {len(context)}")
 
     # Simple generation using LLM
     llm = ChatOpenAI(model="gpt-5-mini", temperature=0)
@@ -48,75 +74,67 @@ def generate(state: RAGState) -> RAGState:
         """
         다음 검색 결과를 바탕으로 사용자의 질문에 답변해 주세요.
         
-        검색 결과:
+        검색 결과 (Neo4j 위치 기반 + PostgreSQL 상세 정보):
         {context}
 
+        데이터 구조 설명:
+        - Neo4j 결과: p.id, p.address, p.bldg_type, subway_station_name, subway_station_dist 등 위치/거리 정보
+        - postgres_details: 매물의 상세 정보 (PostgreSQL Land 테이블)
+          - building_type: 건물 유형 (빌라주택, 아파트, 오피스텔, 원투룸)
+          - trade_info: 거래 정보 (거래방식, 관리비, 융자금, 입주가능일 등)
+          - listing_info: 매물 상세 (전용면적, 층수, 방/욕실 개수, 옵션 등)
+          - additional_options: 추가 옵션 (풀옵션, 엘리베이터, 주차가능 등)
+          - description: 상세 설명
+          - agent_info: 중개사 정보
+          - url: 매물 상세 페이지 URL
+
         핵심 원칙 (Core Principles):
-        1. **사용자 질문 내용 최대한 반영**
-           - 사용자가 질문에서 언급한 시설/조건(예: 편의점, CCTV, 병원, 역 등)은 검색 결과에 있으면 최대한 답변에 포함하세요
+        1. **PostgreSQL 상세 정보 적극 활용**
+           - postgres_details가 있으면 listing_info의 옵션, 시설, 면적 등을 답변에 포함하세요
+           - trade_info에서 정확한 가격, 관리비, 입주가능일 정보를 추출하세요
+           - additional_options에서 풀옵션, 엘리베이터, 주차 등 편의시설 정보를 표시하세요
            
         2. **정확성 최우선 - Hallucination 금지**
            - 검색 결과에 없는 정보는 절대 만들어내지 마세요
-           - 확실하게 확인된 데이터만 제공하고, 불확실한 정보는 "정보 없음" 또는 생략하세요
+           - 확실하게 확인된 데이터만 제공하세요
            
         3. **CCTV/비상벨은 개수로만 표시**
            - "반경 내 CCTV [cctv_count]대, 비상벨 [bell_count]개" 형식
-           - 거리나 시간이 아닌 개수만 표시하세요
            
         4. **시설 정보는 거리+시간 필수**
-           - 시설(병원, 편의점 등)을 언급할 때는 반드시: "[시설명] (거리 약 [dist]m / 도보 약 [time]분)"
-           - 이름만 쓰고 거리/시간을 생략하지 마세요
+           - "[시설명] (거리 약 [dist]m / 도보 약 [time]분)"
 
         지침:
         1. **검색 결과가 없거나 비어있는 경우**:
-           - "죄송합니다. 요청하신 모든 조건을 만족하는 매물을 찾지 못했습니다."라고 정중하게 답변해 주세요.
-           - "조건을 조금 완화하거나 다른 지역으로 검색해 보시겠어요?"라고 제안해 주세요.
+           - "죄송합니다. 요청하신 조건을 만족하는 매물을 찾지 못했습니다."
+           - "조건을 조금 완화하거나 다른 지역으로 검색해 보시겠어요?"
 
-        2. **검색 결과가 있는 경우 (Result Generation)**:
-           - **선별 로직 (Selection Logic)**: 검색 결과는 관련성 순으로 정렬되어 있습니다. 리스트에서 **상위 3개 매물을 선정하여 1순위(옵션 A), 2순위(옵션 B), 3순위(옵션 C)로 제시**하세요.
-           - **매물 부족 시 처리**: 만약 적합한 매물이 3개 미만이라면, **억지로 채우지 말고 찾은 만큼만(예: 1순위만, 또는 1-2순위만) 표시**하세요.
-           - **절대 시설을 매물로 둔갑시키지 마세요**: 검색 결과의 `convenience_name`, `hospital_name` 등은 주변 시설일 뿐, 추천할 매물이 아닙니다. **반드시 `p.address`와 `p.bldg_type`이 명확한 데이터만 매물로 추천하세요.**
-           - **사용자 질문 내용 최대한 반영**: 사용자가 질문에서 언급한 시설/조건(예: 편의점, CCTV, 병원 등)은 검색 결과에 있으면 최대한 답변에 포함하세요. 검색 결과에 없으면 "해당 정보 없음"으로 명시하세요.
-           - **정확성 최우선 (절대 금지: Hallucination)**: 검색 결과에 없는 정보는 절대 만들어내거나 추측하지 마세요. 확실하게 확인된 데이터만 제공하고, 불확실한 정보는 "정보 없음" 또는 생략하세요.
-           - **가격 정보 표시 (Price Info)**:
-             - `trade_type_raw`가 있으면 그대로 표시 (예: "월세 1,000만원/70만원")
-             - `trade_type_raw`가 없으면:
-               - `monthly_rent` > 0 이면: "월세 [deposit] / [monthly_rent]"
-               - `monthly_rent` == 0 이면: "전세 [deposit]"
-               - `trade_type`이 매매이면: "매매 [price]"
-             - (단위는 '만원' 또는 '억' 등을 적절히 사용하세요)
-           - 각 옵션은 다음 형식을 반드시 지켜주세요:
+        2. **검색 결과가 있는 경우**:
+           - 상위 3개 매물을 1순위, 2순위, 3순위로 제시
+           - 각 옵션 형식:
            
            **1순위 (옵션 A)**
            - **주소**: [주소]
-           - **타입**: [건물형태]
-           - **가격**: [가격 정보 (예: 전세 1억 2000 / 관리비 5만)]
-           - **역 접근성**: [가장 가까운 역 이름]까지 도보 약 [subway_station_time]분 ([subway_station_dist]m)
-             *(필수: 검색 결과에 `subway_station_name`, `subway_station_dist`, `subway_station_time`이 있으면 반드시 표시하세요. 없으면 "정보 없음"으로 표시)*
-           - **안전 시설**: 반경 내 CCTV [cctv_count]대, 비상벨 [bell_count]개
-             *(조건부 표시: 사용자가 질문에서 CCTV나 비상벨을 언급했을 때만 이 섹션을 표시하세요. 언급 안 했으면 이 줄 전체를 생략하세요.)*
-           - **가까운 시설**:
-             - [시설명1] (거리 약 [facility1_dist]m / 도보 약 [facility1_time]분)
-             - [시설명2] (거리 약 [facility2_dist]m / 도보 약 [facility2_time]분)
-             - [시설명2] (거리 약 [facility2_dist]m / 도보 약 [facility2_time]분)
-             *(주의: `subway_station_dist`와 `subway_station_time`은 위에서 이미 언급했으므로 여기서는 제외하세요. 
-             **CCTV와 비상벨은 "안전 시설" 섹션에 개수로 표시하므로 여기서는 절대 포함하지 마세요.**
-             그 외 검색 결과에 포함된 시설(병원, 약국, 편의점 등)을 표시하세요. **단, 같은 거리와 시간을 가진 중복 시설은 하나만 표시하세요.**)*
-           - **한줄 요약**: [이 매물의 장점 요약]
+           - **타입**: [건물형태] (postgres_details.building_type 활용)
+           - **가격**: [거래방식 + 가격] (postgres_details.trade_info.거래방식 활용)
+           - **관리비**: [관리비 정보] (postgres_details.trade_info.관리비 활용)
+           - **면적/구조**: [전용면적, 방/욕실 개수] (postgres_details.listing_info 활용)
+           - **역 접근성**: [역 이름]까지 도보 약 [time]분 ([dist]m)
+           - **옵션/시설**: [풀옵션, 엘리베이터, 주차 등] (postgres_details.additional_options + listing_info.생활시설 활용)
+           - **입주가능일**: [입주가능일] (postgres_details.trade_info.입주가능일 활용)
+           - **매물 링크**: [url] (postgres_details.url 활용)
+           - **한줄 요약**: [이 매물의 장점]
 
-        3. **데이터 정확성 및 누락 처리**:
-           - `OPTIONAL MATCH`로 인해 일부 시설 정보가 없을 수 있습니다. 이 경우 "정보 없음"이라고 표기하기보다 해당 항목을 아예 생략하는 것이 깔끔합니다.
-           - 30m 거리에 29분이 걸린다는 식의 비상식적인 데이터가 있다면, 데이터 그대로 표시하되 "(데이터 확인 필요)"라고 덧붙여 주세요.
-           - 서로 다른 시설의 거리와 시간을 섞어 쓰지 마세요.
+        3. **데이터 누락 처리**:
+           - postgres_details가 없는 매물은 Neo4j 정보만으로 표시
+           - 없는 항목은 생략
 
-        4. 옵션 나열 후, **추천** 섹션을 작성해 주세요.
-           - **종합 추천**: 가장 추천하는 옵션과 그 이유를 설명하세요.
-           - **상황별 추천**: 특정 조건(예: 병원 접근성, 역 접근성 등)을 중시하는 경우에 대한 추천을 덧붙이세요.
+        4. **추천** 섹션 작성:
+           - 종합 추천과 상황별 추천
 
-        5. 마지막으로 **추가 제안**을 해주세요.
-           - 비교 표 제공이나 다른 조건 검색 제안 등을 포함하세요.
+        5. **추가 제안**: 다른 조건 검색 제안
         
-        6. 톤앤매너: 전문적이면서도 친절하게 답변해 주세요.
+        6. 톤앤매너: 전문적이면서도 친절하게
         
         질문: {question}
         """
@@ -124,7 +142,8 @@ def generate(state: RAGState) -> RAGState:
     
     chain = prompt | llm | StrOutputParser()
     
-    answer = chain.invoke({"question": question, "context": graph_results})
+    # context (병합된 결과)를 전달
+    answer = chain.invoke({"question": question, "context": context})
     
     state["answer"] = answer
     return state
