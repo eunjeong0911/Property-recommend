@@ -16,11 +16,11 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useStore } from '@/store/useStore'
+import { useSession } from 'next-auth/react'
 
 export default function Header() {
   const pathname = usePathname()
-  const { user, setUser } = useStore()
+  const { data: session, status } = useSession()
 
   // 로그인 페이지에서는 Header를 표시하지 않음
   if (pathname === '/login') {
@@ -57,7 +57,7 @@ export default function Header() {
           </Link>
 
           {/* 마이페이지 버튼 (로그인 상태일 때) */}
-          {user && (
+          {session && (
             <Link
               href="/my"
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
@@ -66,8 +66,8 @@ export default function Header() {
             </Link>
           )}
 
-          {/* 로그인 버튼 (비로그인 상태일 때 - 가장 오른쪽) */}
-          {!user && (
+          {/* 로그인 버튼 (비로그인 상태일 때) */}
+          {!session && status !== 'loading' && (
             <Link
               href="/login"
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"

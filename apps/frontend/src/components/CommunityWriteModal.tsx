@@ -56,15 +56,15 @@ export default function CommunityWriteModal({
     setRegionData(filter)
   }
 
-  const handleSubmit = (values: CommunityWriteFormValues) => {
+  const handleSubmit = async (values: CommunityWriteFormValues) => {
     if (showRegionFilter) {
       if (!regionData.region || !regionData.dong || !regionData.complexName) {
-        alert('지역, 동, 단지명을 모두 선택해주세요.')
+        alert('지역 및 단지를 모두 선택해주세요.')
         return
       }
-      onSubmit(values, regionData)
+      await onSubmit(values, regionData)
     } else {
-      onSubmit(values)
+      await onSubmit(values)
     }
     onClose()
   }

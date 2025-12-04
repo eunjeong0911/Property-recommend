@@ -1,8 +1,0 @@
-Django>=4.2,<5.0
-djangorestframework>=3.14
-psycopg2-binary>=2.9
-pgvector>=0.2
-neo4j>=5.15
-redis>=5.0
-python-dotenv>=1.0
-pydantic>=2.5
