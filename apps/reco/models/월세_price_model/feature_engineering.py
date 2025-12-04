@@ -699,17 +699,47 @@ def parse_desc_keywords(x):
 
 def parse_life_options(x):
     """
-    생활시설 문자열을 옵션 리스트로 변환
+    생활시설 문자열(또는 리스트)을 옵션 리스트로 변환
 
     Args:
-        x: 생활시설 문자열 (쉼표로 구분)
+        x: 생활시설 문자열/리스트/배열
 
     Returns:
         list: 옵션 리스트
     """
-    if pd.isna(x):
+    def _split(text: str):
+        return [part.strip() for part in text.split(",") if part and part.strip()]
+
+    if x is None:
         return []
-    return [item.strip() for item in str(x).split(',') if item.strip() != '']
+
+    # numpy 배열 등은 리스트로 변환
+    if isinstance(x, np.ndarray):
+        x = x.tolist()
+
+    if isinstance(x, (list, tuple, set)):
+        result = []
+        for item in x:
+            if item is None:
+                continue
+            if isinstance(item, str):
+                result.extend(_split(item))
+            else:
+                result.extend(_split(str(item)))
+        return result
+
+    if isinstance(x, str):
+        if x.strip() == "" or x.strip() == "-":
+            return []
+        return _split(x)
+
+    try:
+        if pd.isna(x):
+            return []
+    except (TypeError, ValueError):
+        pass
+
+    return _split(str(x))
 
 
 def clean_unified_options(option_list):
@@ -726,22 +756,25 @@ def clean_unified_options(option_list):
     """
     cleaned = []
 
-    if not isinstance(option_list, list):
+    if isinstance(option_list, str):
+        option_list = [option_list]
+    elif not isinstance(option_list, list):
         return []
 
     for item in option_list:
-        if isinstance(item, str):
-            # '|' 로 분리
-            parts = item.split('|')
-            for p in parts:
-                p = p.strip()
-                if p:
-                    cleaned.append(p)
-        else:
-            # 혹시 문자열 외 타입이면 무시
+        if not isinstance(item, str):
             continue
 
-    # 중복 제거 후 정렬(선택)
+        parts = item.split('|')
+        for p in parts:
+            p = p.strip()
+            if not p:
+                continue
+            # 대괄호/따옴표 등 노이즈 제거
+            p = p.strip("[]'\" ")
+            if p:
+                cleaned.append(p)
+
     return sorted(set(cleaned))
 
 

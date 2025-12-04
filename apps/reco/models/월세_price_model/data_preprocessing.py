@@ -1,23 +1,69 @@
 """
 데이터 로딩 및 전처리 모듈
 """
+import json
+from pathlib import Path
+from typing import Iterable, List, Union
+
 import pandas as pd
-import numpy as np
+
+PathInput = Union[str, Path]
+FileInput = Union[PathInput, Iterable[PathInput]]
 
 
-def load_data(file_path: str, encoding: str = "utf-8") -> pd.DataFrame:
+def _normalize_file_inputs(file_path: FileInput) -> List[Path]:
+    """파일 경로 입력을 Path 리스트로 정규화합니다."""
+    if isinstance(file_path, (str, Path)):
+        return [Path(file_path)]
+
+    if isinstance(file_path, Iterable):
+        paths: List[Path] = []
+        for item in file_path:
+            if isinstance(item, (str, Path)):
+                paths.append(Path(item))
+            else:
+                raise TypeError("file_path의 항목은 문자열 또는 Path 여야 합니다.")
+
+        if not paths:
+            raise ValueError("최소 한 개 이상의 데이터 파일 경로가 필요합니다.")
+        return paths
+
+    raise TypeError("file_path는 문자열/Path 또는 그들의 Iterable 이어야 합니다.")
+
+
+def load_data(file_path: FileInput, encoding: str = "utf-8") -> pd.DataFrame:
     """
-    CSV 파일을 로드합니다.
+    CSV 또는 JSON 파일(복수 가능)을 로드합니다.
 
     Args:
-        file_path: CSV 파일 경로
+        file_path: 단일 경로 혹은 경로 리스트
         encoding: 파일 인코딩 (기본값: utf-8)
 
     Returns:
         pd.DataFrame: 로드된 데이터프레임
     """
-    df = pd.read_csv(file_path, encoding=encoding)
-    return df
+    paths = _normalize_file_inputs(file_path)
+    frames: List[pd.DataFrame] = []
+
+    for path in paths:
+        resolved = Path(path)
+        if not resolved.exists():
+            raise FileNotFoundError(f"데이터 파일을 찾을 수 없습니다: {resolved}")
+
+        suffix = resolved.suffix.lower()
+        if suffix == ".json":
+            with resolved.open("r", encoding=encoding) as f:
+                raw = json.load(f)
+            df = pd.json_normalize(raw, sep='.')
+        else:
+            df = pd.read_csv(resolved, encoding=encoding)
+
+        frames.append(df)
+
+    if not frames:
+        return pd.DataFrame()
+
+    return pd.concat(frames, ignore_index=True)
 
 
 def filter_walse_data(df: pd.DataFrame) -> pd.DataFrame:
@@ -111,7 +157,7 @@ def remove_null_dong(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def preprocess_data(file_path: str) -> pd.DataFrame:
+def preprocess_data(file_path: FileInput) -> pd.DataFrame:
     """
     전체 데이터 전처리 파이프라인을 실행합니다.
 

@@ -51,8 +51,7 @@ except ImportError:
         save_model,
         save_predictions,
         save_metrics,
-        log_experiment,
-        compare_experiments
+        log_experiment
     )
     from visualization import (
         plot_all_eda,
