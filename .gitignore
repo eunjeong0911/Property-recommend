@@ -76,11 +76,9 @@ data/
 
 .kiro
 
-# 실거래가 월/전세 ML 모델 실험 결과 로그
-apps/reco/models/월세_price_model/models/
-apps/reco/models/월세_price_model/results/
-apps/reco/models/월세_price_model/experiments/
-
-apps/reco/models/전세_price_model/results/
-apps/reco/models/전세_price_model/models/
-apps/reco/models/전세_price_model/experiments/
+# 전세 ML 모델 실험 결과 로그
+apps/reco/models/jeonse/models/
+apps/reco/models/jeonse/experiments/
+apps/reco/models/jeonse/notebooks/catboost_info/
+apps/reco/models/jeonse/outputs/
+apps/reco/models/jeonse/results/
