@@ -1,5 +1,5 @@
 import pandas as pd
-import os
+from pathlib import Path
 
 def load_data(input_path=None):
     """
@@ -9,12 +9,14 @@ def load_data(input_path=None):
     
     # 경로 자동 탐색
     if input_path is None:
-        # 현재 파일 위치에서 프로젝트 루트 찾기
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.abspath(os.path.join(current_dir, "..", "..", "..", "..", ".."))
-        input_path = os.path.join(project_root, "data", "seoul_broker_clean.csv")
+        # 현재 파일 기준으로 data 폴더 찾기
+        current_file = Path(__file__)
+        data_dir = current_file.parent.parent.parent.parent.parent.parent / "data"
+        input_path = data_dir / "seoul_broker_clean.csv"
+    else:
+        input_path = Path(input_path)
     
-    if not os.path.exists(input_path):
+    if not input_path.exists():
         raise FileNotFoundError(f"❌ 데이터 파일을 찾을 수 없습니다: {input_path}")
     
     df = pd.read_csv(input_path)

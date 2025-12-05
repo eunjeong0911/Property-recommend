@@ -1,7 +1,7 @@
-import os
 import pickle
 import pandas as pd
 import numpy as np
+from pathlib import Path
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from sklearn.preprocessing import RobustScaler, LabelEncoder
@@ -20,8 +20,8 @@ except ImportError:
     XGBOOST_AVAILABLE = False
     print("⚠️  XGBoost not installed. Install with: pip install xgboost")
 
-BASE_DIR = os.path.dirname(os.path.dirname(__file__))
-MODEL_DIR = os.path.join(BASE_DIR, "models")
+# 모델 저장 경로
+MODEL_DIR = Path(__file__).parent.parent / "models"
 
 
 def get_feature_list():
@@ -314,7 +314,7 @@ def train_classification_ensemble(df):
             print(f"   - {grade}등급: {acc:.1%} ({(y_pred_labels[mask] == grade).sum()}/{mask.sum()})")
 
     # 모델 저장
-    os.makedirs(MODEL_DIR, exist_ok=True)
+    MODEL_DIR.mkdir(exist_ok=True)
 
     base_model_names = ['RandomForest', 'GradientBoosting', 'ExtraTrees']
     if XGBOOST_AVAILABLE:
@@ -341,7 +341,7 @@ def train_classification_ensemble(df):
         }
     }
     
-    model_path = os.path.join(MODEL_DIR, "voting_ensemble.pkl")
+    model_path = MODEL_DIR / "voting_ensemble.pkl"
     with open(model_path, "wb") as f:
         pickle.dump(model_package, f)
 
