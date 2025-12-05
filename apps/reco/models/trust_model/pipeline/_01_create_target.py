@@ -3,11 +3,15 @@ import numpy as np
 
 def create_regression_target(df):
     """
-    회귀 문제를 위한 타겟 생성
+    다중 분류 문제를 위한 타겟 생성: 중개사 등급 분류
     
-    규칙 기반 라벨 대신, 실제 데이터를 조합한 신뢰도 점수 생성
+    Target: 3등급 (A, B, C)
+    - 기준: 거래성사율 분위수
+    - A: 상위 33% (우수)
+    - B: 중위 33% (보통)
+    - C: 하위 33% (미흡)
     """
-    print("\n📊 [2단계] 회귀 타겟 생성 (실제 데이터 기반)")
+    print("\n📊 [2단계] 다중 분류 타겟 생성 (3등급)")
 
     df = df.copy()
 
@@ -18,28 +22,39 @@ def create_regression_target(df):
 
     # 기본 지표 계산
     df["영업일수"] = (today - df["registDe"]).dt.days.clip(lower=1)
-    df["일평균거래"] = df["거래완료"] / (df["영업일수"] + 1e-6)
     df["보증보험유효"] = (df["estbsEndDe"] >= today).astype(int)
-    df["거래성사율"] = df["거래완료"] / (df["총매물수"] + 1e-6)
-    
-    # 지역 평균
-    region_mean = df.groupby("ldCodeNm")["거래완료"].mean()
-    df["지역권평균거래"] = df["ldCodeNm"].map(region_mean)
 
-    # 타겟: 종합 신뢰도 점수 (연속형)
-    # 여러 실제 지표를 조합하여 생성
-    df["trust_target"] = (
-        df["거래완료"] * 0.4 +                    # 실제 거래 실적 40%
-        df["거래성사율"] * 100 * 0.3 +            # 성사율 30%
-        df["일평균거래"] * 50 * 0.2 +             # 활동성 20%
-        df["보증보험유효"] * 10 * 0.1             # 안전성 10%
+    # 거래 성사율 계산 (중간 단계)
+    df["거래성사율"] = df["거래완료"] / (df["총매물수"] + 1e-6) * 100
+
+    # 타겟: 3등급 분류 (분위수 기반)
+    # 각 등급이 균등하게 분포 (33%씩)
+    df["trust_target"] = pd.qcut(
+        df["거래성사율"],
+        q=3,
+        labels=["C", "B", "A"],
+        duplicates='drop'
     )
 
-    print(f"   ✅ 회귀 타겟 생성 완료")
-    print(f"   - 타겟: trust_target (연속형 점수)")
-    print(f"   - 평균: {df['trust_target'].mean():.2f}")
-    print(f"   - 범위: {df['trust_target'].min():.2f} ~ {df['trust_target'].max():.2f}")
-    print(f"   - 표준편차: {df['trust_target'].std():.2f}")
+    print(f"   ✅ 분류 타겟 생성 완료")
+    print(f"   - 타겟: trust_target (3등급 분류)")
+    print(f"   - 기준: 거래성사율 분위수")
+    print(f"   - A: 상위 33% (우수)")
+    print(f"   - B: 중위 33% (보통)")
+    print(f"   - C: 하위 33% (미흡)")
+    print(f"\n   등급 분포:")
+    print(df["trust_target"].value_counts().sort_index())
+    print(f"\n   거래성사율 통계:")
+    print(f"   - 평균: {df['거래성사율'].mean():.2f}%")
+    print(f"   - 범위: {df['거래성사율'].min():.2f}% ~ {df['거래성사율'].max():.2f}%")
+    
+    # 각 등급의 성사율 범위 출력
+    for grade in ["A", "B", "C"]:
+        grade_data = df[df["trust_target"] == grade]["거래성사율"]
+        if len(grade_data) > 0:
+            print(f"   - {grade}등급: {grade_data.min():.1f}% ~ {grade_data.max():.1f}%")
+    
+    print(f"\n   ✅ Feature에서 거래완료 정보 제외 필요")
 
     return df
 
