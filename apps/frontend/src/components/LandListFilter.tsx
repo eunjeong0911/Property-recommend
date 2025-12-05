@@ -21,7 +21,13 @@ const REGION_OPTIONS = ['서울', '경기', '인천', '부산', '대구', '광�
 const TRANSACTION_OPTIONS = ['매매', '전세', '월세'];
 const BUILDING_OPTIONS = ['아파트', '오피스텔', '빌라', '원룸', '투룸'];
 
-export default function LandListFilter() {
+import { LandFilterParams } from '../types/land';
+
+interface LandListFilterProps {
+    onFilterChange?: (params: LandFilterParams) => void;
+}
+
+export default function LandListFilter({ onFilterChange }: LandListFilterProps) {
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
     const [selectedRegion, setSelectedRegion] = useState<string>('');
     const [selectedTransaction, setSelectedTransaction] = useState<string>('');
@@ -42,6 +48,17 @@ export default function LandListFilter() {
             document.removeEventListener("mousedown", handleClickOutside);
         };
     }, []);
+
+    // Notify parent when filters change
+    useEffect(() => {
+        if (onFilterChange) {
+            onFilterChange({
+                region: selectedRegion,
+                transaction_type: selectedTransaction,
+                building_type: selectedBuilding
+            });
+        }
+    }, [selectedRegion, selectedTransaction, selectedBuilding, onFilterChange]);
 
     const toggleDropdown = (name: string, event: React.MouseEvent<HTMLElement>) => {
         setActiveDropdown(activeDropdown === name ? null : name);
@@ -91,8 +108,8 @@ export default function LandListFilter() {
                         <button
                             onClick={(e) => toggleDropdown('region', e)}
                             className={`flex items-center gap-2 px-4 py-2 rounded-full border-2 transition-all ${activeDropdown === 'region' || selectedRegion
-                                    ? 'bg-blue-100 border-blue-300 text-blue-700'
-                                    : 'bg-white/60 border-white/60 text-slate-600 hover:bg-white/80'
+                                ? 'bg-blue-100 border-blue-300 text-blue-700'
+                                : 'bg-white/60 border-white/60 text-slate-600 hover:bg-white/80'
                                 }`}
                         >
                             <span>{selectedRegion || '지역'}</span>
@@ -106,8 +123,8 @@ export default function LandListFilter() {
                                             key={option}
                                             onClick={(e) => handleSelect('region', option, e)}
                                             className={`px-3 py-2 rounded-lg text-sm text-left transition-colors ${selectedRegion === option
-                                                    ? 'bg-blue-100 text-blue-700 font-medium'
-                                                    : 'text-slate-600 hover:bg-slate-100'
+                                                ? 'bg-blue-100 text-blue-700 font-medium'
+                                                : 'text-slate-600 hover:bg-slate-100'
                                                 }`}
                                         >
                                             {option}
@@ -123,8 +140,8 @@ export default function LandListFilter() {
                         <button
                             onClick={(e) => toggleDropdown('transaction', e)}
                             className={`flex items-center gap-2 px-4 py-2 rounded-full border-2 transition-all ${activeDropdown === 'transaction' || selectedTransaction
-                                    ? 'bg-blue-100 border-blue-300 text-blue-700'
-                                    : 'bg-white/60 border-white/60 text-slate-600 hover:bg-white/80'
+                                ? 'bg-blue-100 border-blue-300 text-blue-700'
+                                : 'bg-white/60 border-white/60 text-slate-600 hover:bg-white/80'
                                 }`}
                         >
                             <span>{selectedTransaction || '거래유형'}</span>
@@ -138,8 +155,8 @@ export default function LandListFilter() {
                                             key={option}
                                             onClick={(e) => handleSelect('transaction', option, e)}
                                             className={`px-3 py-2 rounded-lg text-sm text-left transition-colors ${selectedTransaction === option
-                                                    ? 'bg-blue-100 text-blue-700 font-medium'
-                                                    : 'text-slate-600 hover:bg-slate-100'
+                                                ? 'bg-blue-100 text-blue-700 font-medium'
+                                                : 'text-slate-600 hover:bg-slate-100'
                                                 }`}
                                         >
                                             {option}
@@ -155,8 +172,8 @@ export default function LandListFilter() {
                         <button
                             onClick={(e) => toggleDropdown('building', e)}
                             className={`flex items-center gap-2 px-4 py-2 rounded-full border-2 transition-all ${activeDropdown === 'building' || selectedBuilding
-                                    ? 'bg-blue-100 border-blue-300 text-blue-700'
-                                    : 'bg-white/60 border-white/60 text-slate-600 hover:bg-white/80'
+                                ? 'bg-blue-100 border-blue-300 text-blue-700'
+                                : 'bg-white/60 border-white/60 text-slate-600 hover:bg-white/80'
                                 }`}
                         >
                             <span>{selectedBuilding || '건물유형'}</span>
@@ -170,8 +187,8 @@ export default function LandListFilter() {
                                             key={option}
                                             onClick={(e) => handleSelect('building', option, e)}
                                             className={`px-3 py-2 rounded-lg text-sm text-left transition-colors ${selectedBuilding === option
-                                                    ? 'bg-blue-100 text-blue-700 font-medium'
-                                                    : 'text-slate-600 hover:bg-slate-100'
+                                                ? 'bg-blue-100 text-blue-700 font-medium'
+                                                : 'text-slate-600 hover:bg-slate-100'
                                                 }`}
                                         >
                                             {option}
