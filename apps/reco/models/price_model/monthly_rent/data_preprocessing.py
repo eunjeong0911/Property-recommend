@@ -153,7 +153,7 @@ def remove_null_dong(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         pd.DataFrame: '동' 정보가 있는 데이터만 포함된 데이터프레임
     """
-    df = df[df['동'].notna()].copy()
+    df = df[df['동','가'].notna()].copy()
     return df
 
 
