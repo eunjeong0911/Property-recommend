@@ -9,8 +9,8 @@ def create_binary_target(df):
       - trust_target: 2등급 (A=고수, B=신입)
       - trust_binary: 0/1 (신입/고수)
     기준:
-      - A: 거래성사율 상위 33% (고수)
-      - B: 나머지 67% (신입)
+      - A: 거래성사율 90% 이상 (고수)
+      - B: 나머지 (신입)
     """
     print("\n📊 [2단계] 이진 분류 타겟 생성 (2등급)")
 
@@ -25,22 +25,22 @@ def create_binary_target(df):
     df["영업일수"] = (today - df["registDe"]).dt.days.clip(lower=1)
     df["보증보험유효"] = (df["estbsEndDe"] >= today).astype(int)
 
-    # 거래 성사율 계산 (중간 단계)
+    # 거래 성사율 계산 (중간 단계, 0~100 %)
     df["거래성사율"] = df["거래완료"] / (df["총매물수"] + 1e-6) * 100
 
-    # 🔑 상위 33% 기준값 (2/3 분위수)
-    high_threshold = df["거래성사율"].quantile(2/3)
+    # 🔑 절대 기준: 거래성사율 90% 이상 = 고수(A)
+    high_threshold = 90.0
 
-    # trust_target: A = 상위 33%, B = 나머지 67%
+    # trust_target: A = 거래성사율 90% 이상, B = 나머지
     df["trust_target"] = np.where(df["거래성사율"] >= high_threshold, "A", "B")
 
     # trust_binary: A=1(고수), B=0(신입)
-    df["trust_binary"] = (df["trust_target"] == "A").astype(int)
+    df["trust_binary"] = (df["거래성사율"] >= high_threshold).astype(int)
 
     print("   ✅ 분류 타겟 생성 완료")
     print("   - 타겟1: trust_target (A/B)")
     print("   - 타겟2: trust_binary (0/1)")
-    print(f"   - 기준: 거래성사율 상위 33% (>= {high_threshold:.2f}%) = A / 1")
+    print(f"   - 기준: 거래성사율 {high_threshold:.2f}% 이상 = A / 1")
 
     print("\n   등급 분포:")
     print(df["trust_target"].value_counts().sort_index())

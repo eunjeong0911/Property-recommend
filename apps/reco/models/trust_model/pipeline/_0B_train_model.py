@@ -36,7 +36,7 @@ def get_feature_list():
     - 사무소 정보 (1개): 사무소_인원수
     - 파생 피처 (4개): 매물_규모_지수, 지역_경쟁_강도, 영업년수_매물_상호작용, 1인당_등록매물수
     
-    Target: trust_binary (0/1) - 거래성사율 상위 33% = 1 (A=고수)
+    Target: trust_binary (0/1) - 거래성사율 {high_threshold:.2f}% 이상 = 1 (A=고수)
     """
     return [
         # 매물 정보
@@ -157,7 +157,7 @@ def train_binary_ensemble(df):
     """
     이진 분류 앙상블: Voting 방식으로 강한 모델만 결합
     
-    목표: 거래성사율 상위 33% (A=고수, 1) vs 나머지 (B=신입, 0)
+    목표: 거래성사율 {high_threshold:.2f}% 이상 (A=고수, 1) vs 나머지 (B=신입, 0)
     Target: trust_binary (0/1)
     개선: Soft Voting + 강한 모델만 (RF, XGB, ET, GB) + 가중치 적용
     """
@@ -355,7 +355,7 @@ if __name__ == "__main__":
     from _02_feature_engineering import add_features
     
     df = load_data()
-    df = create_binary_target(df)   # trust_binary 생성 (A 상위 33% = 1)
+    df = create_binary_target(df)   # trust_binary 생성 (A 상위 90% 이상 = 1)
     df = add_features(df)
     df = train_binary_ensemble(df)
     print(f"\n✅ Voting 앙상블 (이진분류) 테스트 완료!")
