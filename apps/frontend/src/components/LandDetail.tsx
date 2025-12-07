@@ -185,6 +185,10 @@ export default function LandDetail({ landId }: LandDetailProps) {
                                 <p className="font-medium text-slate-800">{land.land_num || '-'}</p>
                             </div>
                             <div className="flex items-center" style={{ gap: '100px' }}>
+                                <span className="text-gray-600 text-sm w-32">지번주소</span>
+                                <p className="font-medium text-slate-800">{land.address || '-'}</p>
+                            </div>
+                            <div className="flex items-center" style={{ gap: '100px' }}>
                                 <span className="text-gray-600 text-sm w-32">건축물 용도</span>
                                 <p className="font-medium text-slate-800">{land.building_type || '-'}</p>
                             </div>

@@ -106,6 +106,8 @@
 - ✅ address (주소)
 
 #### 상세 정보 (listing_info에서 추출)
+- ✅ land_num (매물번호: "18375960")
+- ✅ address (지번주소: "서울특별시 서초구 양재동 208-9 화평빌라타운")
 - ✅ floor (층수: "저층/3층")
 - ✅ room_count (방/욕실 개수: "2개/1개")
 - ✅ area_supply (공급면적: "38.68m2")
@@ -146,6 +148,8 @@ GET /api/listings/lands/?building_type=빌라주택
 // 매물 상세 페이지
 const land = await fetchLandById('1');
 
+console.log(land.land_num);        // "18375960"
+console.log(land.address);         // "서울특별시 서초구 양재동 208-9 화평빌라타운"
 console.log(land.price);           // "전세 1억 2,500만원"
 console.log(land.floor);           // "저층/3층"
 console.log(land.room_count);      // "2개/1개"

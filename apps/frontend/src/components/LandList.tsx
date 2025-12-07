@@ -133,16 +133,32 @@ export default function LandList({ filterParams }: LandListProps) {
                         이전
                     </button>
 
-                    {/* 페이지 번호 */}
+                    {/* 페이지 번호 (10개씩 묶어서 표시) */}
                     <div className="flex gap-2">
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                            // 현재 페이지 주변 5개만 표시
-                            if (
-                                page === 1 ||
-                                page === totalPages ||
-                                (page >= currentPage - 2 && page <= currentPage + 2)
-                            ) {
-                                return (
+                        {(() => {
+                            // 현재 페이지가 속한 그룹 계산 (1-10, 11-20, 21-30, ...)
+                            const currentGroup = Math.ceil(currentPage / 10);
+                            const startPage = (currentGroup - 1) * 10 + 1;
+                            const endPage = Math.min(currentGroup * 10, totalPages);
+                            
+                            const pages = [];
+                            
+                            // 이전 그룹이 있으면 "..." 표시
+                            if (startPage > 1) {
+                                pages.push(
+                                    <button
+                                        key="prev-group"
+                                        onClick={() => handlePageClick(startPage - 1)}
+                                        className="w-10 h-10 rounded-lg font-medium bg-white text-slate-700 hover:bg-blue-50 shadow-md hover:shadow-lg transition-all"
+                                    >
+                                        ...
+                                    </button>
+                                );
+                            }
+                            
+                            // 현재 그룹의 페이지들 표시
+                            for (let page = startPage; page <= endPage; page++) {
+                                pages.push(
                                     <button
                                         key={page}
                                         onClick={() => handlePageClick(page)}
@@ -155,18 +171,23 @@ export default function LandList({ filterParams }: LandListProps) {
                                         {page}
                                     </button>
                                 );
-                            } else if (
-                                page === currentPage - 3 ||
-                                page === currentPage + 3
-                            ) {
-                                return (
-                                    <span key={page} className="w-10 h-10 flex items-center justify-center text-slate-400">
+                            }
+                            
+                            // 다음 그룹이 있으면 "..." 표시
+                            if (endPage < totalPages) {
+                                pages.push(
+                                    <button
+                                        key="next-group"
+                                        onClick={() => handlePageClick(endPage + 1)}
+                                        className="w-10 h-10 rounded-lg font-medium bg-white text-slate-700 hover:bg-blue-50 shadow-md hover:shadow-lg transition-all"
+                                    >
                                         ...
-                                    </span>
+                                    </button>
                                 );
                             }
-                            return null;
-                        })}
+                            
+                            return pages;
+                        })()}
                     </div>
 
                     {/* 다음 버튼 */}
