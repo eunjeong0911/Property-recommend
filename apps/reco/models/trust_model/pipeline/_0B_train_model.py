@@ -4,7 +4,7 @@ import numpy as np
 from pathlib import Path
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
-from sklearn.preprocessing import RobustScaler, LabelEncoder
+from sklearn.preprocessing import RobustScaler
 from sklearn.ensemble import (
     RandomForestClassifier,
     GradientBoostingClassifier,
@@ -36,7 +36,7 @@ def get_feature_list():
     - 사무소 정보 (1개): 사무소_인원수
     - 파생 피처 (4개): 매물_규모_지수, 지역_경쟁_강도, 영업년수_매물_상호작용, 1인당_등록매물수
     
-    Target: 3등급 (A, B, C) - 거래성사율 분위수 기반
+    Target: trust_binary (0/1) - 거래성사율 상위 33% = 1 (A=고수)
     """
     return [
         # 매물 정보
@@ -68,9 +68,6 @@ def get_feature_list():
 def create_base_models():
     """
     4개의 강한 분류 모델 생성 (성능 낮은 모델 제거)
-    
-    제거: LogisticRegression (39.5%), SVC (52.6%)
-    유지: RandomForest (57.9%), XGBoost (57.9%), ExtraTrees (56.6%), GradientBoosting (56.6%)
     
     Returns:
         list: (name, model) 튜플 리스트
@@ -119,7 +116,7 @@ def create_base_models():
                 colsample_bytree=0.8,
                 random_state=42,
                 n_jobs=-1,
-                eval_metric='mlogloss'
+                eval_metric='logloss'  # ✅ 이진 분류용
             ))
         )
     
@@ -156,47 +153,45 @@ def evaluate_individual_models(models, X_train, X_test, y_train, y_test):
         print(f"   {display_name:20s} | Test Acc: {test_acc:.3f} | Train Acc: {train_acc:.3f} | Gap: {gap:.3f}")
 
 
-def train_classification_ensemble(df):
+def train_binary_ensemble(df):
     """
-    다중 분류 앙상블: Voting 방식으로 강한 모델만 결합
+    이진 분류 앙상블: Voting 방식으로 강한 모델만 결합
     
-    목표: Accuracy 60% 이상 (3등급)
-    Target: A, B, C (거래성사율 분위수 기반)
+    목표: 거래성사율 상위 33% (A=고수, 1) vs 나머지 (B=신입, 0)
+    Target: trust_binary (0/1)
     개선: Soft Voting + 강한 모델만 (RF, XGB, ET, GB) + 가중치 적용
     """
-    print("\n🤖 [4단계] Voting 앙상블 학습 (강한 모델만)")
+    print("\n🤖 [4단계] Voting 앙상블 학습 (이진 분류, A vs B)")
 
     df = df.copy()
 
     # 피처 리스트 가져오기
     features = get_feature_list()
-    
-    target = "trust_target"
+    target = "trust_binary"  # ✅ 0/1 타겟
 
     # 컬럼 존재 여부 확인
     missing = [col for col in features if col not in df.columns]
     if missing:
         raise ValueError(f"❌ 누락된 피처: {missing}")
 
+    if target not in df.columns:
+        raise ValueError(f"❌ 타겟 컬럼 '{target}' 이(가) 데이터프레임에 없습니다.")
+
     X = df[features]
-    y = df[target]
-    
-    # Label Encoding (A, B, C → 0, 1, 2)
-    le = LabelEncoder()
-    y_encoded = le.fit_transform(y)
+    y = df[target]  # 0/1 이진 타겟
 
     print(f"\n✅ 학습 데이터 준비 완료")
-    print(f"   - 사용 피처: {len(features)}개 (10개 → 17개 개선)")
-    print(f"   - 타겟: {target} (3등급: A, B, C)")
-    print(f"   - 클래스: {le.classes_}")
-    print(f"\n   등급 분포:")
-    for grade in le.classes_:
-        count = (y == grade).sum()
-        print(f"   - {grade}: {count}개")
+    print(f"   - 사용 피처: {len(features)}개")
+    print(f"   - 타겟: {target} (0=B, 1=A)")
+    print(f"\n   타겟 분포:")
+    print(
+        y.value_counts()
+         .rename(index={0: "0 (신입/B)", 1: "1 (고수/A)"})
+    )
 
     # Train / Test Split
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y_encoded, test_size=0.2, random_state=42, stratify=y_encoded
+        X, y, test_size=0.2, random_state=42, stratify=y
     )
 
     print(f"\n✅ 데이터 분할 완료")
@@ -286,36 +281,32 @@ def train_classification_ensemble(df):
 
     # 전체 데이터 예측
     X_all_s = scaler.transform(X)
-    y_pred_encoded = voting.predict(X_all_s)
-    y_pred = le.inverse_transform(y_pred_encoded)
-    y_pred_proba = voting.predict_proba(X_all_s)
+    y_pred = voting.predict(X_all_s)                # 0/1 라벨
+    y_pred_proba = voting.predict_proba(X_all_s)    # [:, 1] = A(고수) 확률
     
-    df["predicted_grade"] = y_pred
-    df["predicted_grade_encoded"] = y_pred_encoded
-    
-    # 각 등급별 확률 저장
-    for i, grade in enumerate(le.classes_):
-        df[f"prob_{grade}"] = y_pred_proba[:, i]
+    # 예측 결과 저장
+    df["predicted_label"] = y_pred                      # 0/1
+    df["predicted_trust_target"] = np.where(y_pred == 1, "A", "B")  # A/B
+    df["prob_high"] = y_pred_proba[:, 1]                # 클래스 1(A) 확률
 
     # 분류 리포트
     print(f"\n📋 분류 리포트 (Test Set):")
-    y_test_labels = le.inverse_transform(y_test)
-    y_pred_labels = le.inverse_transform(voting_test_pred)
-    print(classification_report(y_test_labels, y_pred_labels, zero_division=0))
+    print(classification_report(
+        y_test,
+        voting_test_pred,
+        target_names=["0 (신입/B)", "1 (고수/A)"],
+        zero_division=0
+    ))
 
     # Confusion Matrix
     print(f"\n📊 Confusion Matrix (Test Set):")
-    cm = confusion_matrix(y_test_labels, y_pred_labels, labels=le.classes_)
-    cm_df = pd.DataFrame(cm, index=le.classes_, columns=le.classes_)
+    cm = confusion_matrix(y_test, voting_test_pred, labels=[0, 1])
+    cm_df = pd.DataFrame(
+        cm,
+        index=["실제 0(신입/B)", "실제 1(고수/A)"],
+        columns=["예측 0(신입/B)", "예측 1(고수/A)"]
+    )
     print(cm_df)
-    
-    # 등급별 정확도
-    print(f"\n📈 등급별 정확도:")
-    for grade in le.classes_:
-        mask = y_test_labels == grade
-        if mask.sum() > 0:
-            acc = (y_pred_labels[mask] == grade).mean()
-            print(f"   - {grade}등급: {acc:.1%} ({(y_pred_labels[mask] == grade).sum()}/{mask.sum()})")
 
     # 모델 저장
     MODEL_DIR.mkdir(exist_ok=True)
@@ -327,32 +318,32 @@ def train_classification_ensemble(df):
     model_package = {
         'ensemble': voting,
         'scaler': scaler,
-        'label_encoder': le,
         'features': features,
         'target': target,
         'metadata': {
-            'model_type': 'voting_classification',
+            'model_type': 'voting_binary_classification',
             'base_models': base_model_names,
             'voting_type': 'soft',
             'weights': weights,
             'test_accuracy': test_acc,
             'train_accuracy': train_acc,
             'overfit_gap': gap,
-            'num_classes': 3,
+            'num_classes': 2,
             'num_features': len(features),
-            'classes': le.classes_.tolist(),
+            'classes': [0, 1],        # 0=B, 1=A
+            'positive_class': 1,      # A(고수)
             'xgboost_included': XGBOOST_AVAILABLE
         }
     }
     
-    model_path = MODEL_DIR / "voting_ensemble.pkl"
+    model_path = MODEL_DIR / "voting_ensemble_binary.pkl"
     with open(model_path, "wb") as f:
         pickle.dump(model_package, f)
 
-    print(f"\n💾 모델 저장: voting_ensemble.pkl")
+    print(f"\n💾 모델 저장: voting_ensemble_binary.pkl")
     print(f"   - {num_models}개 강한 모델 + Soft Voting")
-    print(f"   - Scaler + LabelEncoder + Features + Metadata")
-    print(f"   - 3등급 분류: A, B, C (거래성사율 분위수 기반)")
+    print(f"   - Scaler + Features + Metadata")
+    print(f"   - 이진 분류: trust_binary (0=B, 1=A)")
     print(f"   - 17개 피처 + 가중치 적용")
 
     return df
@@ -360,11 +351,11 @@ def train_classification_ensemble(df):
 
 if __name__ == "__main__":
     from _00_load_data import load_data
-    from _01_create_target import create_regression_target
+    from _0A_create_target import create_binary_target
     from _02_feature_engineering import add_features
     
     df = load_data()
-    df = create_regression_target(df)
+    df = create_binary_target(df)   # trust_binary 생성 (A 상위 33% = 1)
     df = add_features(df)
-    df = train_classification_ensemble(df)
-    print(f"\n✅ Voting 앙상블 테스트 완료!")
+    df = train_binary_ensemble(df)
+    print(f"\n✅ Voting 앙상블 (이진분류) 테스트 완료!")

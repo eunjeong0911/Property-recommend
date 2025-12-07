@@ -61,5 +61,5 @@ def create_regression_target(df):
 
 if __name__ == "__main__":
     import pandas as pd
-    df = pd.read_csv("data/seoul_broker_clean.csv")
+    df = pd.read_csv("data/raw/seoul_broker_merged.csv") # data 경로 변경 및 파일명 변경 clean ->  merged
     df = create_regression_target(df)

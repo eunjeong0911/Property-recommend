@@ -11,8 +11,8 @@ def load_data(input_path=None):
     if input_path is None:
         # 현재 파일 기준으로 data 폴더 찾기
         current_file = Path(__file__)
-        data_dir = current_file.parent.parent.parent.parent.parent.parent / "data"
-        input_path = data_dir / "seoul_broker_clean.csv"
+        data_dir = current_file.parent.parent.parent.parent.parent.parent / "data/raw" # data 경로 변경
+        input_path = data_dir / "seoul_broker_merged.csv" # data 파일명 변경 clean -> merged
     else:
         input_path = Path(input_path)
     
