@@ -99,6 +99,7 @@ export default function LandDetail({ landId }: LandDetailProps) {
                             src={images[currentImageIndex]}
                             alt={land.title}
                             fill
+                            sizes="(max-width: 768px) 100vw, 50vw"
                             className="object-cover"
                         />
 

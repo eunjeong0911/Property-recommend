@@ -31,3 +31,40 @@ export async function fetchLandById(id: string): Promise<Land> {
 
     return response.json();
 }
+
+export interface LandLocation {
+    id: string;
+    latitude: number;
+    longitude: number;
+    address: string;
+    name: string;
+    price?: string;
+    deal_type?: string;
+    building_type?: string;
+    area?: string;
+}
+
+export async function fetchLandLocations(params?: {
+    limit?: number;
+    land_id?: string;
+    address?: string;
+    deal_type?: string;
+}): Promise<LandLocation[]> {
+    const queryParams = new URLSearchParams();
+
+    if (params) {
+        if (params.limit) queryParams.append('limit', params.limit.toString());
+        if (params.land_id) queryParams.append('land_id', params.land_id);
+        if (params.address) queryParams.append('address', params.address);
+        if (params.deal_type) queryParams.append('deal_type', params.deal_type);
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/listings/lands/locations/?${queryParams.toString()}`);
+
+    if (!response.ok) {
+        throw new Error('Failed to fetch land locations');
+    }
+
+    const data = await response.json();
+    return data.results || [];
+}
