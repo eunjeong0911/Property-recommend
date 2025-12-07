@@ -405,9 +405,29 @@ uv pip install -r requirements.txt
 ## 개발 팁
 
 1. **핫 리로드**: 프론트엔드와 백엔드 모두 코드 변경 시 자동으로 재시작됩니다.
-2. **API 테스트**: `http://localhost:8000/admin`에서 Django Admin 사용 가능
+2. **API 테스트**:
+   - Django Admin: `http://localhost:8000/admin`
+   - API 엔드포인트:
+     - 매물 목록: `http://localhost:8000/api/listings/lands/`
+     - 매물 상세: `http://localhost:8000/api/listings/lands/{id}/`
 3. **Neo4j 브라우저**: `http://localhost:7474`에서 그래프 데이터 확인 가능
 4. **로그 확인**: 각 터미널에서 실시간 로그를 볼 수 있습니다.
+
+### API 테스트 예시
+
+```powershell
+# 매물 목록 조회
+curl http://localhost:8000/api/listings/lands/
+
+# 특정 매물 상세 조회
+curl http://localhost:8000/api/listings/lands/1/
+
+# 필터링 (지역별)
+curl "http://localhost:8000/api/listings/lands/?address=서초구"
+
+# 필터링 (거래유형별)
+curl "http://localhost:8000/api/listings/lands/?deal_type=전세"
+```
 
 ---
 

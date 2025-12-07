@@ -4,7 +4,8 @@
  * 매물 목록을 표시하는 컴포넌트
  * 
  * 주요 기능:
- * - 매물 4개씩 한줄로 목록 표시
+ * - 매물 4개씩 3줄로 총 12개 표시
+ * - 페이지네이션 기능
  * - 매물 정보 표시 (ex. 월세 5,000만원/35만원 )
  * - 매물 선택 기능
  * 
@@ -23,10 +24,13 @@ interface LandListProps {
     filterParams?: LandFilterParams;
 }
 
+const ITEMS_PER_PAGE = 12; // 4개 x 3줄
+
 export default function LandList({ filterParams }: LandListProps) {
     const [lands, setLands] = useState<Land[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
+    const [currentPage, setCurrentPage] = useState<number>(1);
 
     useEffect(() => {
         const loadLands = async () => {
@@ -35,6 +39,7 @@ export default function LandList({ filterParams }: LandListProps) {
                 const data = await fetchLands(filterParams);
                 setLands(data);
                 setError(null);
+                setCurrentPage(1); // 필터 변경 시 첫 페이지로
             } catch (err) {
                 console.error('Failed to fetch lands:', err);
                 setError('매물 정보를 불러오는데 실패했습니다.');
@@ -45,6 +50,24 @@ export default function LandList({ filterParams }: LandListProps) {
 
         loadLands();
     }, [filterParams]);
+
+    // 페이지네이션 계산
+    const totalPages = Math.ceil(lands.length / ITEMS_PER_PAGE);
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    const currentLands = lands.slice(startIndex, endIndex);
+
+    const handlePrevPage = () => {
+        setCurrentPage(prev => Math.max(1, prev - 1));
+    };
+
+    const handleNextPage = () => {
+        setCurrentPage(prev => Math.min(totalPages, prev + 1));
+    };
+
+    const handlePageClick = (page: number) => {
+        setCurrentPage(page);
+    };
 
     if (loading) {
         return (
@@ -78,18 +101,93 @@ export default function LandList({ filterParams }: LandListProps) {
     }
 
     return (
-        <div className="p-6 rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md shadow-xl overflow-visible">
-            <div className="grid grid-cols-4 gap-6">
-                {lands.slice(0, 4).map((land) => (
-                    <LandImage
-                        key={land.id}
-                        id={String(land.id)}
-                        images={land.image ? [land.image] : undefined}
-                        temperature={land.temperature}
-                        price={land.price}
-                    />
-                ))}
+        <div className="space-y-6">
+            {/* 매물 목록 */}
+            <div className="p-6 rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md shadow-xl overflow-visible">
+                <div className="grid grid-cols-4 gap-6">
+                    {currentLands.map((land) => (
+                        <LandImage
+                            key={land.id}
+                            id={String(land.id)}
+                            images={land.image ? [land.image] : undefined}
+                            temperature={land.temperature}
+                            price={land.price}
+                        />
+                    ))}
+                </div>
             </div>
+
+            {/* 페이지네이션 */}
+            {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2">
+                    {/* 이전 버튼 */}
+                    <button
+                        onClick={handlePrevPage}
+                        disabled={currentPage === 1}
+                        className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                            currentPage === 1
+                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                : 'bg-white text-blue-600 hover:bg-blue-50 shadow-md hover:shadow-lg'
+                        }`}
+                    >
+                        이전
+                    </button>
+
+                    {/* 페이지 번호 */}
+                    <div className="flex gap-2">
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                            // 현재 페이지 주변 5개만 표시
+                            if (
+                                page === 1 ||
+                                page === totalPages ||
+                                (page >= currentPage - 2 && page <= currentPage + 2)
+                            ) {
+                                return (
+                                    <button
+                                        key={page}
+                                        onClick={() => handlePageClick(page)}
+                                        className={`w-10 h-10 rounded-lg font-medium transition-all ${
+                                            currentPage === page
+                                                ? 'bg-blue-600 text-white shadow-lg'
+                                                : 'bg-white text-slate-700 hover:bg-blue-50 shadow-md hover:shadow-lg'
+                                        }`}
+                                    >
+                                        {page}
+                                    </button>
+                                );
+                            } else if (
+                                page === currentPage - 3 ||
+                                page === currentPage + 3
+                            ) {
+                                return (
+                                    <span key={page} className="w-10 h-10 flex items-center justify-center text-slate-400">
+                                        ...
+                                    </span>
+                                );
+                            }
+                            return null;
+                        })}
+                    </div>
+
+                    {/* 다음 버튼 */}
+                    <button
+                        onClick={handleNextPage}
+                        disabled={currentPage === totalPages}
+                        className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                            currentPage === totalPages
+                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                : 'bg-white text-blue-600 hover:bg-blue-50 shadow-md hover:shadow-lg'
+                        }`}
+                    >
+                        다음
+                    </button>
+
+                    {/* 페이지 정보 */}
+                    <div className="ml-4 text-slate-600 font-medium">
+                        {currentPage} / {totalPages} 페이지 (총 {lands.length}개)
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
