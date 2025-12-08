@@ -207,6 +207,38 @@ export default function ServiceInsPage() {
               </div>
             </div>
           </div>
+
+          {/* 기능 5 */}
+          <div className="rounded-2xl border-white/40 border-2 bg-gradient-to-br from-pink-50/80 to-rose-100/80 backdrop-blur-md shadow-lg p-6 hover:shadow-xl transition-all">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-xl bg-pink-500 flex items-center justify-center text-2xl shadow-lg">
+                ❤️
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-slate-800 mb-2">찜 매물 AI 분석</h3>
+                <p className="text-slate-600 text-sm leading-relaxed">
+                  마음에 드는 매물을 찜하면 AI가 해당 매물들을 종합 분석하여 
+                  나의 선호 패턴과 최적의 매물 조합을 추천해드립니다.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* 기능 6 */}
+          <div className="rounded-2xl border-white/40 border-2 bg-gradient-to-br from-red-50/80 to-orange-100/80 backdrop-blur-md shadow-lg p-6 hover:shadow-xl transition-all">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-xl bg-red-500 flex items-center justify-center text-2xl shadow-lg">
+                🔍
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-slate-800 mb-2">등기부등본 분석</h3>
+                <p className="text-slate-600 text-sm leading-relaxed">
+                  전세사기 위험을 사전에 차단! AI가 등기부등본을 분석하여 
+                  근저당, 가압류 등 위험 요소를 자동으로 감지하고 알려드립니다.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -218,7 +250,7 @@ export default function ServiceInsPage() {
             <span className="text-2xl">📈</span>
           </h2>
           <p className="text-slate-600 text-sm font-medium">
-            피터팬 매물 데이터 기반 (2024년 12월 기준)
+            ONDO HOUSE가 보유한 매물 현황
           </p>
         </div>
 
