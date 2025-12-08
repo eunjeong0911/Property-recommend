@@ -40,6 +40,14 @@ export default function Header() {
 
         {/* 버튼 영역 */}
         <div className="flex gap-4">
+          {/* 서비스 소개 버튼 */}
+          <Link
+            href="/serviceIns"
+            className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors font-medium"
+          >
+            서비스 소개
+          </Link>
+
           {/* 커뮤니티 버튼 */}
           <Link
             href="/community"
