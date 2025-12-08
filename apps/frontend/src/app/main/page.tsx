@@ -39,10 +39,22 @@ const PreferenceFilter = dynamic(() => import('@/components/PreferenceFilter'), 
 const Map = dynamic(() => import('@/components/Map'), {
     ssr: false,
     loading: () => (
-        <div className="relative w-full h-[450px] rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md shadow-2xl overflow-hidden p-2 flex items-center justify-center">
+        <div className="relative w-[600px] h-[500px] rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md shadow-2xl overflow-hidden p-2 flex items-center justify-center">
             <div className="text-slate-600 text-center">
                 <div className="w-12 h-12 border-4 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
                 <p>지도를 불러오는 중...</p>
+            </div>
+        </div>
+    )
+});
+
+const TemperatureAnalysis = dynamic(() => import('@/components/TemperatureAnalysis'), {
+    ssr: false,
+    loading: () => (
+        <div className="w-[280px] h-[500px] rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md shadow-2xl p-4 flex items-center justify-center">
+            <div className="text-slate-600 text-center">
+                <div className="w-8 h-8 border-3 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                <p className="text-sm">온도 분석 로딩 중...</p>
             </div>
         </div>
     )
@@ -69,7 +81,10 @@ export default function MainPage() {
                     </p>
                 </div>
                 <PreferenceFilter />
-                <Map />
+                <div className="flex justify-center gap-4">
+                    <Map />
+                    <TemperatureAnalysis />
+                </div>
             </section>
             {/* 섹션 3: 매물 추천 리스트 */}
             <section className="space-y-6">

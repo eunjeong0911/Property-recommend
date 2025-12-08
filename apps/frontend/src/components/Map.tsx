@@ -13,7 +13,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useParticleEffect } from '../hooks/useParticleEffect';
 import { fetchLandLocations, LandLocation } from '../api/landApi';
 import { seoulDistricts, getTemperatureColor } from '../data/seoulDistricts';
 
@@ -30,14 +29,11 @@ interface MapProps {
 export default function Map({ landId }: MapProps) {
     const mapContainer = useRef<HTMLDivElement>(null);
     const mapRef = useRef<any>(null);
-    const markerRef = useRef<any>(null);
     const markersRef = useRef<Array<{ marker: any; overlay: any; overlayState?: { isOpen: boolean; overlay: any } }>>([]);
     const polygonsRef = useRef<any[]>([]);
     const overlaysRef = useRef<any[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
     const [locations, setLocations] = useState<LandLocation[]>([]);
     const [currentLand, setCurrentLand] = useState<LandLocation | null>(null);
-    const { triggerEffect } = useParticleEffect();
 
     useEffect(() => {
         // window 객체 체크 (SSR 대응)
@@ -74,7 +70,6 @@ export default function Map({ landId }: MapProps) {
 
         script.onerror = () => {
             console.error('카카오 지도 스크립트 로드 실패');
-            setIsLoading(false);
         };
 
         document.head.appendChild(script);
@@ -125,8 +120,9 @@ export default function Map({ landId }: MapProps) {
                 console.log('카카오 지도 API 로드 완료');
 
                 // 매물 상세 페이지인 경우 해당 매물 위치 중심, 아니면 서울 중심
-                const centerLat = currentLand?.latitude || 37.5665;
-                const centerLng = currentLand?.longitude || 126.9780;
+                // 메인 페이지: 지도 중심 조정
+                const centerLat = currentLand?.latitude || (landId ? 37.5665 : 37.5715);
+                const centerLng = currentLand?.longitude || (landId ? 126.9780 : 126.9705);
                 const zoomLevel = landId ? 3 : 9; // 상세 페이지는 더 확대, 메인은 서울 전역
 
                 const options = {
@@ -468,84 +464,12 @@ export default function Map({ landId }: MapProps) {
         console.log(`매물 마커 ${locations.length}개 표시 완료`);
     }, [locations, landId]);
 
-    const moveToCurrentLocation = (e: React.MouseEvent) => {
-        triggerEffect(e.currentTarget as HTMLElement);
-
-        if (!navigator.geolocation) {
-            alert('현재 위치를 지원하지 않는 브라우저입니다.');
-            return;
-        }
-
-        setIsLoading(true);
-
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const { latitude, longitude } = position.coords;
-
-                if (mapRef.current && markerRef.current && window.kakao) {
-                    // 현재 위치로 지도 중심 이동
-                    const moveLatLon = new window.kakao.maps.LatLng(latitude, longitude);
-                    mapRef.current.setCenter(moveLatLon);
-
-                    // 커스텀 마커 이미지 생성
-                    const imageSrc = '/icons/nowLocation.png';
-                    const imageSize = new window.kakao.maps.Size(40, 40); // 마커 이미지 크기
-                    const imageOption = { offset: new window.kakao.maps.Point(20, 40) }; // 마커 이미지의 기준점
-
-                    const markerImage = new window.kakao.maps.MarkerImage(
-                        imageSrc,
-                        imageSize,
-                        imageOption
-                    );
-
-                    // 새로운 커스텀 마커 생성
-                    const newMarker = new window.kakao.maps.Marker({
-                        position: moveLatLon,
-                        image: markerImage
-                    });
-
-                    newMarker.setMap(mapRef.current);
-                    markerRef.current = newMarker;
-
-                    console.log('현재 위치로 이동:', latitude, longitude);
-                }
-
-                setIsLoading(false);
-            },
-            (error) => {
-                console.error('위치 정보를 가져올 수 없습니다:', error);
-                alert('위치 정보를 가져올 수 없습니다. 위치 권한을 확인해주세요.');
-                setIsLoading(false);
-            },
-            {
-                enableHighAccuracy: true, // 높은 정확도
-                timeout: 5000, // 5초 타임아웃
-                maximumAge: 0 // 캐시 사용 안함
-            }
-        );
-    };
-
     return (
-        <div className="relative w-full h-[450px] rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md shadow-2xl overflow-hidden p-2">
+        <div className="relative w-[600px] h-[500px] rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md shadow-2xl overflow-hidden p-2">
             <div
                 ref={mapContainer}
                 className="w-full h-full rounded-xl overflow-hidden"
             />
-
-            {/* 현재 위치 버튼 */}
-            <button
-                onClick={moveToCurrentLocation}
-                disabled={isLoading}
-                className="absolute bottom-5 right-5 z-10 flex items-center gap-2 px-4 py-3 bg-white hover:bg-gray-50 disabled:bg-gray-100 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 border border-gray-200"
-                style={{
-                    cursor: isLoading ? 'not-allowed' : 'pointer',
-                }}
-            >
-                <span className="text-xl">{isLoading ? '⏳' : '📍'}</span>
-                <span className="font-semibold text-gray-700 text-sm">
-                    {isLoading ? '찾는 중...' : '내 위치'}
-                </span>
-            </button>
         </div>
     );
 }
