@@ -68,8 +68,8 @@ class SafetyImporter:
                 MATCH (c:CCTV)
                 WHERE point.distance(p.location, c.location) < 200
                 MERGE (p)-[r:NEAR_CCTV]->(c)
-                SET r.distance = point.distance(p.location, c.location),
-                    r.walking_time = (point.distance(p.location, c.location) * 1.3) / 80
+                SET r.distance = toInteger(round(point.distance(p.location, c.location))),
+                    r.walking_time = toInteger(round((point.distance(p.location, c.location) * 1.3) / 80))
             } IN TRANSACTIONS OF 1000 ROWS
             """)
 
@@ -131,8 +131,8 @@ class SafetyImporter:
                 MATCH (b:EmergencyBell)
                 WHERE point.distance(p.location, b.location) < 200
                 MERGE (p)-[r:NEAR_BELL]->(b)
-                SET r.distance = point.distance(p.location, b.location),
-                    r.walking_time = (point.distance(p.location, b.location) * 1.3) / 80
+                SET r.distance = toInteger(round(point.distance(p.location, b.location))),
+                    r.walking_time = toInteger(round((point.distance(p.location, b.location) * 1.3) / 80))
             } IN TRANSACTIONS OF 1000 ROWS
             """)
 
@@ -204,8 +204,8 @@ class SafetyImporter:
                 MATCH (pol:PoliceStation)
                 WHERE point.distance(p.location, pol.location) < 1000
                 MERGE (p)-[r:NEAR_POLICE]->(pol)
-                SET r.distance = point.distance(p.location, pol.location),
-                    r.walking_time = (point.distance(p.location, pol.location) * 1.3) / 80
+                SET r.distance = toInteger(round(point.distance(p.location, pol.location))),
+                    r.walking_time = toInteger(round((point.distance(p.location, pol.location) * 1.3) / 80))
             } IN TRANSACTIONS OF 1000 ROWS
             """)
 
@@ -277,8 +277,8 @@ class SafetyImporter:
                 MATCH (f:FireStation)
                 WHERE point.distance(p.location, f.location) < 2500
                 MERGE (p)-[r:NEAR_FIRE]->(f)
-                SET r.distance = point.distance(p.location, f.location),
-                    r.walking_time = (point.distance(p.location, f.location) * 1.3) / 80
+                SET r.distance = toInteger(round(point.distance(p.location, f.location))),
+                    r.walking_time = toInteger(round((point.distance(p.location, f.location) * 1.3) / 80))
             } IN TRANSACTIONS OF 1000 ROWS
             """)
 

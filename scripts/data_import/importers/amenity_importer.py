@@ -76,8 +76,8 @@ class AmenityImporter:
                 MATCH (h:GeneralHospital)
                 WHERE point.distance(p.location, h.location) < 1000
                 MERGE (p)-[r:NEAR_GENERAL_HOSPITAL]->(h)
-                SET r.distance = point.distance(p.location, h.location),
-                    r.walking_time = (point.distance(p.location, h.location) * 1.3) / 80
+                SET r.distance = toInteger(round(point.distance(p.location, h.location))),
+                    r.walking_time = toInteger(round((point.distance(p.location, h.location) * 1.3) / 80))
             } IN TRANSACTIONS OF 1000 ROWS
             """)
             # Other Hospital (300m)
@@ -88,8 +88,8 @@ class AmenityImporter:
                 MATCH (h:Hospital)
                 WHERE h.category <> '종합병원' AND point.distance(p.location, h.location) < 300
                 MERGE (p)-[r:NEAR_HOSPITAL]->(h)
-                SET r.distance = point.distance(p.location, h.location),
-                    r.walking_time = (point.distance(p.location, h.location) * 1.3) / 80
+                SET r.distance = toInteger(round(point.distance(p.location, h.location))),
+                    r.walking_time = toInteger(round((point.distance(p.location, h.location) * 1.3) / 80))
             } IN TRANSACTIONS OF 1000 ROWS
             """)
 
@@ -143,8 +143,8 @@ class AmenityImporter:
                 MATCH (ph:Pharmacy)
                 WHERE point.distance(p.location, ph.location) < 200
                 MERGE (p)-[r:NEAR_PHARMACY]->(ph)
-                SET r.distance = point.distance(p.location, ph.location),
-                    r.walking_time = (point.distance(p.location, ph.location) * 1.3) / 80
+                SET r.distance = toInteger(round(point.distance(p.location, ph.location))),
+                    r.walking_time = toInteger(round((point.distance(p.location, ph.location) * 1.3) / 80))
             } IN TRANSACTIONS OF 1000 ROWS
             """)
 
@@ -204,8 +204,8 @@ class AmenityImporter:
                 MATCH (c:College)
                 WHERE point.distance(p.location, c.location) < 2000
                 MERGE (p)-[r:NEAR_COLLEGE]->(c)
-                SET r.distance = point.distance(p.location, c.location),
-                    r.walking_time = (point.distance(p.location, c.location) * 1.3) / 80
+                SET r.distance = toInteger(round(point.distance(p.location, c.location))),
+                    r.walking_time = toInteger(round((point.distance(p.location, c.location) * 1.3) / 80))
             } IN TRANSACTIONS OF 1000 ROWS
             """)
 
@@ -278,8 +278,8 @@ class AmenityImporter:
                 MATCH (c:Convenience)
                 WHERE point.distance(p.location, c.location) < 200
                 MERGE (p)-[r:NEAR_CONVENIENCE]->(c)
-                SET r.distance = point.distance(p.location, c.location),
-                    r.walking_time = (point.distance(p.location, c.location) * 1.3) / 80
+                SET r.distance = toInteger(round(point.distance(p.location, c.location))),
+                    r.walking_time = toInteger(round((point.distance(p.location, c.location) * 1.3) / 80))
             } IN TRANSACTIONS OF 1000 ROWS
             """)
 
@@ -344,8 +344,8 @@ class AmenityImporter:
                 MATCH (pk:Park)
                 WHERE point.distance(p.location, pk.location) < 500
                 MERGE (p)-[r:NEAR_PARK]->(pk)
-                SET r.distance = point.distance(p.location, pk.location),
-                    r.walking_time = (point.distance(p.location, pk.location) * 1.3) / 80
+                SET r.distance = toInteger(round(point.distance(p.location, pk.location))),
+                    r.walking_time = toInteger(round((point.distance(p.location, pk.location) * 1.3) / 80))
             } IN TRANSACTIONS OF 1000 ROWS
             """)
 
