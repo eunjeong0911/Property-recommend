@@ -1,171 +1,387 @@
 import os
+import json
+from typing import List, Optional
 from langchain_community.graphs import Neo4jGraph
-from langchain_community.chains.graph_qa.cypher import GraphCypherQAChain
 from langchain_openai import ChatOpenAI
-from langchain_core.prompts import PromptTemplate
+from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
+from langchain_core.tools import tool
 from common.state import RAGState
+
+# Neo4j Connection (Lazy Loading)
+_graph = None
+
+def get_graph():
+    global _graph
+    if _graph is None:
+        _graph = Neo4jGraph(
+            url=os.getenv("NEO4J_URI", "bolt://neo4j:7687"),
+            username=os.getenv("NEO4J_USER", "neo4j"),
+            password=os.getenv("NEO4J_PASSWORD", "password")
+        )
+    return _graph
+
+@tool
+def search_poi(keyword: str):
+    """
+    Search for Points of Interest (POI) by name keyword.
+    Useful for identifying Subway Stations, Universities, Parks, etc. mentioned by the user.
+    Args:
+        keyword: The name to search for (e.g., "홍대", "연세", "서울대")
+    Returns: List of matching nodes with id, name, and type.
+    """
+    query = """
+    MATCH (n)
+    WHERE n.name CONTAINS $keyword AND (
+          n:SubwayStation OR n:College OR n:Hospital OR 
+          n:GeneralHospital OR n:Park OR n:PoliceStation OR n:FireStation
+    )
+    RETURN elementId(n) as id, labels(n)[0] as type, n.name as name
+    LIMIT 5
+    """
+    try:
+        results = get_graph().query(query, params={"keyword": keyword})
+        # Standardize ID if needed, but elementId or internal ID is fine for matching later
+        # Some imported nodes have specific 'id' property, let's try to return that first
+        
+        refined_results = []
+        for r in results:
+            # Re-fetch specifically to get the business ID property if it exists
+            node_type = r['type']
+            name = r['name']
+            
+            # Dynamic query to get the specific business ID
+            id_query = f"MATCH (n:{node_type}) WHERE elementId(n) = $eid RETURN n.id as biz_id"
+            id_res = get_graph().query(id_query, params={"eid": r['id']})
+            biz_id = id_res[0]['biz_id'] if id_res and id_res[0].get('biz_id') else r['id']
+            
+            refined_results.append({
+                "type": node_type,
+                "name": name,
+                "id": biz_id, # This ID will be used in match_properties
+                "element_id": r['id']
+            })
+            
+        return refined_results
+    except Exception as e:
+        return f"Error searching POI: {e}"
+
+@tool
+def match_properties(poi_ids: List[str], requirements: List[str] = []):
+    """
+    Find properties that are close to ALL specified POIs (Intersection Search).
+    Also considers optional requirements like 'convenience_store', 'cctv', 'pharmacy', 'bus'.
+    
+    Args:
+        poi_ids: List of POI IDs (or names/element_ids from search_poi) to match.
+                 The property must be connected to ALL of these POIs.
+        requirements: Optional list of other facilities to check (e.g., ['convenience', 'cctv', 'pharmacy', 'bus']).
+                      These act as weighted bonuses or soft filters.
+    
+    Returns: List of properties with total score (lower score = better/closer).
+    """
+    if not poi_ids:
+        return "No POI IDs provided."
+
+    # Dynamic Cypher Construction
+    match_clauses = []
+    where_clauses = []
+    with_clauses = ["p"]
+    score_parts = []
+    
+    # 1. Match Property and POIs
+    for i, pid in enumerate(poi_ids):
+        # We try to match by ID property first
+        # Since we don't know the exact label of the target POI easily without query, 
+        # we can match generic node with that ID. 
+        # However, our graph schema links Property -> specific Label via specific Relationship.
+        # To make this robust, we relax the relationship type or try multiple.
+        # BUT, standard approach: Property -> NEAR_* -> Node
+        # Let's assume the ID is unique across these specific nodes or we rely on the implementation plan's assumption.
+        
+        # Optimized approach: We know the relationship types generally start with NEAR_
+        # We can use a broad match.
+        
+        target_var = f"target{i}"
+        rel_var = f"r{i}"
+        
+        # We assume 'pid' is the business ID string.
+        match_clauses.append(f"MATCH (p:Property)-[{rel_var}]->({target_var})")
+        where_clauses.append(f"({target_var}.id = '{pid}' OR {target_var}.name = '{pid}')") # Fallback to name if ID fails
+        where_clauses.append(f"type({rel_var}) STARTS WITH 'NEAR_'")
+        
+        score_parts.append(f"{rel_var}.distance") # Simple sum of distances
+        
+        with_clauses.append(target_var)
+        with_clauses.append(rel_var)
+
+    # 2. Optional Requirements
+    optional_matches = ""
+    req_score_adjustments = []
+    
+    valid_reqs = {
+        "convenience": ("NEAR_CONVENIENCE", "Convenience"),
+        "cctv": ("NEAR_CCTV", "CCTV"),
+        "bell": ("NEAR_BELL", "EmergencyBell"),
+        "pharmacy": ("NEAR_PHARMACY", "Pharmacy"),
+        "bus": ("NEAR_BUS", "BusStation")
+    }
+    
+    for req in requirements:
+        req_key = req.lower()
+        if req_key in valid_reqs:
+            rel_type, node_label = valid_reqs[req_key]
+            # If present, -500 points (bonus)
+            # Using count to verify existence
+            optional_matches += f"""
+            OPTIONAL MATCH (p)-[:{rel_type}]->({req_key}_node:{node_label})
+            """
+            req_score_adjustments.append(f"(CASE WHEN {req_key}_node IS NOT NULL THEN -500 ELSE 0 END)")
+
+    # Construct final query
+    final_query = "\n".join(match_clauses)
+    if where_clauses:
+        final_query += "\nWHERE " + " AND ".join(where_clauses)
+    
+    final_query += optional_matches
+    
+    score_expr = " + ".join(score_parts)
+    if req_score_adjustments:
+        score_expr += " + " + " + ".join(req_score_adjustments)
+        
+    final_query += f"\nWITH p, {score_expr} as score"
+    final_query += "\nRETURN p.id as id, p.address as address, score\nORDER BY score ASC\nLIMIT 5"
+    
+    try:
+        return get_graph().query(final_query)
+    except Exception as e:
+        return f"Error matching properties: {e}"
+
+@tool
+def find_stations_by_name(keyword: str):
+    """
+    Search for subway stations by name keyword.
+    Returns: List of {name, line, id} for matching stations.
+    Useful when you need to find a starting point for location-based search.
+    """
+    query = """
+    MATCH (s:SubwayStation)
+    WHERE s.name CONTAINS $keyword
+    RETURN s.name as name, s.id as id
+    LIMIT 5
+    """
+    try:
+        return get_graph().query(query, params={"keyword": keyword})
+    except Exception as e:
+        return f"Error finding stations: {e}"
+
+@tool
+def find_nearby_properties(station_name: str, max_distance: int = 1500, limit: int = 5):
+    """
+    Find properties near a specific subway station.
+    Args:
+        station_name: Exact name of the subway station (e.g., '강남', '홍대입구')
+        max_distance: Maximum distance in meters (default: 1500)
+        limit: Maximum number of properties to return (default: 5)
+    Returns: List of properties with ID, address, and distance info.
+    """
+    query = """
+    MATCH (p:Property)-[r:NEAR_SUBWAY]->(s:SubwayStation)
+    WHERE s.name CONTAINS $station_name AND r.distance <= $max_distance
+    RETURN p.id as id, p.address as address, s.name as station, r.distance as distance, r.walking_time as walking_time
+    ORDER BY r.distance ASC
+    LIMIT $limit
+    """
+    try:
+        return get_graph().query(query, params={"station_name": station_name, "max_distance": max_distance, "limit": limit})
+    except Exception as e:
+        return f"Error finding properties: {e}"
+
+@tool
+def find_nearby_facilities(property_id: str):
+    """
+    Get nearby facilities (Hospital, University, Police, Fire Station, Park, Convenience Store) for a specific property.
+    This tool provides general infrastructure information around the property.
+    Args:
+        property_id: The ID of the property
+    Returns: Lists of nearby facilities with distance information.
+    """
+    # Define facility types and their relationships
+    # Using specific defaults as per data import matching logic
+    facilities = [
+        {"type": "GeneralHospital", "rel": "NEAR_GENERAL_HOSPITAL", "name": "General Hospitals"},
+        {"type": "Hospital", "rel": "NEAR_HOSPITAL", "name": "Hospitals"},
+        {"type": "Pharmacy", "rel": "NEAR_PHARMACY", "name": "Pharmacies"},
+        {"type": "College", "rel": "NEAR_COLLEGE", "name": "Universities"},
+        {"type": "PoliceStation", "rel": "NEAR_POLICE", "name": "Police Stations"},
+        {"type": "FireStation", "rel": "NEAR_FIRE", "name": "Fire Stations"},
+        {"type": "Park", "rel": "NEAR_PARK", "name": "Parks"},
+        {"type": "Convenience", "rel": "NEAR_CONVENIENCE", "name": "Convenience Stores"},
+        {"type": "BusStation", "rel": "NEAR_BUS", "name": "Bus Stations"}
+    ]
+    
+    results = {}
+    graph = get_graph()
+    
+    for fac in facilities:
+        query = f"""
+        MATCH (p:Property {{id: $property_id}})-[r:{fac['rel']}]->(f)
+        RETURN f.name as name, r.distance as distance, r.walking_time as walking_time
+        ORDER BY r.distance ASC
+        LIMIT 3
+        """
+        try:
+            res = graph.query(query, params={"property_id": property_id})
+            if res:
+                results[fac['name']] = res
+        except Exception as e:
+            results[fac['name']] = f"Error: {e}"
+            
+    return results
+
+@tool
+def get_property_surroundings(property_id: str):
+    """
+    Get safety information (CCTV, Emergency Bell) for a specific property.
+    Args:
+        property_id: The ID of the property
+    Returns: Counts of safety facilities near the property.
+    """
+    # Safety (CCTV, Bell)
+    safety_query = """
+    MATCH (p:Property {id: $property_id})
+    OPTIONAL MATCH (p)-[:NEAR_CCTV]->(cctv)
+    WITH p, count(DISTINCT cctv) as cctv_count
+    OPTIONAL MATCH (p)-[:NEAR_BELL]->(bell)
+    RETURN cctv_count, count(DISTINCT bell) as bell_count
+    """
+    
+    try:
+        safety_res = get_graph().query(safety_query, params={"property_id": property_id})
+        return {
+            "safety": safety_res[0] if safety_res else {}
+        }
+    except Exception as e:
+        return f"Error getting surroundings: {e}"
 
 def search(state: RAGState):
     """
-    Search Neo4j database using GraphCypherQAChain
+    Agentic Search for Neo4j.
+    Uses defined tools to explore the graph based on user question.
     """
     question = state["question"]
+    print(f"[Agent] Starting search for: {question}")
+
+    # 1. Initialize LLM with Tools
+    # Using gpt-4o as it is more capable of complex tool usage
+    llm = ChatOpenAI(model="gpt-4o", temperature=0)
+    tools = [
+        search_poi, match_properties, 
+        find_stations_by_name, find_nearby_properties, 
+        find_nearby_facilities, get_property_surroundings
+    ]
+    llm_with_tools = llm.bind_tools(tools)
+
+    # 2. Build Messages
+    messages = [
+        SystemMessage(content="""
+        You are a smart real estate assistant with direct access to a graph database via tools.
+        Your goal is to find property IDs and key location info to answer the user's request.
+        
+        Key Strategy for Multi-Condition Search:
+        - If the user mentions MULTIPLE locations (e.g., "Near Yonsei Univ AND Sinchon Station"), use the **Intersection Strategy**:
+          1. Call `search_poi` for EACH location to get their IDs. (e.g. search_poi("Yonsei"), search_poi("Sinchon"))
+          2. Call `match_properties` with the list of collected IDs. This finds properties connected to ALL of them.
+        
+        - If the user mentions only ONE location (e.g., "Near Gangnam Station"):
+          1. Use `find_stations_by_name` (if it's a station) or `search_poi`.
+          2. Use `find_nearby_properties` or `match_properties` with single ID.
+        
+        - ALWAYS check `find_nearby_facilities` for the found properties to enrich the answer with info about hospitals, parks, etc.
+        
+        Process:
+        1. Identify intent & locations.
+        2. Execute Search Tools (Intersection Strategy is preferred for complex queries).
+        3. Enrich with `find_nearby_facilities` (mandatory) and `get_property_surroundings` (if safety mentioned).
+        4. COMPLETE THE TASK by returning a JSON-like summary.
+
+        IMPORTANT:
+        - The user wants the 'raw data' feeling, so clearly state what you found from the tools.
+        - Your final answer MUST include the list of found property IDs.
+        """),
+        HumanMessage(content=question)
+    ]
+
+    # 3. Agent Loop (Simple ReAct Loop)
+    max_steps = 10
+    found_properties = []
     
-    # Initialize Neo4j Graph
-    graph = Neo4jGraph(
-        url=os.getenv("NEO4J_URI", "bolt://neo4j:7687"),
-        username=os.getenv("NEO4J_USER", "neo4j"),
-        password=os.getenv("NEO4J_PASSWORD", "password")
-    )
+    for step in range(max_steps):
+        print(f"--- Step {step + 1} ---")
+        try:
+            ai_msg = llm_with_tools.invoke(messages)
+            messages.append(ai_msg)
 
-    # Initialize LLM (GPT-5-mini)
-    llm = ChatOpenAI(model="gpt-5-mini", temperature=0)
+            if ai_msg.content:
+                print(f"[Agent] 🧠 Thought: {ai_msg.content}")
 
-    CYPHER_GENERATION_TEMPLATE = """Task: 사용자 질문을 분석하여 GraphDB 조회 Cypher 쿼리를 생성하세요.
+            if not ai_msg.tool_calls:
+                print("[Agent] ⏹️ No more tool calls. Done.")
+                break
 
-Schema:
-{schema}
-
-핵심 원칙:
-1. 사용자 질문 분석
-   - 질문에서 언급된 모든 조건(역, 시설, 건물 유형 등)을 WHERE 절에 반영
-   - 언급된 시설은 OPTIONAL MATCH로 조회
-
-2. 정확성 최우선 (Hallucination 금지)
-   - 스키마에 없는 관계나 속성은 절대 사용 금지
-   - 확실한 데이터만 조회
-
-3. CCTV/비상벨 집계 (100m 범위 내 노드 개수)
-   - **질문에 'CCTV' 또는 '비상벨' 중 하나라도 언급되면, 반드시 두 가지 모두 집계하세요.**
-   - 카르테시안 프로덕트 방지: WITH 절로 단계별 집계
-   - 패턴:
-     ```
-     OPTIONAL MATCH (p)-[:NEAR_CCTV]->(cctv)
-     WITH p, s, count(DISTINCT cctv) as cctv_count
-     OPTIONAL MATCH (p)-[:NEAR_BELL]->(bell)  
-     WITH p, s, cctv_count, count(DISTINCT bell) as bell_count
-     ```
-
-4. 시설 정보는 3가지 세트 (이름 + 거리 + 도보시간)
-   - 반드시: `facility.name, r.distance, r.walking_time` 모두 RETURN
-   - 예: `c.name as convenience_name, r2.distance as convenience_dist, r2.walking_time as convenience_time`
-
-5. **지하철역 정보는 항상 조회 (Always retrieve Subway Info)**
-   - 사용자가 언급하지 않아도 `OPTIONAL MATCH (p)-[r_sub:NEAR_SUBWAY]->(s:SubwayStation)`을 사용하여 조회하고 반환하세요.
-   - 단, 이미 `MATCH (p)-[r:NEAR_SUBWAY]->(s:SubwayStation)`을 사용했다면 중복해서 `OPTIONAL MATCH` 하지 마세요.
-
-6. **'원룸', '자취방' 등 통칭 검색 시 모든 건물 유형 조회 (Relax Building Type Filter)**
-   - 사용자가 '원룸', '자취방' 등 주거 형태를 통칭하는 단어를 언급하더라도 `WHERE p.bldg_type = ...` 조건을 추가하지 마세요.
-   - 아파트, 오피스텔, 빌라, 원룸 등 모든 건물 유형을 검색 대상에 포함하세요.
-
-7. **우선순위 추천 (Priority Recommendation)**
-   - 질문에 특정 시설(역, 편의점, 병원 등)이 언급되면, 해당 시설과 **가까운 순서(거리 또는 도보시간 오름차순)**로 정렬하세요.
-   - 상위 **3개** 매물만 추천하세요 (`LIMIT 3`).
-
-필수 RETURN 항목:
-- p.id (매물 ID - 필수!)
-- p.address, p.bldg_type
-- p.trade_type_raw (가격 정보 - "월세 1,000만원/70만원" 형식)
-- p.deposit, p.monthly_rent, p.maintenance_fee
-- **s.name as subway_station_name, r_sub.distance (or r.distance) as subway_station_dist, r_sub.walking_time (or r.walking_time) as subway_station_time** (지하철 정보 필수)
-- 질문에 언급된 시설의 name, distance, walking_time
-- cctv_count, bell_count (질문에 언급 시)
-
-Note: Cypher 쿼리만 반환하세요.
-
-예시 1: "강남역 근처 집 찾아줘"
-MATCH (p:Property)-[r:NEAR_SUBWAY]->(s:SubwayStation)
-WHERE s.name CONTAINS '강남'
-RETURN p.id, p.address, p.bldg_type, p.trade_type_raw, p.deposit, p.monthly_rent, p.maintenance_fee, s.name as subway_station_name, r.walking_time as subway_station_time, r.distance as subway_station_dist
-ORDER BY r.distance ASC
-LIMIT 3
-
-예시 2: "홍대역 근처 도보 10분 이내 원룸 찾아줘"
-MATCH (p:Property)-[r:NEAR_SUBWAY]->(s:SubwayStation)
-WHERE s.name CONTAINS '홍대' OR s.name CONTAINS '홍익'
-AND r.walking_time <= 10
-RETURN p.id, p.address, p.bldg_type, p.trade_type_raw, p.deposit, p.monthly_rent, p.maintenance_fee, s.name as subway_station_name, r.walking_time as subway_station_time, r.distance as subway_station_dist
-ORDER BY r.walking_time ASC
-LIMIT 3
-
-예시 3: "신촌역 도보 15분 이내이고 병원 가까운 원룸 찾아줘"
-MATCH (p:Property)-[r1:NEAR_SUBWAY]->(s:SubwayStation)
-WHERE s.name CONTAINS '신촌' AND r1.walking_time <= 15
-OPTIONAL MATCH (p)-[r2:NEAR_GENERAL_HOSPITAL|NEAR_HOSPITAL]->(h)
-RETURN p.id, p.address, p.bldg_type, p.deposit, p.monthly_rent, p.maintenance_fee,
-       s.name as subway_station_name, 
-       r1.distance as subway_station_dist, 
-       r1.walking_time as subway_station_time,  
-       h.name as hospital_name, 
-       r2.distance as hospital_dist, 
-       r2.walking_time as hospital_time
-ORDER BY r2.distance ASC, r1.walking_time ASC
-LIMIT 3
-
-예시 4: "홍대입구역 근처 편의점 가까운 오피스텔 찾아줘"
-MATCH (p:Property)-[r1:NEAR_SUBWAY]->(s:SubwayStation)
-WHERE s.name CONTAINS '홍대' AND p.bldg_type = '오피스텔'
-OPTIONAL MATCH (p)-[r2:NEAR_CONVENIENCE]->(c)
-RETURN p.id, p.address, p.bldg_type, p.deposit, p.monthly_rent, p.maintenance_fee,
-       s.name as subway_station_name, 
-       r1.distance as subway_station_dist, 
-       r1.walking_time as subway_station_time,
-       c.name as convenience_name, 
-       r2.distance as convenience_dist, 
-       r2.walking_time as convenience_time
-ORDER BY r2.distance ASC, r1.walking_time ASC
-LIMIT 3
-
-예시 5: "보증금 1000만원 이하 월세 찾아줘" (지하철 언급 없음 -> OPTIONAL MATCH 사용)
-MATCH (p:Property)
-WHERE p.deposit <= 1000 AND p.monthly_rent > 0
-OPTIONAL MATCH (p)-[r_sub:NEAR_SUBWAY]->(s:SubwayStation)
-RETURN p.id, p.address, p.bldg_type, p.trade_type_raw, p.deposit, p.monthly_rent, p.maintenance_fee,
-       s.name as subway_station_name,
-       r_sub.distance as subway_station_dist,
-       r_sub.walking_time as subway_station_time
-ORDER BY p.monthly_rent ASC
-LIMIT 3
-
-질문:
-{question}"""
-
-    CYPHER_GENERATION_PROMPT = PromptTemplate(
-        input_variables=["schema", "question"], 
-        template=CYPHER_GENERATION_TEMPLATE
-    )
-
-    chain = GraphCypherQAChain.from_llm(
-        llm, 
-        graph=graph, 
-        verbose=True,
-        allow_dangerous_requests=True,
-        cypher_prompt=CYPHER_GENERATION_PROMPT,
-        return_intermediate_steps=True  # 원본 데이터 반환
-    )
-
-    try:
-        # Run the chain
-        result = chain.invoke({"query": question})
+            for tool_call in ai_msg.tool_calls:
+                print(f"[Agent] 🛠️ Calling Tool: {tool_call['name']}")
+                print(f"[Agent]    Args: {tool_call['args']}")
+                
+                tool_output = None
+                if tool_call["name"] == "search_poi":
+                    tool_output = search_poi.invoke(tool_call["args"])
+                elif tool_call["name"] == "match_properties":
+                    tool_output = match_properties.invoke(tool_call["args"])
+                    if isinstance(tool_output, list):
+                        found_properties.extend(tool_output)
+                elif tool_call["name"] == "find_stations_by_name":
+                    tool_output = find_stations_by_name.invoke(tool_call["args"])
+                elif tool_call["name"] == "find_nearby_properties":
+                    tool_output = find_nearby_properties.invoke(tool_call["args"])
+                    # Collect found properties for final result
+                    if isinstance(tool_output, list):
+                        found_properties.extend(tool_output)
+                elif tool_call["name"] == "find_nearby_facilities":
+                    tool_output = find_nearby_facilities.invoke(tool_call["args"])
+                    # Merge facility info into found_properties
+                    p_id = tool_call["args"].get("property_id")
+                    if p_id:
+                        for prop in found_properties:
+                            # Handle both raw id (int or str) and standardized string logic if needed
+                            # The tool returns id as whatever Neo4j returns.
+                            if str(prop.get('id')) == str(p_id):
+                                prop['facilities'] = tool_output
+                                break
+                elif tool_call["name"] == "get_property_surroundings":
+                    tool_output = get_property_surroundings.invoke(tool_call["args"])
+                    # Merge safety info into found_properties
+                    p_id = tool_call["args"].get("property_id")
+                    if p_id:
+                        for prop in found_properties:
+                            if str(prop.get('id')) == str(p_id):
+                                prop['surroundings'] = tool_output
+                                break
+                
+                print(f"[Agent]    Output: {str(tool_output)[:300]}...") # Log output preview
+                messages.append(ToolMessage(content=json.dumps(tool_output, default=str), tool_call_id=tool_call["id"]))
         
-        # intermediate_steps에서 원본 Cypher 쿼리 결과 추출
-        # intermediate_steps = [generated_cypher, raw_results]
-        intermediate_steps = result.get("intermediate_steps", [])
-        
-        raw_results = []
-        if len(intermediate_steps) >= 2:
-            # 두 번째 요소가 Cypher 쿼리 실행 결과 (리스트 형태)
-            raw_results = intermediate_steps[1]
-            print(f"[Neo4j] Raw results count: {len(raw_results) if isinstance(raw_results, list) else 'N/A'}")
-            print(f"[Neo4j] Raw results: {raw_results}")
-        
-        # 원본 데이터와 LLM 요약 둘 다 반환
-        return {
-            "graph_results": raw_results if raw_results else [result["result"]],
-            "graph_summary": result["result"]  # LLM 요약도 보존
-        }
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        print(f"Error in Neo4j search: {e}")
-        return {"graph_results": [f"Error executing graph search: {e}"]}
+        except Exception as e:
+            print(f"[Agent] Error in loop: {e}")
+            break
+
+    # 4. Final Response Construction
+    # We return the collected raw results to be compatible with the rest of the RAG pipeline
+    # The 'graph_summary' will be the final AI message which explains what it found.
+    
+    # Deduplicate properties by ID
+    unique_props = {p['id']: p for p in found_properties}.values() if found_properties else []
+    
+    return {
+        "graph_results": list(unique_props),
+        "graph_summary": messages[-1].content
+    }
