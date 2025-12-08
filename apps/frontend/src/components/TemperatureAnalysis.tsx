@@ -24,13 +24,13 @@ export default function TemperatureAnalysis() {
     }, []);
 
     return (
-        <div className="w-[408px] h-[584px] mt-4 rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md shadow-2xl p-4 flex flex-col">
+        <div className="w-[408px] h-[584px] mt-4 rounded-2xl border border-slate-200 bg-white shadow-sm p-4 flex flex-col">
             <h3 className="text-lg font-bold text-slate-800 mb-3 text-center">
                 🌡️ 지역 온도 분석
             </h3>
             
             {/* 평균 온도 */}
-            <div className="bg-white/60 rounded-xl p-3 mb-3 text-center">
+            <div className="bg-slate-50 rounded-xl p-3 mb-3 text-center">
                 <div className="text-sm text-slate-600">서울시 평균 온도</div>
                 <div className="text-2xl font-bold" style={{ color: getTemperatureColor(avgTemp) }}>
                     {avgTemp}°
@@ -42,7 +42,7 @@ export default function TemperatureAnalysis() {
                 <div className="text-sm font-semibold text-slate-700 mb-2">🔥 온도 높은 지역</div>
                 <div className="space-y-1.5">
                     {topDistricts.map((district, idx) => (
-                        <div key={district.name} className="flex items-center justify-between bg-white/40 rounded-lg px-3 py-1.5">
+                        <div key={district.name} className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-1.5">
                             <div className="flex items-center gap-2">
                                 <span className="text-xs font-bold text-slate-500 w-4">{idx + 1}</span>
                                 <span className="text-sm font-medium text-slate-700">{district.name}</span>
@@ -60,7 +60,7 @@ export default function TemperatureAnalysis() {
                 <div className="text-sm font-semibold text-slate-700 mb-2">❄️ 온도 낮은 지역</div>
                 <div className="space-y-1.5">
                     {bottomDistricts.map((district, idx) => (
-                        <div key={district.name} className="flex items-center justify-between bg-white/40 rounded-lg px-3 py-1.5">
+                        <div key={district.name} className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-1.5">
                             <div className="flex items-center gap-2">
                                 <span className="text-xs font-bold text-slate-500 w-4">{idx + 1}</span>
                                 <span className="text-sm font-medium text-slate-700">{district.name}</span>
@@ -74,7 +74,7 @@ export default function TemperatureAnalysis() {
             </div>
 
             {/* 범례 */}
-            <div className="mt-3 pt-3 border-t border-white/40">
+            <div className="mt-3 pt-3 border-t border-slate-200">
                 <div className="text-xs text-slate-600 text-center mb-2">온도 범례</div>
                 <div className="flex justify-center gap-1">
                     <div className="flex items-center gap-0.5">

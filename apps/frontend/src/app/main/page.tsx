@@ -39,9 +39,9 @@ const PreferenceFilter = dynamic(() => import('@/components/PreferenceFilter'), 
 const Map = dynamic(() => import('@/components/Map'), {
     ssr: false,
     loading: () => (
-        <div className="relative w-[600px] h-[500px] rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md shadow-2xl overflow-hidden p-2 flex items-center justify-center">
+        <div className="relative w-[600px] h-[500px] rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden p-2 flex items-center justify-center">
             <div className="text-slate-600 text-center">
-                <div className="w-12 h-12 border-4 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                <div className="w-12 h-12 border-4 border-slate-400 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
                 <p>지도를 불러오는 중...</p>
             </div>
         </div>
@@ -51,9 +51,9 @@ const Map = dynamic(() => import('@/components/Map'), {
 const TemperatureAnalysis = dynamic(() => import('@/components/TemperatureAnalysis'), {
     ssr: false,
     loading: () => (
-        <div className="w-[408px] h-[584px] rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md shadow-2xl p-4 flex items-center justify-center">
+        <div className="w-[408px] h-[584px] rounded-2xl border border-slate-200 bg-white shadow-sm p-4 flex items-center justify-center">
             <div className="text-slate-600 text-center">
-                <div className="w-8 h-8 border-3 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                <div className="w-8 h-8 border-3 border-slate-400 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
                 <p className="text-sm">온도 분석 로딩 중...</p>
             </div>
         </div>
@@ -69,14 +69,19 @@ export default function MainPage() {
     }, []);
 
     return (
-        <div className="max-w-5xl mx-auto px-4 space-y-8 mb-24">
+        <div className="max-w-5xl mx-auto px-4 space-y-12 mb-24">
             <section className="space-y-6">
-                <div className="text-center space-y-2 pt-8">
-                    <h2 className="text-3xl font-bold text-slate-900 flex items-center justify-center gap-2 drop-shadow-sm">
-                        <span>서울 지역 온도 한눈에</span>
-                        <span className="text-2xl">🌡️</span>
+                <div className="text-center space-y-3 pt-10">
+                    <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full text-sm font-medium text-blue-700 mb-2">
+                        <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
+                        AI 기반 지역 분석
+                    </div>
+                    <h2 className="text-3xl font-bold text-slate-900 flex items-center justify-center gap-3 drop-shadow-sm">
+                        <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">서울 지역 온도</span>
+                        <span>한눈에</span>
+                        <span className="text-3xl">🌡️</span>
                     </h2>
-                    <p className="text-slate-700 text-sm font-medium">
+                    <p className="text-slate-700 text-sm font-medium max-w-md mx-auto drop-shadow-sm">
                         ONDO HOUSE가 분석한 지역별 온도로 나에게 맞는 동네를 찾아보세요
                     </p>
                 </div>
@@ -92,12 +97,17 @@ export default function MainPage() {
             </section>
             {/* 섹션 3: 매물 추천 리스트 */}
             <section className="space-y-6">
-                <div className="text-center space-y-2">
-                    <h2 className="text-3xl font-bold text-slate-900 flex items-center justify-center gap-2 drop-shadow-sm">
-                        <span>매물 추천 리스트</span>
-                        <span className="text-2xl">🏠</span>
+                <div className="text-center space-y-3">
+                    <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-gradient-to-r from-emerald-100 to-blue-100 rounded-full text-sm font-medium text-emerald-700">
+                        <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                        맞춤형 매물 탐색
+                    </div>
+                    <h2 className="text-3xl font-bold text-slate-900 flex items-center justify-center gap-3 drop-shadow-sm">
+                        <span className="bg-gradient-to-r from-emerald-600 to-blue-600 bg-clip-text text-transparent">매물 추천</span>
+                        <span>리스트</span>
+                        <span className="text-3xl">🏠</span>
                     </h2>
-                    <p className="text-slate-700 text-sm font-medium">
+                    <p className="text-slate-700 text-sm font-medium max-w-md mx-auto drop-shadow-sm">
                         회원님의 선호도에 맞는 매물을 추천해드립니다
                     </p>
                 </div>

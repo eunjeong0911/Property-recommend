@@ -77,8 +77,8 @@ function DockItem({
                 relative inline-flex items-center justify-center rounded-full border-2 shadow-md cursor-pointer
                 transition-colors duration-200
                 ${isSelected
-                    ? 'bg-blue-600 border-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.6)] ring-2 ring-blue-300'
-                    : 'bg-white/50 border-white/40 text-slate-600 hover:border-white/80 hover:border-white/80'
+                    ? 'bg-slate-800 border-slate-700 text-white'
+                    : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:border-slate-300'
                 }
                 ${className}
             `}
@@ -218,7 +218,7 @@ export default function PreferenceFilter({
                         isHovered.set(0);
                         mouseX.set(Infinity);
                     }}
-                    className="relative flex items-end justify-center w-full gap-3 rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md pb-2 px-4 shadow-2xl z-40"
+                    className="relative flex items-end justify-center w-full gap-3 rounded-2xl border border-slate-200 bg-white pb-2 px-4 shadow-sm z-40"
                     style={{ height: panelHeight }}
                     role="toolbar"
                     aria-label="Filter dock"
@@ -235,8 +235,8 @@ export default function PreferenceFilter({
                             isSelected={selectedFilters.has(option.id)}
                             className={`
                                 ${selectedFilters.has(option.id)
-                                    ? 'bg-blue-600 border-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.6)] ring-2 ring-blue-300'
-                                    : 'bg-white/50 border-white/50 text-slate-600 hover:bg-white/80 hover:border-white/80'
+                                    ? 'bg-slate-800 border-slate-700 text-white'
+                                    : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:border-slate-300'
                                 }
                             `}
                         >
@@ -256,7 +256,7 @@ export default function PreferenceFilter({
                         distance={distance}
                         magnification={magnification}
                         baseItemSize={baseItemSize}
-                        className={selectedFilters.size === 0 ? 'opacity-50 cursor-not-allowed bg-white/30' : 'text-red-500 border-red-200 bg-white/50 hover:bg-white/80'}
+                        className={selectedFilters.size === 0 ? 'opacity-50 cursor-not-allowed bg-slate-50' : 'text-red-500 border-red-200 bg-red-50 hover:bg-red-100'}
                     >
                         <DockIcon>🔄</DockIcon>
                         <DockLabel>초기화</DockLabel>

@@ -71,9 +71,9 @@ export default function LandList({ filterParams }: LandListProps) {
 
     if (loading) {
         return (
-            <div className="p-6 rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md shadow-xl overflow-visible min-h-[300px] flex items-center justify-center">
+            <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-visible min-h-[300px] flex items-center justify-center">
                 <div className="text-slate-600 flex flex-col items-center gap-2">
-                    <div className="w-8 h-8 border-4 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                    <div className="w-8 h-8 border-4 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
                     <p>매물 정보를 불러오는 중...</p>
                 </div>
             </div>
@@ -82,7 +82,7 @@ export default function LandList({ filterParams }: LandListProps) {
 
     if (error) {
         return (
-            <div className="p-6 rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md shadow-xl overflow-visible min-h-[300px] flex items-center justify-center">
+            <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-visible min-h-[300px] flex items-center justify-center">
                 <div className="text-red-500 text-center">
                     <p>{error}</p>
                 </div>
@@ -92,7 +92,7 @@ export default function LandList({ filterParams }: LandListProps) {
 
     if (lands.length === 0) {
         return (
-            <div className="p-6 rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md shadow-xl overflow-visible min-h-[300px] flex items-center justify-center">
+            <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-visible min-h-[300px] flex items-center justify-center">
                 <div className="text-slate-600 text-center">
                     <p>조건에 맞는 매물이 없습니다.</p>
                 </div>
@@ -103,7 +103,7 @@ export default function LandList({ filterParams }: LandListProps) {
     return (
         <div className="space-y-6">
             {/* 매물 목록 */}
-            <div className="p-6 rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md shadow-xl overflow-visible">
+            <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-visible">
                 <div className="grid grid-cols-4 gap-6">
                     {currentLands.map((land) => (
                         <LandImage
@@ -117,95 +117,132 @@ export default function LandList({ filterParams }: LandListProps) {
                 </div>
             </div>
 
-            {/* 페이지네이션 */}
+            {/* 세련된 페이지네이션 */}
             {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-2">
-                    {/* 이전 버튼 */}
-                    <button
-                        onClick={handlePrevPage}
-                        disabled={currentPage === 1}
-                        className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                            currentPage === 1
-                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                : 'bg-white text-blue-600 hover:bg-blue-50 shadow-md hover:shadow-lg'
-                        }`}
-                    >
-                        이전
-                    </button>
+                <div className="flex flex-col items-center gap-4">
+                    <div className="inline-flex items-center gap-1 p-2 rounded-2xl bg-slate-50 border border-slate-200 shadow-sm">
+                        {/* 처음으로 버튼 */}
+                        <button
+                            onClick={() => handlePageClick(1)}
+                            disabled={currentPage === 1}
+                            className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-500 disabled:text-slate-300 disabled:cursor-not-allowed hover:bg-blue-50 hover:text-blue-600 transition-all duration-200"
+                            title="처음으로"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                            </svg>
+                        </button>
 
-                    {/* 페이지 번호 (10개씩 묶어서 표시) */}
-                    <div className="flex gap-2">
-                        {(() => {
-                            // 현재 페이지가 속한 그룹 계산 (1-10, 11-20, 21-30, ...)
-                            const currentGroup = Math.ceil(currentPage / 10);
-                            const startPage = (currentGroup - 1) * 10 + 1;
-                            const endPage = Math.min(currentGroup * 10, totalPages);
-                            
-                            const pages = [];
-                            
-                            // 이전 그룹이 있으면 "..." 표시
-                            if (startPage > 1) {
-                                pages.push(
-                                    <button
-                                        key="prev-group"
-                                        onClick={() => handlePageClick(startPage - 1)}
-                                        className="w-10 h-10 rounded-lg font-medium bg-white text-slate-700 hover:bg-blue-50 shadow-md hover:shadow-lg transition-all"
-                                    >
-                                        ...
-                                    </button>
-                                );
-                            }
-                            
-                            // 현재 그룹의 페이지들 표시
-                            for (let page = startPage; page <= endPage; page++) {
-                                pages.push(
-                                    <button
-                                        key={page}
-                                        onClick={() => handlePageClick(page)}
-                                        className={`w-10 h-10 rounded-lg font-medium transition-all ${
-                                            currentPage === page
-                                                ? 'bg-blue-600 text-white shadow-lg'
-                                                : 'bg-white text-slate-700 hover:bg-blue-50 shadow-md hover:shadow-lg'
-                                        }`}
-                                    >
-                                        {page}
-                                    </button>
-                                );
-                            }
-                            
-                            // 다음 그룹이 있으면 "..." 표시
-                            if (endPage < totalPages) {
-                                pages.push(
-                                    <button
-                                        key="next-group"
-                                        onClick={() => handlePageClick(endPage + 1)}
-                                        className="w-10 h-10 rounded-lg font-medium bg-white text-slate-700 hover:bg-blue-50 shadow-md hover:shadow-lg transition-all"
-                                    >
-                                        ...
-                                    </button>
-                                );
-                            }
-                            
-                            return pages;
-                        })()}
+                        {/* 이전 버튼 */}
+                        <button
+                            onClick={handlePrevPage}
+                            disabled={currentPage === 1}
+                            className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-500 disabled:text-slate-300 disabled:cursor-not-allowed hover:bg-blue-50 hover:text-blue-600 transition-all duration-200"
+                            title="이전"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                            </svg>
+                        </button>
+
+                        {/* 구분선 */}
+                        <div className="w-px h-6 bg-slate-200 mx-1"></div>
+
+                        {/* 페이지 번호 */}
+                        <div className="flex gap-1">
+                            {(() => {
+                                const currentGroup = Math.ceil(currentPage / 10);
+                                const startPage = (currentGroup - 1) * 10 + 1;
+                                const endPage = Math.min(currentGroup * 10, totalPages);
+                                
+                                const pages = [];
+                                
+                                if (startPage > 1) {
+                                    pages.push(
+                                        <button
+                                            key="first"
+                                            onClick={() => handlePageClick(1)}
+                                            className="w-10 h-10 rounded-xl text-sm font-medium text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-all duration-200"
+                                        >
+                                            1
+                                        </button>
+                                    );
+                                    if (startPage > 2) {
+                                        pages.push(
+                                            <span key="dots-start" className="w-10 h-10 flex items-center justify-center text-slate-400 text-sm">...</span>
+                                        );
+                                    }
+                                }
+                                
+                                for (let page = startPage; page <= endPage; page++) {
+                                    pages.push(
+                                        <button
+                                            key={page}
+                                            onClick={() => handlePageClick(page)}
+                                            className={`w-10 h-10 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                                                currentPage === page
+                                                    ? 'bg-slate-800 text-white shadow-sm'
+                                                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800'
+                                            }`}
+                                        >
+                                            {page}
+                                        </button>
+                                    );
+                                }
+                                
+                                if (endPage < totalPages) {
+                                    if (endPage < totalPages - 1) {
+                                        pages.push(
+                                            <span key="dots-end" className="w-10 h-10 flex items-center justify-center text-slate-400 text-sm">...</span>
+                                        );
+                                    }
+                                    pages.push(
+                                        <button
+                                            key="last"
+                                            onClick={() => handlePageClick(totalPages)}
+                                            className="w-10 h-10 rounded-xl text-sm font-medium text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-all duration-200"
+                                        >
+                                            {totalPages}
+                                        </button>
+                                    );
+                                }
+                                
+                                return pages;
+                            })()}
+                        </div>
+
+                        {/* 구분선 */}
+                        <div className="w-px h-6 bg-slate-200 mx-1"></div>
+
+                        {/* 다음 버튼 */}
+                        <button
+                            onClick={handleNextPage}
+                            disabled={currentPage === totalPages}
+                            className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-500 disabled:text-slate-300 disabled:cursor-not-allowed hover:bg-blue-50 hover:text-blue-600 transition-all duration-200"
+                            title="다음"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                        </button>
+
+                        {/* 끝으로 버튼 */}
+                        <button
+                            onClick={() => handlePageClick(totalPages)}
+                            disabled={currentPage === totalPages}
+                            className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-500 disabled:text-slate-300 disabled:cursor-not-allowed hover:bg-blue-50 hover:text-blue-600 transition-all duration-200"
+                            title="끝으로"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                            </svg>
+                        </button>
                     </div>
 
-                    {/* 다음 버튼 */}
-                    <button
-                        onClick={handleNextPage}
-                        disabled={currentPage === totalPages}
-                        className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                            currentPage === totalPages
-                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                : 'bg-white text-blue-600 hover:bg-blue-50 shadow-md hover:shadow-lg'
-                        }`}
-                    >
-                        다음
-                    </button>
-
                     {/* 페이지 정보 */}
-                    <div className="ml-4 text-slate-600 font-medium">
-                        {currentPage} / {totalPages} 페이지 (총 {lands.length}개)
+                    <div className="text-sm text-slate-500">
+                        총 <span className="font-semibold text-slate-700">{lands.length}</span>개 매물 중{' '}
+                        <span className="font-semibold text-blue-600">{currentPage}</span> / {totalPages} 페이지
                     </div>
                 </div>
             )}
