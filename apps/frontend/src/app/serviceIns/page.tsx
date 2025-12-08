@@ -25,8 +25,8 @@ export default function ServiceInsPage() {
           </span>
           가 찾아드립니다
         </h1>
-        <p className="text-slate-600 text-lg max-w-2xl mx-auto leading-relaxed">
-          서울 전역 <span className="font-semibold text-slate-800">9,900개 이상</span>의 매물 데이터와 
+        <p className="text-slate-700 text-lg max-w-2xl mx-auto leading-relaxed drop-shadow-sm">
+          서울 전역 <span className="font-semibold text-slate-900">9,900개 이상</span>의 매물 데이터와 
           AI 분석을 통해 나에게 딱 맞는 집을 추천받으세요.
           <br />
           복잡한 부동산 정보, 이제 온도로 쉽게 이해하세요.
@@ -54,7 +54,7 @@ export default function ServiceInsPage() {
             <span>온도 시스템이란?</span>
             <span className="text-2xl">🌡️</span>
           </h2>
-          <p className="text-slate-600 text-sm font-medium">
+          <p className="text-slate-700 text-sm font-medium drop-shadow-sm">
             ONDO HOUSE만의 독자적인 매물 평가 시스템
           </p>
         </div>
@@ -105,7 +105,7 @@ export default function ServiceInsPage() {
             <span>5가지 핵심 분석 요소</span>
             <span className="text-2xl">📊</span>
           </h2>
-          <p className="text-slate-600 text-sm font-medium">
+          <p className="text-slate-700 text-sm font-medium drop-shadow-sm">
             AI가 분석하는 매물 평가 기준
           </p>
         </div>
@@ -138,7 +138,7 @@ export default function ServiceInsPage() {
             <span>주요 기능</span>
             <span className="text-2xl">✨</span>
           </h2>
-          <p className="text-slate-600 text-sm font-medium">
+          <p className="text-slate-700 text-sm font-medium drop-shadow-sm">
             ONDO HOUSE가 제공하는 스마트한 기능들
           </p>
         </div>
@@ -249,7 +249,7 @@ export default function ServiceInsPage() {
             <span>실시간 데이터 현황</span>
             <span className="text-2xl">📈</span>
           </h2>
-          <p className="text-slate-600 text-sm font-medium">
+          <p className="text-slate-700 text-sm font-medium drop-shadow-sm">
             ONDO HOUSE가 보유한 매물 현황
           </p>
         </div>
@@ -301,7 +301,7 @@ export default function ServiceInsPage() {
             <span>이용 방법</span>
             <span className="text-2xl">🚀</span>
           </h2>
-          <p className="text-slate-600 text-sm font-medium">
+          <p className="text-slate-700 text-sm font-medium drop-shadow-sm">
             3단계로 시작하는 스마트한 집 찾기
           </p>
         </div>

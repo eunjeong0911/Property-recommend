@@ -39,9 +39,9 @@ const PreferenceFilter = dynamic(() => import('@/components/PreferenceFilter'), 
 const Map = dynamic(() => import('@/components/Map'), {
     ssr: false,
     loading: () => (
-        <div className="relative w-[600px] h-[500px] rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md shadow-2xl overflow-hidden p-2 flex items-center justify-center">
+        <div className="relative w-[600px] h-[500px] rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden p-2 flex items-center justify-center">
             <div className="text-slate-600 text-center">
-                <div className="w-12 h-12 border-4 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                <div className="w-12 h-12 border-4 border-slate-400 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
                 <p>지도를 불러오는 중...</p>
             </div>
         </div>
@@ -51,9 +51,9 @@ const Map = dynamic(() => import('@/components/Map'), {
 const TemperatureAnalysis = dynamic(() => import('@/components/TemperatureAnalysis'), {
     ssr: false,
     loading: () => (
-        <div className="w-[408px] h-[584px] rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md shadow-2xl p-4 flex items-center justify-center">
+        <div className="w-[408px] h-[584px] rounded-2xl border border-slate-200 bg-white shadow-sm p-4 flex items-center justify-center">
             <div className="text-slate-600 text-center">
-                <div className="w-8 h-8 border-3 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                <div className="w-8 h-8 border-3 border-slate-400 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
                 <p className="text-sm">온도 분석 로딩 중...</p>
             </div>
         </div>
@@ -81,7 +81,7 @@ export default function MainPage() {
                         <span>한눈에</span>
                         <span className="text-3xl">🌡️</span>
                     </h2>
-                    <p className="text-slate-600 text-sm font-medium max-w-md mx-auto">
+                    <p className="text-slate-700 text-sm font-medium max-w-md mx-auto drop-shadow-sm">
                         ONDO HOUSE가 분석한 지역별 온도로 나에게 맞는 동네를 찾아보세요
                     </p>
                 </div>
@@ -107,7 +107,7 @@ export default function MainPage() {
                         <span>리스트</span>
                         <span className="text-3xl">🏠</span>
                     </h2>
-                    <p className="text-slate-600 text-sm font-medium max-w-md mx-auto">
+                    <p className="text-slate-700 text-sm font-medium max-w-md mx-auto drop-shadow-sm">
                         회원님의 선호도에 맞는 매물을 추천해드립니다
                     </p>
                 </div>

@@ -102,7 +102,7 @@ export default function LandListFilter({ onFilterChange }: LandListFilterProps) 
     };
 
     return (
-        <div className="p-6 rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md shadow-xl relative z-20" ref={dropdownRef}>
+        <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-sm relative z-20" ref={dropdownRef}>
             <div className="flex flex-col gap-4">
                 {/* Search Bar */}
                 <div className="relative group">
@@ -111,7 +111,7 @@ export default function LandListFilter({ onFilterChange }: LandListFilterProps) 
                         value={searchQuery}
                         onChange={handleSearchChange}
                         placeholder="주소, 매물번호로 검색해보세요"
-                        className="w-full py-3.5 pl-12 pr-4 bg-white/90 border-2 border-white/60 rounded-xl text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-300 focus:bg-white shadow-sm transition-all group-hover:shadow-md"
+                        className="w-full py-3.5 pl-12 pr-4 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-slate-300 focus:bg-white transition-all"
                     />
                     <div className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-blue-500 transition-colors">
                         <Search className="w-5 h-5" />
@@ -124,23 +124,23 @@ export default function LandListFilter({ onFilterChange }: LandListFilterProps) 
                     <div className="relative">
                         <button
                             onClick={(e) => toggleDropdown('region', e)}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-full border-2 transition-all ${activeDropdown === 'region' || selectedRegion
-                                ? 'bg-blue-100 border-blue-300 text-blue-700'
-                                : 'bg-white/60 border-white/60 text-slate-600 hover:bg-white/80'
+                            className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all ${activeDropdown === 'region' || selectedRegion
+                                ? 'bg-slate-100 border-slate-300 text-slate-800'
+                                : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                                 }`}
                         >
                             <span>{selectedRegion || '서울 구'}</span>
                             <ChevronDown className={`w-4 h-4 transition-transform ${activeDropdown === 'region' ? 'rotate-180' : ''}`} />
                         </button>
                         {activeDropdown === 'region' && (
-                            <div className="absolute top-full left-0 mt-2 w-64 bg-white/90 backdrop-blur-sm border border-white/60 rounded-xl shadow-lg p-2 z-50 max-h-80 overflow-y-auto scrollbar-hide">
+                            <div className="absolute top-full left-0 mt-2 w-64 bg-white border border-slate-200 rounded-xl shadow-lg p-2 z-50 max-h-80 overflow-y-auto scrollbar-hide">
                                 <div className="grid grid-cols-3 gap-1">
                                     {SEOUL_DISTRICTS.map((option) => (
                                         <button
                                             key={option}
                                             onClick={(e) => handleSelect('region', option, e)}
                                             className={`px-3 py-2 rounded-lg text-sm text-left transition-colors ${selectedRegion === option
-                                                ? 'bg-blue-100 text-blue-700 font-medium'
+                                                ? 'bg-slate-200 text-slate-800 font-medium'
                                                 : 'text-slate-600 hover:bg-slate-100'
                                                 }`}
                                         >
@@ -156,23 +156,23 @@ export default function LandListFilter({ onFilterChange }: LandListFilterProps) 
                     <div className="relative">
                         <button
                             onClick={(e) => toggleDropdown('transaction', e)}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-full border-2 transition-all ${activeDropdown === 'transaction' || selectedTransaction
-                                ? 'bg-blue-100 border-blue-300 text-blue-700'
-                                : 'bg-white/60 border-white/60 text-slate-600 hover:bg-white/80'
+                            className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all ${activeDropdown === 'transaction' || selectedTransaction
+                                ? 'bg-slate-100 border-slate-300 text-slate-800'
+                                : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                                 }`}
                         >
                             <span>{selectedTransaction || '거래유형'}</span>
                             <ChevronDown className={`w-4 h-4 transition-transform ${activeDropdown === 'transaction' ? 'rotate-180' : ''}`} />
                         </button>
                         {activeDropdown === 'transaction' && (
-                            <div className="absolute top-full left-0 mt-2 w-32 bg-white/90 backdrop-blur-sm border border-white/60 rounded-xl shadow-lg p-2 z-50">
+                            <div className="absolute top-full left-0 mt-2 w-32 bg-white border border-slate-200 rounded-xl shadow-lg p-2 z-50">
                                 <div className="flex flex-col gap-1">
                                     {TRANSACTION_OPTIONS.map((option) => (
                                         <button
                                             key={option}
                                             onClick={(e) => handleSelect('transaction', option, e)}
                                             className={`px-3 py-2 rounded-lg text-sm text-left transition-colors ${selectedTransaction === option
-                                                ? 'bg-blue-100 text-blue-700 font-medium'
+                                                ? 'bg-slate-200 text-slate-800 font-medium'
                                                 : 'text-slate-600 hover:bg-slate-100'
                                                 }`}
                                         >
@@ -188,23 +188,23 @@ export default function LandListFilter({ onFilterChange }: LandListFilterProps) 
                     <div className="relative">
                         <button
                             onClick={(e) => toggleDropdown('building', e)}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-full border-2 transition-all ${activeDropdown === 'building' || selectedBuilding
-                                ? 'bg-blue-100 border-blue-300 text-blue-700'
-                                : 'bg-white/60 border-white/60 text-slate-600 hover:bg-white/80'
+                            className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all ${activeDropdown === 'building' || selectedBuilding
+                                ? 'bg-slate-100 border-slate-300 text-slate-800'
+                                : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                                 }`}
                         >
                             <span>{selectedBuilding || '건물유형'}</span>
                             <ChevronDown className={`w-4 h-4 transition-transform ${activeDropdown === 'building' ? 'rotate-180' : ''}`} />
                         </button>
                         {activeDropdown === 'building' && (
-                            <div className="absolute top-full left-0 mt-2 w-32 bg-white/90 backdrop-blur-sm border border-white/60 rounded-xl shadow-lg p-2 z-50">
+                            <div className="absolute top-full left-0 mt-2 w-32 bg-white border border-slate-200 rounded-xl shadow-lg p-2 z-50">
                                 <div className="flex flex-col gap-1">
                                     {BUILDING_OPTIONS.map((option) => (
                                         <button
                                             key={option}
                                             onClick={(e) => handleSelect('building', option, e)}
                                             className={`px-3 py-2 rounded-lg text-sm text-left transition-colors ${selectedBuilding === option
-                                                ? 'bg-blue-100 text-blue-700 font-medium'
+                                                ? 'bg-slate-200 text-slate-800 font-medium'
                                                 : 'text-slate-600 hover:bg-slate-100'
                                                 }`}
                                         >
@@ -219,7 +219,7 @@ export default function LandListFilter({ onFilterChange }: LandListFilterProps) 
                     {/* Reset Button */}
                     <button
                         onClick={handleReset}
-                        className="flex items-center gap-1.5 px-4 py-2 rounded-full border-2 border-red-200 bg-white/60 text-red-500 hover:bg-red-50 hover:border-red-300 transition-all text-sm font-medium ml-auto group"
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-full border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 hover:border-red-300 transition-all text-sm font-medium ml-auto group"
                     >
                         <X className="w-3.5 h-3.5 group-hover:rotate-90 transition-transform" />
                         초기화
@@ -228,29 +228,29 @@ export default function LandListFilter({ onFilterChange }: LandListFilterProps) 
 
                 {/* Selected Filters Tags */}
                 {(selectedRegion || selectedTransaction || selectedBuilding || searchQuery) && (
-                    <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-white/40">
+                    <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-200">
                         <span className="text-xs text-slate-500 font-medium">적용된 필터:</span>
                         {searchQuery && (
-                            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-emerald-500 to-green-500 text-white text-sm shadow-md hover:shadow-lg transition-shadow">
+                            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-600 text-white text-sm">
                                 <Search className="w-3 h-3" />
                                 {searchQuery}
                                 <button onClick={() => setSearchQuery('')} className="hover:bg-white/20 rounded-full p-0.5 transition-colors"><X className="w-3 h-3" /></button>
                             </span>
                         )}
                         {selectedRegion && (
-                            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm shadow-md hover:shadow-lg transition-shadow">
+                            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-600 text-white text-sm">
                                 📍 {selectedRegion}
                                 <button onClick={(e) => removeFilter('region', e)} className="hover:bg-white/20 rounded-full p-0.5 transition-colors"><X className="w-3 h-3" /></button>
                             </span>
                         )}
                         {selectedTransaction && (
-                            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-purple-500 to-violet-500 text-white text-sm shadow-md hover:shadow-lg transition-shadow">
+                            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-600 text-white text-sm">
                                 💰 {selectedTransaction}
                                 <button onClick={(e) => removeFilter('transaction', e)} className="hover:bg-white/20 rounded-full p-0.5 transition-colors"><X className="w-3 h-3" /></button>
                             </span>
                         )}
                         {selectedBuilding && (
-                            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 text-white text-sm shadow-md hover:shadow-lg transition-shadow">
+                            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-600 text-white text-sm">
                                 🏠 {selectedBuilding}
                                 <button onClick={(e) => removeFilter('building', e)} className="hover:bg-white/20 rounded-full p-0.5 transition-colors"><X className="w-3 h-3" /></button>
                             </span>

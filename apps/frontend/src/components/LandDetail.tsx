@@ -143,7 +143,7 @@ export default function LandDetail({ landId }: LandDetailProps) {
                     </div>
 
                     {/* 부동산 정보 */}
-                    <div className="mt-6 rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md shadow-xl p-6">
+                    <div className="mt-6 rounded-2xl border-purple-200/60 border-2 bg-gradient-to-r from-purple-50/90 via-blue-50/90 to-cyan-50/90 backdrop-blur-md shadow-lg p-6">
                         <h3 className="text-lg font-bold mb-4 text-slate-800">부동산 정보</h3>
 
                         {/* 온도 바 */}
@@ -180,7 +180,7 @@ export default function LandDetail({ landId }: LandDetailProps) {
                     </div>
 
                     {/* 매물 정보 */}
-                    <div className="rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md shadow-xl p-6 flex-1">
+                    <div className="rounded-2xl border-purple-200/60 border-2 bg-gradient-to-r from-purple-50/90 via-blue-50/90 to-cyan-50/90 backdrop-blur-md shadow-lg p-6 flex-1">
                         <h3 className="text-lg font-bold mb-4 text-slate-800">매물 상세 정보</h3>
                         <div className="space-y-3">
                             <div className="flex items-center" style={{ gap: '100px' }}>
@@ -241,7 +241,7 @@ export default function LandDetail({ landId }: LandDetailProps) {
             </div>
 
             {/* 하단: 상세내용 (전체 너비) */}
-            <div className="rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md shadow-xl p-6">
+            <div className="rounded-2xl border-purple-200/60 border-2 bg-gradient-to-r from-purple-50/90 via-blue-50/90 to-cyan-50/90 backdrop-blur-md shadow-lg p-6">
                 <h3 className="text-xl font-bold mb-4 text-slate-800">상세내용</h3>
                 <p className="text-slate-700 whitespace-pre-line leading-relaxed">
                     {land.description || '상세 설명이 없습니다.'}
