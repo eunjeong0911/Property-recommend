@@ -17,15 +17,28 @@ import { useState, useRef, useEffect } from 'react';
 import { Search, X, ChevronDown } from 'lucide-react';
 import { useParticleEffect } from '../hooks/useParticleEffect';
 
-const REGION_OPTIONS = ['서울', '경기', '인천', '부산', '대구', '광주', '대전', '울산', '세종', '강원', '충북', '충남', '전북', '전남', '경북', '경남', '제주'];
-const TRANSACTION_OPTIONS = ['매매', '전세', '월세'];
-const BUILDING_OPTIONS = ['아파트', '오피스텔', '빌라', '원룸', '투룸'];
+// 서울 구 목록 (DB 데이터 기준)
+const SEOUL_DISTRICTS = [
+    '강남구', '강동구', '강북구', '강서구', '관악구', '광진구', '구로구', '금천구',
+    '노원구', '도봉구', '동대문구', '동작구', '마포구', '서대문구', '서초구', '성동구',
+    '성북구', '송파구', '양천구', '영등포구', '용산구', '은평구', '종로구', '중구', '중랑구'
+];
 
-export default function LandListFilter() {
+const TRANSACTION_OPTIONS = ['매매', '전세', '월세', '단기임대', '미분류'];
+const BUILDING_OPTIONS = ['아파트', '오피스텔', '빌라주택', '원투룸'];
+
+import { LandFilterParams } from '../types/land';
+
+interface LandListFilterProps {
+    onFilterChange?: (params: LandFilterParams) => void;
+}
+
+export default function LandListFilter({ onFilterChange }: LandListFilterProps) {
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
     const [selectedRegion, setSelectedRegion] = useState<string>('');
     const [selectedTransaction, setSelectedTransaction] = useState<string>('');
     const [selectedBuilding, setSelectedBuilding] = useState<string>('');
+    const [searchQuery, setSearchQuery] = useState<string>('');
 
     const dropdownRef = useRef<HTMLDivElement>(null);
     const { triggerEffect } = useParticleEffect();
@@ -42,6 +55,18 @@ export default function LandListFilter() {
             document.removeEventListener("mousedown", handleClickOutside);
         };
     }, []);
+
+    // Notify parent when filters change
+    useEffect(() => {
+        if (onFilterChange) {
+            onFilterChange({
+                region: selectedRegion,
+                transaction_type: selectedTransaction,
+                building_type: selectedBuilding,
+                search: searchQuery
+            });
+        }
+    }, [selectedRegion, selectedTransaction, selectedBuilding, searchQuery, onFilterChange]);
 
     const toggleDropdown = (name: string, event: React.MouseEvent<HTMLElement>) => {
         setActiveDropdown(activeDropdown === name ? null : name);
@@ -60,7 +85,12 @@ export default function LandListFilter() {
         setSelectedRegion('');
         setSelectedTransaction('');
         setSelectedBuilding('');
+        setSearchQuery('');
         triggerEffect(event.currentTarget as HTMLElement);
+    };
+
+    const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setSearchQuery(e.target.value);
     };
 
     const removeFilter = (type: 'region' | 'transaction' | 'building', event: React.MouseEvent<HTMLElement>) => {
@@ -78,7 +108,9 @@ export default function LandListFilter() {
                 <div className="relative">
                     <input
                         type="text"
-                        placeholder="지역, 지하철역, 학교 검색"
+                        value={searchQuery}
+                        onChange={handleSearchChange}
+                        placeholder="주소, 매물번호 검색"
                         className="w-full py-3 pl-12 pr-4 bg-white/80 border-white/60 border-2 rounded-xl text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent shadow-sm transition-all"
                     />
                     <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
@@ -86,28 +118,28 @@ export default function LandListFilter() {
 
                 {/* Filter Options */}
                 <div className="flex flex-wrap gap-2">
-                    {/* Region Dropdown */}
+                    {/* Region Dropdown (서울 구 목록) */}
                     <div className="relative">
                         <button
                             onClick={(e) => toggleDropdown('region', e)}
                             className={`flex items-center gap-2 px-4 py-2 rounded-full border-2 transition-all ${activeDropdown === 'region' || selectedRegion
-                                    ? 'bg-blue-100 border-blue-300 text-blue-700'
-                                    : 'bg-white/60 border-white/60 text-slate-600 hover:bg-white/80'
+                                ? 'bg-blue-100 border-blue-300 text-blue-700'
+                                : 'bg-white/60 border-white/60 text-slate-600 hover:bg-white/80'
                                 }`}
                         >
-                            <span>{selectedRegion || '지역'}</span>
+                            <span>{selectedRegion || '서울 구'}</span>
                             <ChevronDown className={`w-4 h-4 transition-transform ${activeDropdown === 'region' ? 'rotate-180' : ''}`} />
                         </button>
                         {activeDropdown === 'region' && (
-                            <div className="absolute top-full left-0 mt-2 w-48 bg-white/90 backdrop-blur-sm border border-white/60 rounded-xl shadow-lg p-2 z-50 max-h-60 overflow-y-auto scrollbar-hide">
-                                <div className="grid grid-cols-2 gap-1">
-                                    {REGION_OPTIONS.map((option) => (
+                            <div className="absolute top-full left-0 mt-2 w-64 bg-white/90 backdrop-blur-sm border border-white/60 rounded-xl shadow-lg p-2 z-50 max-h-80 overflow-y-auto scrollbar-hide">
+                                <div className="grid grid-cols-3 gap-1">
+                                    {SEOUL_DISTRICTS.map((option) => (
                                         <button
                                             key={option}
                                             onClick={(e) => handleSelect('region', option, e)}
                                             className={`px-3 py-2 rounded-lg text-sm text-left transition-colors ${selectedRegion === option
-                                                    ? 'bg-blue-100 text-blue-700 font-medium'
-                                                    : 'text-slate-600 hover:bg-slate-100'
+                                                ? 'bg-blue-100 text-blue-700 font-medium'
+                                                : 'text-slate-600 hover:bg-slate-100'
                                                 }`}
                                         >
                                             {option}
@@ -123,8 +155,8 @@ export default function LandListFilter() {
                         <button
                             onClick={(e) => toggleDropdown('transaction', e)}
                             className={`flex items-center gap-2 px-4 py-2 rounded-full border-2 transition-all ${activeDropdown === 'transaction' || selectedTransaction
-                                    ? 'bg-blue-100 border-blue-300 text-blue-700'
-                                    : 'bg-white/60 border-white/60 text-slate-600 hover:bg-white/80'
+                                ? 'bg-blue-100 border-blue-300 text-blue-700'
+                                : 'bg-white/60 border-white/60 text-slate-600 hover:bg-white/80'
                                 }`}
                         >
                             <span>{selectedTransaction || '거래유형'}</span>
@@ -138,8 +170,8 @@ export default function LandListFilter() {
                                             key={option}
                                             onClick={(e) => handleSelect('transaction', option, e)}
                                             className={`px-3 py-2 rounded-lg text-sm text-left transition-colors ${selectedTransaction === option
-                                                    ? 'bg-blue-100 text-blue-700 font-medium'
-                                                    : 'text-slate-600 hover:bg-slate-100'
+                                                ? 'bg-blue-100 text-blue-700 font-medium'
+                                                : 'text-slate-600 hover:bg-slate-100'
                                                 }`}
                                         >
                                             {option}
@@ -155,8 +187,8 @@ export default function LandListFilter() {
                         <button
                             onClick={(e) => toggleDropdown('building', e)}
                             className={`flex items-center gap-2 px-4 py-2 rounded-full border-2 transition-all ${activeDropdown === 'building' || selectedBuilding
-                                    ? 'bg-blue-100 border-blue-300 text-blue-700'
-                                    : 'bg-white/60 border-white/60 text-slate-600 hover:bg-white/80'
+                                ? 'bg-blue-100 border-blue-300 text-blue-700'
+                                : 'bg-white/60 border-white/60 text-slate-600 hover:bg-white/80'
                                 }`}
                         >
                             <span>{selectedBuilding || '건물유형'}</span>
@@ -170,8 +202,8 @@ export default function LandListFilter() {
                                             key={option}
                                             onClick={(e) => handleSelect('building', option, e)}
                                             className={`px-3 py-2 rounded-lg text-sm text-left transition-colors ${selectedBuilding === option
-                                                    ? 'bg-blue-100 text-blue-700 font-medium'
-                                                    : 'text-slate-600 hover:bg-slate-100'
+                                                ? 'bg-blue-100 text-blue-700 font-medium'
+                                                : 'text-slate-600 hover:bg-slate-100'
                                                 }`}
                                         >
                                             {option}
@@ -192,8 +224,14 @@ export default function LandListFilter() {
                 </div>
 
                 {/* Selected Filters Tags */}
-                {(selectedRegion || selectedTransaction || selectedBuilding) && (
+                {(selectedRegion || selectedTransaction || selectedBuilding || searchQuery) && (
                     <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200/50">
+                        {searchQuery && (
+                            <span className="flex items-center gap-1 px-3 py-1 rounded-full bg-green-500 text-white text-sm shadow-sm">
+                                검색: {searchQuery}
+                                <button onClick={() => setSearchQuery('')} className="hover:text-green-200"><X className="w-3 h-3" /></button>
+                            </span>
+                        )}
                         {selectedRegion && (
                             <span className="flex items-center gap-1 px-3 py-1 rounded-full bg-blue-500 text-white text-sm shadow-sm">
                                 {selectedRegion}
