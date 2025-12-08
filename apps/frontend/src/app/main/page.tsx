@@ -72,11 +72,11 @@ export default function MainPage() {
         <div className="max-w-5xl mx-auto px-4 space-y-8 mb-24">
             <section className="space-y-6">
                 <div className="text-center space-y-2 pt-8">
-                    <h2 className="text-3xl font-bold text-slate-800 flex items-center justify-center gap-2">
+                    <h2 className="text-3xl font-bold text-slate-900 flex items-center justify-center gap-2 drop-shadow-sm">
                         <span>서울 지역 온도 한눈에</span>
                         <span className="text-2xl">🌡️</span>
                     </h2>
-                    <p className="text-slate-600 text-sm">
+                    <p className="text-slate-700 text-sm font-medium">
                         ONDO HOUSE가 분석한 지역별 온도로 나에게 맞는 동네를 찾아보세요
                     </p>
                 </div>
@@ -93,11 +93,11 @@ export default function MainPage() {
             {/* 섹션 3: 매물 추천 리스트 */}
             <section className="space-y-6">
                 <div className="text-center space-y-2">
-                    <h2 className="text-3xl font-bold text-slate-800 flex items-center justify-center gap-2">
+                    <h2 className="text-3xl font-bold text-slate-900 flex items-center justify-center gap-2 drop-shadow-sm">
                         <span>매물 추천 리스트</span>
                         <span className="text-2xl">🏠</span>
                     </h2>
-                    <p className="text-slate-600 text-sm">
+                    <p className="text-slate-700 text-sm font-medium">
                         회원님의 선호도에 맞는 매물을 추천해드립니다
                     </p>
                 </div>
