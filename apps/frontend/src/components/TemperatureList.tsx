@@ -33,7 +33,7 @@ const DEFAULT_TEMPERATURES: TemperatureData[] = [
 
 export default function TemperatureList({ temperatures = DEFAULT_TEMPERATURES }: TemperatureListProps) {
     return (
-        <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-lg space-y-4">
+        <div className="p-6 rounded-2xl border border-purple-200/60 bg-gradient-to-b from-purple-50/90 via-blue-50/90 to-cyan-50/90 backdrop-blur-md shadow-lg space-y-4">
             {temperatures.map((temp, index) => (
                 <Temperature key={index} label={temp.label} value={temp.value} />
             ))}

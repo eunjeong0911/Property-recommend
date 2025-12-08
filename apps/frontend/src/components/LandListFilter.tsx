@@ -102,7 +102,7 @@ export default function LandListFilter({ onFilterChange }: LandListFilterProps) 
     };
 
     return (
-        <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-sm relative z-20" ref={dropdownRef}>
+        <div className="p-6 rounded-2xl border border-purple-200/60 bg-gradient-to-r from-purple-50/90 via-blue-50/90 to-cyan-50/90 backdrop-blur-md shadow-lg relative z-20" ref={dropdownRef}>
             <div className="flex flex-col gap-4">
                 {/* Search Bar */}
                 <div className="relative group">
@@ -111,7 +111,7 @@ export default function LandListFilter({ onFilterChange }: LandListFilterProps) 
                         value={searchQuery}
                         onChange={handleSearchChange}
                         placeholder="주소, 매물번호로 검색해보세요"
-                        className="w-full py-3.5 pl-12 pr-4 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-slate-300 focus:bg-white transition-all"
+                        className="w-full py-3.5 pl-12 pr-4 bg-white/90 border border-purple-200/60 rounded-xl text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-purple-300 focus:bg-white shadow-sm transition-all"
                     />
                     <div className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-blue-500 transition-colors">
                         <Search className="w-5 h-5" />
@@ -125,8 +125,8 @@ export default function LandListFilter({ onFilterChange }: LandListFilterProps) 
                         <button
                             onClick={(e) => toggleDropdown('region', e)}
                             className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all ${activeDropdown === 'region' || selectedRegion
-                                ? 'bg-slate-100 border-slate-300 text-slate-800'
-                                : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                                ? 'bg-purple-100 border-purple-300 text-purple-700'
+                                : 'bg-white/80 border-purple-200/60 text-slate-600 hover:bg-white hover:border-purple-300'
                                 }`}
                         >
                             <span>{selectedRegion || '서울 구'}</span>

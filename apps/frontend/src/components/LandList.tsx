@@ -71,9 +71,9 @@ export default function LandList({ filterParams }: LandListProps) {
 
     if (loading) {
         return (
-            <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-visible min-h-[300px] flex items-center justify-center">
+            <div className="p-6 rounded-2xl border border-purple-200/60 bg-gradient-to-r from-purple-50/90 via-blue-50/90 to-cyan-50/90 backdrop-blur-md shadow-lg overflow-visible min-h-[300px] flex items-center justify-center">
                 <div className="text-slate-600 flex flex-col items-center gap-2">
-                    <div className="w-8 h-8 border-4 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
+                    <div className="w-8 h-8 border-4 border-purple-400 border-t-transparent rounded-full animate-spin"></div>
                     <p>매물 정보를 불러오는 중...</p>
                 </div>
             </div>
@@ -82,7 +82,7 @@ export default function LandList({ filterParams }: LandListProps) {
 
     if (error) {
         return (
-            <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-visible min-h-[300px] flex items-center justify-center">
+            <div className="p-6 rounded-2xl border border-purple-200/60 bg-gradient-to-r from-purple-50/90 via-blue-50/90 to-cyan-50/90 backdrop-blur-md shadow-lg overflow-visible min-h-[300px] flex items-center justify-center">
                 <div className="text-red-500 text-center">
                     <p>{error}</p>
                 </div>
@@ -92,7 +92,7 @@ export default function LandList({ filterParams }: LandListProps) {
 
     if (lands.length === 0) {
         return (
-            <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-visible min-h-[300px] flex items-center justify-center">
+            <div className="p-6 rounded-2xl border border-purple-200/60 bg-gradient-to-r from-purple-50/90 via-blue-50/90 to-cyan-50/90 backdrop-blur-md shadow-lg overflow-visible min-h-[300px] flex items-center justify-center">
                 <div className="text-slate-600 text-center">
                     <p>조건에 맞는 매물이 없습니다.</p>
                 </div>
@@ -103,7 +103,7 @@ export default function LandList({ filterParams }: LandListProps) {
     return (
         <div className="space-y-6">
             {/* 매물 목록 */}
-            <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-visible">
+            <div className="p-6 rounded-2xl border border-purple-200/60 bg-gradient-to-r from-purple-50/90 via-blue-50/90 to-cyan-50/90 backdrop-blur-md shadow-lg overflow-visible">
                 <div className="grid grid-cols-4 gap-6">
                     {currentLands.map((land) => (
                         <LandImage
@@ -120,7 +120,7 @@ export default function LandList({ filterParams }: LandListProps) {
             {/* 세련된 페이지네이션 */}
             {totalPages > 1 && (
                 <div className="flex flex-col items-center gap-4">
-                    <div className="inline-flex items-center gap-1 p-2 rounded-2xl bg-slate-50 border border-slate-200 shadow-sm">
+                    <div className="inline-flex items-center gap-1 p-2 rounded-2xl bg-white/60 backdrop-blur-md border border-purple-200/40 shadow-lg">
                         {/* 처음으로 버튼 */}
                         <button
                             onClick={() => handlePageClick(1)}
@@ -181,8 +181,8 @@ export default function LandList({ filterParams }: LandListProps) {
                                             onClick={() => handlePageClick(page)}
                                             className={`w-10 h-10 rounded-xl text-sm font-semibold transition-all duration-200 ${
                                                 currentPage === page
-                                                    ? 'bg-slate-800 text-white shadow-sm'
-                                                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800'
+                                                    ? 'bg-gradient-to-r from-purple-600 via-blue-600 to-cyan-500 text-white shadow-lg shadow-purple-500/30'
+                                                    : 'text-slate-600 hover:bg-purple-50 hover:text-purple-600'
                                             }`}
                                         >
                                             {page}
