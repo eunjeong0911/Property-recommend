@@ -105,15 +105,17 @@ export default function LandListFilter({ onFilterChange }: LandListFilterProps) 
         <div className="p-6 rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md shadow-xl relative z-20" ref={dropdownRef}>
             <div className="flex flex-col gap-4">
                 {/* Search Bar */}
-                <div className="relative">
+                <div className="relative group">
                     <input
                         type="text"
                         value={searchQuery}
                         onChange={handleSearchChange}
-                        placeholder="주소, 매물번호 검색"
-                        className="w-full py-3 pl-12 pr-4 bg-white/80 border-white/60 border-2 rounded-xl text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent shadow-sm transition-all"
+                        placeholder="주소, 매물번호로 검색해보세요"
+                        className="w-full py-3.5 pl-12 pr-4 bg-white/90 border-2 border-white/60 rounded-xl text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-300 focus:bg-white shadow-sm transition-all group-hover:shadow-md"
                     />
-                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+                    <div className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-blue-500 transition-colors">
+                        <Search className="w-5 h-5" />
+                    </div>
                 </div>
 
                 {/* Filter Options */}
@@ -217,37 +219,40 @@ export default function LandListFilter({ onFilterChange }: LandListFilterProps) 
                     {/* Reset Button */}
                     <button
                         onClick={handleReset}
-                        className="px-4 py-2 rounded-full border-2 border-red-200 bg-white/60 text-red-500 hover:bg-red-50 transition-all text-sm font-medium ml-auto"
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-full border-2 border-red-200 bg-white/60 text-red-500 hover:bg-red-50 hover:border-red-300 transition-all text-sm font-medium ml-auto group"
                     >
+                        <X className="w-3.5 h-3.5 group-hover:rotate-90 transition-transform" />
                         초기화
                     </button>
                 </div>
 
                 {/* Selected Filters Tags */}
                 {(selectedRegion || selectedTransaction || selectedBuilding || searchQuery) && (
-                    <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200/50">
+                    <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-white/40">
+                        <span className="text-xs text-slate-500 font-medium">적용된 필터:</span>
                         {searchQuery && (
-                            <span className="flex items-center gap-1 px-3 py-1 rounded-full bg-green-500 text-white text-sm shadow-sm">
-                                검색: {searchQuery}
-                                <button onClick={() => setSearchQuery('')} className="hover:text-green-200"><X className="w-3 h-3" /></button>
+                            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-emerald-500 to-green-500 text-white text-sm shadow-md hover:shadow-lg transition-shadow">
+                                <Search className="w-3 h-3" />
+                                {searchQuery}
+                                <button onClick={() => setSearchQuery('')} className="hover:bg-white/20 rounded-full p-0.5 transition-colors"><X className="w-3 h-3" /></button>
                             </span>
                         )}
                         {selectedRegion && (
-                            <span className="flex items-center gap-1 px-3 py-1 rounded-full bg-blue-500 text-white text-sm shadow-sm">
-                                {selectedRegion}
-                                <button onClick={(e) => removeFilter('region', e)} className="hover:text-blue-200"><X className="w-3 h-3" /></button>
+                            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm shadow-md hover:shadow-lg transition-shadow">
+                                📍 {selectedRegion}
+                                <button onClick={(e) => removeFilter('region', e)} className="hover:bg-white/20 rounded-full p-0.5 transition-colors"><X className="w-3 h-3" /></button>
                             </span>
                         )}
                         {selectedTransaction && (
-                            <span className="flex items-center gap-1 px-3 py-1 rounded-full bg-blue-500 text-white text-sm shadow-sm">
-                                {selectedTransaction}
-                                <button onClick={(e) => removeFilter('transaction', e)} className="hover:text-blue-200"><X className="w-3 h-3" /></button>
+                            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-purple-500 to-violet-500 text-white text-sm shadow-md hover:shadow-lg transition-shadow">
+                                💰 {selectedTransaction}
+                                <button onClick={(e) => removeFilter('transaction', e)} className="hover:bg-white/20 rounded-full p-0.5 transition-colors"><X className="w-3 h-3" /></button>
                             </span>
                         )}
                         {selectedBuilding && (
-                            <span className="flex items-center gap-1 px-3 py-1 rounded-full bg-blue-500 text-white text-sm shadow-sm">
-                                {selectedBuilding}
-                                <button onClick={(e) => removeFilter('building', e)} className="hover:text-blue-200"><X className="w-3 h-3" /></button>
+                            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 text-white text-sm shadow-md hover:shadow-lg transition-shadow">
+                                🏠 {selectedBuilding}
+                                <button onClick={(e) => removeFilter('building', e)} className="hover:bg-white/20 rounded-full p-0.5 transition-colors"><X className="w-3 h-3" /></button>
                             </span>
                         )}
                     </div>
