@@ -14,6 +14,10 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'img.peterpanz.com',
       },
+      {
+        protocol: 'https',
+        hostname: 'cdn.peterpanz.com',
+      },
     ],
   },
 }
