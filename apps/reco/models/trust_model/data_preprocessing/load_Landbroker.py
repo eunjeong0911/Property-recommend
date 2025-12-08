@@ -1,6 +1,7 @@
 """
 landData 폴더의 JSON 파일들에서 중개사 정보를 추출하여 통합하는 모듈
-중복제거 기준: 등록번호 (등록번호 + 이름 으로 중복제거해도 똑같은 결과 445건)
+중복제거 기준: 등록번호
+중개사_정보 필드만 추출 (매물 정보 제외)
 """
 import json
 import csv
@@ -46,17 +47,8 @@ class LandBrokerExtractor:
                 
                 # 중개사 정보가 비어있지 않은 경우만 추출
                 if broker_info and isinstance(broker_info, dict):
-                    # 담당자 필드 제외
-                    broker_info_filtered = {k: v for k, v in broker_info.items() if k != "담당자"}
-                    
-                    # 매물 정보도 함께 저장
-                    broker_data = {
-                        **broker_info_filtered,
-                        "매물번호": item.get("매물번호"),
-                        "매물_URL": item.get("매물_URL"),
-                        "주소": item.get("주소_정보", {}).get("전체주소"),
-                        "출처파일": filepath.name
-                    }
+                    # 담당자 필드 제외하고 중개사 정보만 저장
+                    broker_data = {k: v for k, v in broker_info.items() if k != "담당자"}
                     brokers.append(broker_data)
             
             print(f"[{filepath.name}] {len(brokers)}개의 중개사 정보 추출")
@@ -173,14 +165,8 @@ class LandBrokerExtractor:
         """
         stats = {
             "총_중개사_수": len(brokers),
-            "출처파일별_분포": {},
             "필드_채워진_비율": {}
         }
-        
-        # 출처 파일별 분포
-        for broker in brokers:
-            source = broker.get("출처파일", "알 수 없음")
-            stats["출처파일별_분포"][source] = stats["출처파일별_분포"].get(source, 0) + 1
         
         # 필드별 채워진 비율
         if brokers:
@@ -220,10 +206,6 @@ def main():
         stats = extractor.get_statistics(unique_brokers)
         print("\n=== 통계 정보 ===")
         print(f"총 중개사 수: {stats['총_중개사_수']}건")
-        
-        print("\n[출처 파일별 분포]")
-        for source, count in sorted(stats["출처파일별_분포"].items()):
-            print(f"  {source}: {count}건")
         
         print("\n[필드 채워진 비율]")
         for field, ratio in sorted(stats["필드_채워진_비율"].items()):
