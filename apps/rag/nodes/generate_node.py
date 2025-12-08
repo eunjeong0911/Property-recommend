@@ -65,7 +65,9 @@ def generate(state: RAGState) -> RAGState:
     
     # Use unique results for context
     context = unique_results if unique_results else graph_results
-    print(f"[Generate] Final context count: {len(context)}")
+    print(f"[Generate] 📝 Context prepared with {len(context)} items.")
+    if len(context) > 0:
+        print(f"[Generate]    First item preview: {str(context[0])[:200]}...")
 
     # Simple generation using LLM
     llm = ChatOpenAI(model="gpt-5-mini", temperature=0)
@@ -77,32 +79,27 @@ def generate(state: RAGState) -> RAGState:
         검색 결과 (Neo4j 위치 기반 + PostgreSQL 상세 정보):
         {context}
 
-        데이터 구조 설명:
-        - Neo4j 결과: p.id, p.address, p.bldg_type, subway_station_name, subway_station_dist 등 위치/거리 정보
-        - postgres_details: 매물의 상세 정보 (PostgreSQL Land 테이블)
-          - building_type: 건물 유형 (빌라주택, 아파트, 오피스텔, 원투룸)
-          - trade_info: 거래 정보 (거래방식, 관리비, 융자금, 입주가능일 등)
-          - listing_info: 매물 상세 (전용면적, 층수, 방/욕실 개수, 옵션 등)
-          - additional_options: 추가 옵션 (풀옵션, 엘리베이터, 주차가능 등)
-          - description: 상세 설명
-          - agent_info: 중개사 정보
-          - url: 매물 상세 페이지 URL
+        데이터 구조 설명 (참고용):
+        - Neo4j 결과: 위치/거리 정보 (p.address, subway_info 등)
+          - **subway_info**: 인접한 모든 지하철역 정보 리스트
+          - **facilities**: 주변 주요 시설 정보 (병원, 대학교, 편의점 등 - `{{'General Hospitals': [...], 'Universities': [...]}}`)
+          - **surroundings**: 안전 시설 정보 (`{{'safety': {{'cctv_count': ..., 'bell_count': ...}}}}`)
+        - postgres_details: 매물 상세 정보 (가격, 관리비, 옵션 등)
 
         핵심 원칙 (Core Principles):
-        1. **PostgreSQL 상세 정보 적극 활용**
-           - postgres_details가 있으면 listing_info의 옵션, 시설, 면적 등을 답변에 포함하세요
-           - trade_info에서 정확한 가격, 관리비, 입주가능일 정보를 추출하세요
-           - additional_options에서 풀옵션, 엘리베이터, 주차 등 편의시설 정보를 표시하세요
-           
-        2. **정확성 최우선 - Hallucination 금지**
-           - 검색 결과에 없는 정보는 절대 만들어내지 마세요
-           - 확실하게 확인된 데이터만 제공하세요
-           
-        3. **CCTV/비상벨은 개수로만 표시**
-           - "반경 내 CCTV [cctv_count]대, 비상벨 [bell_count]개" 형식
-           
-        4. **시설 정보는 거리+시간 필수**
-           - "[시설명] (거리 약 [dist]m / 도보 약 [time]분)"
+        1. **자연스러운 답변 작성**
+           - **절대** 답변에 "(Neo4j ...)", "(postgres_details ...)", "(postgres trade_info 표기)", "[위치 정보: Neo4j]" 와 같은 **시스템 내부 출처나 디버그 정보를 포함하지 마세요.**
+           - 사용자는 데이터가 어디서 왔는지 알 필요가 없습니다. 그냥 정보만 제공하세요.
+           - 예: "가격: 월세 1,000만원/110만원 (postgres trade_info)" -> "가격: 월세 1,000만원/110만원"
+
+        2. **데이터 통합 및 거리 표기**
+           - 위치/거리 정보는 Neo4j 결과를 사용하고, 상세 정보는 postgres_details를 사용하여 하나의 완성된 매물 정보로 만드세요.
+           - **거리 표기**: Neo4j의 숫자 거리 값(distance) 뒤에 postgres_details에 있는 `distance_unit` 값을 붙여서 표현하세요.
+             - 예: Neo4j `distance: 500` + RDB `distance_unit: 'm'` -> **"500m"**
+           - **시설 정보 통합**: `facilities` 정보를 활용하여 이 매물이 어떤 시설(종합병원, 대학교 등)과 가까운지 설명에 포함하세요.
+
+        3. **정확성 최우선**
+           - 없는 정보를 지어내지 마세요.
 
         지침:
         1. **검색 결과가 없거나 비어있는 경우**:
@@ -115,26 +112,27 @@ def generate(state: RAGState) -> RAGState:
            
            **1순위 (옵션 A)**
            - **주소**: [주소]
-           - **타입**: [건물형태] (postgres_details.building_type 활용)
-           - **가격**: [거래방식 + 가격] (postgres_details.trade_info.거래방식 활용)
-           - **관리비**: [관리비 정보] (postgres_details.trade_info.관리비 활용)
-           - **면적/구조**: [전용면적, 방/욕실 개수] (postgres_details.listing_info 활용)
-           - **역 접근성**: [역 이름]까지 도보 약 [time]분 ([dist]m)
-           - **옵션/시설**: [풀옵션, 엘리베이터, 주차 등] (postgres_details.additional_options + listing_info.생활시설 활용)
-           - **입주가능일**: [입주가능일] (postgres_details.trade_info.입주가능일 활용)
-           - **매물 링크**: [url] (postgres_details.url 활용)
-           - **한줄 요약**: [이 매물의 장점]
+           - **타입**: [건물형태]
+           - **가격**: [거래방식 + 가격]
+           - **관리비**: [관리비 정보]
+           - **면적/구조**: [전용면적, 방/욕실 개수]
+           - **역 접근성**: [역1 이름](도보 [time1]분, [dist1]m), [역2 이름](도보 [time2]분, [dist2]m)
+           - **주변 인프라**: [종합병원/대학교/공원 등 주요 시설 이름과 거리] (facilities 정보 활용)
+           - **안전 시설**: [CCTV n대, 비상벨 n개] (surroundings 정보 활용, 없으면 생략)
+           - **옵션/시설**: [풀옵션, 엘리베이터, 주차 등]
+           - **입주가능일**: [입주가능일]
+           - **매물 링크**: [url]
+           - **한줄 요약**: [이 매물의 장점 - 특히 요청한 조건(예: 대학교 근처)과의 연관성 강조]
 
         3. **데이터 누락 처리**:
-           - postgres_details가 없는 매물은 Neo4j 정보만으로 표시
-           - 없는 항목은 생략
+           - 상세 정보가 없으면 "상세 정보 없음"으로 표시
 
         4. **추천** 섹션 작성:
            - 종합 추천과 상황별 추천
 
         5. **추가 제안**: 다른 조건 검색 제안
         
-        6. 톤앤매너: 전문적이면서도 친절하게
+        6. 톤앤매너: 전문적이면서도 친절하게. **불필요한 괄호 설명이나 출처 표기 금지.**
         
         질문: {question}
         """
@@ -143,7 +141,9 @@ def generate(state: RAGState) -> RAGState:
     chain = prompt | llm | StrOutputParser()
     
     # context (병합된 결과)를 전달
+    print("[Generate] 🤖 Generating final answer with GPT-5-mini...")
     answer = chain.invoke({"question": question, "context": context})
+    print(f"[Generate] ✅ Answer generated:\n{answer}")
     
     state["answer"] = answer
     return state
