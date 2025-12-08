@@ -24,7 +24,7 @@ export default function TemperatureAnalysis() {
     }, []);
 
     return (
-        <div className="w-[280px] h-[500px] rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md shadow-2xl p-4 flex flex-col">
+        <div className="w-[408px] h-[584px] mt-4 rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md shadow-2xl p-4 flex flex-col">
             <h3 className="text-lg font-bold text-slate-800 mb-3 text-center">
                 🌡️ 지역 온도 분석
             </h3>

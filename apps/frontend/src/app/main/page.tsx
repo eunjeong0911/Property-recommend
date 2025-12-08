@@ -51,7 +51,7 @@ const Map = dynamic(() => import('@/components/Map'), {
 const TemperatureAnalysis = dynamic(() => import('@/components/TemperatureAnalysis'), {
     ssr: false,
     loading: () => (
-        <div className="w-[280px] h-[500px] rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md shadow-2xl p-4 flex items-center justify-center">
+        <div className="w-[408px] h-[584px] rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md shadow-2xl p-4 flex items-center justify-center">
             <div className="text-slate-600 text-center">
                 <div className="w-8 h-8 border-3 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
                 <p className="text-sm">온도 분석 로딩 중...</p>
@@ -73,16 +73,20 @@ export default function MainPage() {
             <section className="space-y-6">
                 <div className="text-center space-y-2 pt-8">
                     <h2 className="text-3xl font-bold text-slate-800 flex items-center justify-center gap-2">
-                        <span>나만의 좋은 지역 찾기</span>
-                        <span className="text-2xl">✨</span>
+                        <span>서울 지역 온도 한눈에</span>
+                        <span className="text-2xl">🌡️</span>
                     </h2>
                     <p className="text-slate-600 text-sm">
-                        필터를 선택하여 원하는 조건의 지역을 찾아보세요
+                        ONDO HOUSE가 분석한 지역별 온도로 나에게 맞는 동네를 찾아보세요
                     </p>
                 </div>
-                <PreferenceFilter />
-                <div className="flex justify-center gap-4">
-                    <Map />
+                <div className="flex justify-center items-start gap-4">
+                    {/* 왼쪽: PreferenceFilter + Map 세로 배치 (gap 없음) */}
+                    <div className="flex flex-col">
+                        <PreferenceFilter />
+                        <Map />
+                    </div>
+                    {/* 오른쪽: TemperatureAnalysis (전체 높이) */}
                     <TemperatureAnalysis />
                 </div>
             </section>

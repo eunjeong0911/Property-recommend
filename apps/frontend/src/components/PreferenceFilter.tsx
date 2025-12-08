@@ -176,15 +176,10 @@ export default function PreferenceFilter({
 
     // Dock configuration
     const spring = { mass: 0.1, stiffness: 150, damping: 12 };
-    const magnification = 60;
+    const magnification = 45; // 호버 시 크기 변화 없음 (baseItemSize와 동일)
     const distance = 140;
     const baseItemSize = 45;
     const panelHeight = 68;
-    const dockHeight = 100;
-
-    const maxHeight = useMemo(() => Math.max(dockHeight, magnification + magnification / 2 + 4), [magnification, dockHeight]);
-    const heightRow = useTransform(isHovered, [0, 1], [panelHeight, maxHeight]);
-    const height = useSpring(heightRow, spring);
 
     const handleFilterClick = (filterId: string, event: React.MouseEvent<HTMLDivElement>) => {
         const newFilters = new Set(selectedFilters);
@@ -210,11 +205,11 @@ export default function PreferenceFilter({
 
     return (
         <div
-            className="flex justify-center w-full py-4"
-            style={{ height: maxHeight + 32 }}
+            className="flex justify-center w-[600px] pb-4"
+            style={{ height: panelHeight + 32 }}
         >
-            <div className="flex items-end h-full">
-                <motion.div
+            <div className="flex items-end h-full w-full">
+                <div
                     onMouseMove={({ pageX }: { pageX: number }) => {
                         isHovered.set(1);
                         mouseX.set(pageX);
@@ -223,8 +218,8 @@ export default function PreferenceFilter({
                         isHovered.set(0);
                         mouseX.set(Infinity);
                     }}
-                    className="relative flex items-end w-fit gap-3 rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md pb-2 px-4 shadow-2xl z-40 mx-auto"
-                    style={{ height: height }}
+                    className="relative flex items-end justify-center w-full gap-3 rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md pb-2 px-4 shadow-2xl z-40"
+                    style={{ height: panelHeight }}
                     role="toolbar"
                     aria-label="Filter dock"
                 >
@@ -267,7 +262,7 @@ export default function PreferenceFilter({
                         <DockLabel>초기화</DockLabel>
                     </DockItem>
 
-                </motion.div>
+                </div>
             </div>
         </div>
     );
