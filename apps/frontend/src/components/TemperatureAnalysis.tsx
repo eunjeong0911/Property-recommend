@@ -7,7 +7,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { seoulDistricts, getTemperatureColor } from '../data/seoulDistricts';
+import { seoulDistricts, getTemperatureColor } from '../mapdata/seoulDistricts';
 
 export default function TemperatureAnalysis() {
     // 온도 기준 정렬된 구 목록

@@ -14,7 +14,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { fetchLandLocations, LandLocation } from '../api/landApi';
-import { seoulDistricts, getTemperatureColor } from '../data/seoulDistricts';
+import { seoulDistricts, getTemperatureColor } from '../mapdata/seoulDistricts';
 
 declare global {
     interface Window {
