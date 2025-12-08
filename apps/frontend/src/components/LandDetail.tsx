@@ -67,9 +67,11 @@ export default function LandDetail({ landId }: LandDetailProps) {
         );
     }
 
+    // 이미지가 없으면 기본 placeholder 사용
+    const defaultPlaceholder = '/images/placeholder.svg';
     const images = land.images && land.images.length > 0
         ? land.images
-        : [land.image || '/images/placeholder.jpg'];
+        : [land.image || defaultPlaceholder];
 
     const handlePrevImage = (e: React.MouseEvent) => {
         e.stopPropagation();

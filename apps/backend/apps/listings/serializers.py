@@ -79,13 +79,13 @@ class LandSerializer(serializers.ModelSerializer):
         """첫 번째 이미지 반환"""
         if obj.images and isinstance(obj.images, list) and len(obj.images) > 0:
             return obj.images[0]
-        return '/images/placeholder.jpg'
+        return None
 
     def get_images(self, obj):
         """모든 이미지 반환"""
-        if obj.images and isinstance(obj.images, list):
+        if obj.images and isinstance(obj.images, list) and len(obj.images) > 0:
             return obj.images
-        return ['/images/placeholder.jpg']
+        return []
 
     def get_temperature(self, obj):
         """부동산 온도 (임시로 랜덤 값, 추후 실제 계산 로직으로 대체)"""
