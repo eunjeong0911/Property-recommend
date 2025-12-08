@@ -98,7 +98,8 @@ def search(state: RAGState) -> RAGState:
                 description,
                 agent_info,
                 like_count,
-                view_count
+                view_count,
+                'm' as distance_unit
             FROM land
             WHERE land_num = ANY(%s)
         """
