@@ -63,5 +63,5 @@ def create_binary_target(df):
 
 
 if __name__ == "__main__":
-    df = pd.read_csv("data/raw/seoul_broker_merged.csv")
+    df = pd.read_csv("data/raw/seoul_broker_final.csv")
     df = create_binary_target(df)
