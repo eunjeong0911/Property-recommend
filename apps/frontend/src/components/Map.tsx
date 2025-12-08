@@ -465,7 +465,7 @@ export default function Map({ landId }: MapProps) {
     }, [locations, landId]);
 
     return (
-        <div className="relative w-[600px] h-[500px] rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden p-2">
+        <div className="relative w-[600px] h-[500px] rounded-2xl border border-purple-200/60 bg-gradient-to-b from-purple-50/90 via-blue-50/90 to-cyan-50/90 backdrop-blur-md shadow-lg overflow-hidden p-2">
             <div
                 ref={mapContainer}
                 className="w-full h-full rounded-xl overflow-hidden"
