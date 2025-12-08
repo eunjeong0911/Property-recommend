@@ -16,10 +16,12 @@
 
 'use client';
 
+import { useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import LandListFilter from '@/components/LandListFilter';
 import LandList from '@/components/LandList';
 import useBackendUserGuard from '@/hooks/useBackendUserGuard';
+import { LandFilterParams } from '@/types/land';
 
 // 무거운 컴포넌트들을 lazy loading으로 변경하여 초기 로딩 성능 개선
 const PreferenceFilter = dynamic(() => import('@/components/PreferenceFilter'), {
@@ -48,6 +50,11 @@ const Map = dynamic(() => import('@/components/Map'), {
 
 export default function MainPage() {
     useBackendUserGuard();
+    const [filterParams, setFilterParams] = useState<LandFilterParams>({});
+
+    const handleFilterChange = useCallback((params: LandFilterParams) => {
+        setFilterParams(params);
+    }, []);
 
     return (
         <div className="max-w-5xl mx-auto px-4 space-y-8 mb-24">
@@ -61,8 +68,8 @@ export default function MainPage() {
                         필터를 선택하여 원하는 조건의 지역을 찾아보세요
                     </p>
                 </div>
-            <PreferenceFilter />
-            <Map />
+                <PreferenceFilter />
+                <Map />
             </section>
             {/* 섹션 3: 매물 추천 리스트 */}
             <section className="space-y-6">
@@ -75,8 +82,8 @@ export default function MainPage() {
                         회원님의 선호도에 맞는 매물을 추천해드립니다
                     </p>
                 </div>
-                <LandListFilter />
-                <LandList />
+                <LandListFilter onFilterChange={handleFilterChange} />
+                <LandList filterParams={filterParams} />
             </section>
         </div>
     );
