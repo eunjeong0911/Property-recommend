@@ -1,332 +1,248 @@
 # 🏗️ 전체 시스템 아키텍처 다이어그램
 
-## 1. 전체 시스템 아키텍처
+## 1. 전체 시스템 아키텍처 (서버 시작 → 사용자 응답)
 
 ```mermaid
-flowchart TD
-    subgraph CLIENT["👥 Client Layer"]
-        USER[사용자]
-        WEB[Web Browser]
+flowchart TB
+    subgraph STORAGE["💾 Storage Layer"]
+        POSTGRES[(PostgreSQL<br/>Port 5432)]
+        NEO4J[(Neo4j<br/>Port 7474, 7687)]
+        REDIS[(Redis<br/>Port 6379)]
+    end
+    
+    subgraph BACKEND["⚙️ Backend Layer"]
+        DJANGO[Django REST API<br/>Port 8000<br/>+ RAG Module<br/>+ Reco Module]
     end
     
     subgraph FRONTEND["🖥️ Frontend Layer"]
-        NEXTJS[Next.js 14<br/>TypeScript<br/>Tailwind CSS]
+        NEXTJS[Next.js 14<br/>Port 3000]
     end
     
-    subgraph BACKEND["⚙️ Backend Services Layer"]
-        DJANGO[Django Backend<br/>REST API<br/>Port 8000]
-        RAG[RAG Service<br/>LangGraph<br/>Port 8001]
-        RECO[Recommendation<br/>ML Models<br/>Port 8002]
+    subgraph CLIENT["👥 Client Layer"]
+        USER[사용자]
     end
     
-    subgraph CACHE["💾 Cache Layer"]
-        REDIS[(Redis<br/>세션 • 캐싱)]
-    end
-    
-    subgraph DATABASE["🗄️ Database Layer"]
-        POSTGRES[(PostgreSQL<br/>+ pgvector)]
-        NEO4J[(Neo4j<br/>GraphDB)]
-    end
-    
-    subgraph EXTERNAL["🌐 External Services"]
-        OPENAI[OpenAI API]
+    subgraph EXTERNAL["🌐 External APIs"]
+        OPENAI[OpenAI]
         KAKAO[Kakao Map]
         GOOGLE[Google OAuth]
     end
     
-    USER --> WEB
-    WEB --> NEXTJS
-    NEXTJS --> DJANGO
-    NEXTJS --> RAG
-    NEXTJS --> KAKAO
+    POSTGRES -.->|DB 준비 완료| DJANGO
+    NEO4J -.->|DB 준비 완료| DJANGO
+    REDIS -.->|DB 준비 완료| DJANGO
     
-    DJANGO --> REDIS
-    DJANGO --> POSTGRES
-    DJANGO --> NEO4J
-    DJANGO --> RECO
-    DJANGO --> GOOGLE
+    DJANGO -->|서버 시작| NEXTJS
+    NEXTJS -->|페이지 준비| USER
     
-    RAG --> POSTGRES
-    RAG --> NEO4J
-    RAG --> OPENAI
+    USER -->|요청| NEXTJS
+    NEXTJS -->|API 호출| DJANGO
+    NEXTJS -.->|지도 표시| KAKAO
     
-    RECO --> POSTGRES
+    DJANGO <-->|쿼리/응답| POSTGRES
+    DJANGO <-->|그래프 쿼리| NEO4J
+    DJANGO <-->|캐싱| REDIS
+    DJANGO -.->|LLM 호출| OPENAI
+    DJANGO -.->|OAuth| GOOGLE
     
-    classDef frontend fill:#61dafb,stroke:#333,color:#000
-    classDef backend fill:#092e20,stroke:#333,color:#fff
-    classDef database fill:#336791,stroke:#333,color:#fff
-    classDef cache fill:#dc382d,stroke:#333,color:#fff
-    classDef external fill:#ff6b6b,stroke:#333,color:#fff
+    DJANGO -->|응답| NEXTJS
+    NEXTJS -->|렌더링| USER
     
+    classDef storage fill:#336791,stroke:#333,color:#fff,stroke-width:3px
+    classDef backend fill:#092e20,stroke:#333,color:#fff,stroke-width:3px
+    classDef frontend fill:#61dafb,stroke:#333,stroke-width:3px
+    classDef client fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    classDef external fill:#ff6b6b,stroke:#333,color:#fff,stroke-width:2px
+    
+    class POSTGRES,NEO4J,REDIS storage
+    class DJANGO backend
     class NEXTJS frontend
-    class DJANGO,RAG,RECO backend
-    class POSTGRES,NEO4J database
-    class REDIS cache
+    class USER client
     class OPENAI,KAKAO,GOOGLE external
 ```
 
 ---
 
-## 2. Layered Architecture (계층형 아키텍처)
+## 2. 온도 계산 시퀀스 다이어그램
 
-```mermaid
-flowchart TB
-    subgraph PRESENTATION["Presentation Layer"]
-        direction TB
-        P1[UI Components]
-        P2[Pages - Next.js Routes]
-        P3[Authentication - NextAuth]
-    end
-    
-    subgraph APPLICATION["Application Layer"]
-        direction TB
-        A1[REST API - Django Views]
-        A2[Business Logic - Services]
-        A3[Validation - Serializers]
-    end
-    
-    subgraph DOMAIN["Domain Layer"]
-        direction TB
-        D1[Domain Models]
-        D2[Entities - User, Listing]
-        D3[Business Rules - 온도 계산]
-    end
-    
-    subgraph INFRASTRUCTURE["Infrastructure Layer"]
-        direction TB
-        I1[Database Access - ORM]
-        I2[Cache - Redis Client]
-        I3[External APIs]
-    end
-    
-    subgraph DATA["Data Layer"]
-        direction TB
-        DB1[(PostgreSQL)]
-        DB2[(Neo4j)]
-        DB3[(Redis)]
-    end
-    
-    PRESENTATION --> APPLICATION
-    APPLICATION --> DOMAIN
-    DOMAIN --> INFRASTRUCTURE
-    INFRASTRUCTURE --> DATA
-    
-    classDef layer1 fill:#e1f5ff,stroke:#01579b,stroke-width:2px
-    classDef layer2 fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
-    classDef layer3 fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    classDef layer4 fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
-    classDef layer5 fill:#fce4ec,stroke:#880e4f,stroke-width:2px
-    
-    class PRESENTATION layer1
-    class APPLICATION layer2
-    class DOMAIN layer3
-    class INFRASTRUCTURE layer4
-    class DATA layer5
-```
-
----
-
-## 3. 데이터 흐름도 (Data Flow Diagram)
-
-```mermaid
-flowchart LR
-    subgraph INPUT["입력"]
-        USER_INPUT[사용자 입력]
-        USER_ACTION[사용자 행동]
-    end
-    
-    subgraph PROCESSING["처리"]
-        VALIDATION[데이터 검증]
-        BUSINESS_LOGIC[비즈니스 로직]
-        DATA_TRANSFORM[데이터 변환]
-    end
-    
-    subgraph STORAGE["저장"]
-        WRITE_DB[DB 저장]
-        WRITE_CACHE[캐시 저장]
-    end
-    
-    subgraph RETRIEVAL["조회"]
-        READ_CACHE{캐시 확인}
-        READ_DB[DB 조회]
-        GRAPH_QUERY[그래프 쿼리]
-    end
-    
-    subgraph OUTPUT["출력"]
-        RESPONSE[API 응답]
-        UI_RENDER[UI 렌더링]
-    end
-    
-    USER_INPUT --> VALIDATION
-    USER_ACTION --> VALIDATION
-    
-    VALIDATION --> BUSINESS_LOGIC
-    BUSINESS_LOGIC --> DATA_TRANSFORM
-    
-    DATA_TRANSFORM --> WRITE_DB
-    DATA_TRANSFORM --> WRITE_CACHE
-    
-    BUSINESS_LOGIC --> READ_CACHE
-    READ_CACHE -->|캐시 히트| RESPONSE
-    READ_CACHE -->|캐시 미스| READ_DB
-    READ_DB --> GRAPH_QUERY
-    GRAPH_QUERY --> RESPONSE
-    
-    RESPONSE --> UI_RENDER
-    
-    classDef input fill:#e3f2fd,stroke:#1565c0
-    classDef process fill:#fff3e0,stroke:#e65100
-    classDef storage fill:#f3e5f5,stroke:#6a1b9a
-    classDef retrieval fill:#e8f5e9,stroke:#2e7d32
-    classDef output fill:#fce4ec,stroke:#c2185b
-    
-    class USER_INPUT,USER_ACTION input
-    class VALIDATION,BUSINESS_LOGIC,DATA_TRANSFORM process
-    class WRITE_DB,WRITE_CACHE storage
-    class READ_CACHE,READ_DB,GRAPH_QUERY retrieval
-    class RESPONSE,UI_RENDER output
-```
-
----
-
-## 4. 온도 계산 시퀀스 다이어그램
+### 2-1. 교통 온도 계산 (30~43°C)
 
 ```mermaid
 sequenceDiagram
     actor User as 사용자
     participant FE as Frontend
     participant BE as Backend
-    participant Cache as Redis
-    participant DB as DB
+    participant DB as PostgreSQL
+    participant Neo4j as Neo4j
     
     User->>FE: 매물 조회
     FE->>BE: GET /api/listings/{id}
     
-    BE->>Cache: 캐시 확인
+    BE->>DB: 매물 위치 조회
+    DB-->>BE: 위도, 경도
     
-    alt 캐시 있음
-        Cache-->>BE: 온도 반환
-    else 캐시 없음
-        BE->>DB: 매물 정보 조회
-        DB-->>BE: 매물 데이터
-        
-        Note over BE: 5가지 온도 병렬 계산<br/>교통 • 공원 • 편의시설 • 안전 • 허위매물
-        BE->>BE: 온도 계산 완료
-        
-        BE->>Cache: 캐싱 (1시간)
-    end
+    BE->>Neo4j: 지하철역 거리 쿼리<br/>MATCH (l:Listing)-[:NEAR]->(s:Subway)
+    Neo4j-->>BE: 가까운 역 3개 + 거리
     
-    BE-->>FE: 매물 + 온도
+    BE->>DB: 지하철역 정보 조회<br/>(출퇴근 승하차, 일일 승하차)
+    DB-->>BE: 역별 이용 통계
+    
+    Note over BE: 지하철 점수 계산<br/>1. 거리 점수 (0~250m: 1.0, 500m~: 지수감소)<br/>2. 역 중요도 (출퇴근비율 40% + 역규모 20%)<br/>3. 가까운 3개역 거리 가중 평균
+    
+    BE->>Neo4j: 버스정류장 거리 쿼리<br/>MATCH (l:Listing)-[:NEAR]->(b:BusStop)
+    Neo4j-->>BE: 가장 가까운 정류장 + 300m 내 개수
+    
+    Note over BE: 버스 점수 계산<br/>1. 거리 점수 (exp(-거리/300)) × 70%<br/>2. 밀도 점수 (min(개수/8, 1.0)) × 30%
+    
+    Note over BE: 교통 점수 통합<br/>지하철 55% + 버스 45%<br/>→ 정규화 (0~1)
+    
+    BE->>BE: 온도 변환<br/>30 + (교통점수 × 13)
+    
+    BE-->>FE: 매물 + 교통온도 (30~43°C)
     FE-->>User: 결과 표시
 ```
 
----
-
-## 5. 추천 시스템 시퀀스 다이어그램
+### 2-2. 공원 온도 계산 (30~43°C)
 
 ```mermaid
 sequenceDiagram
     actor User as 사용자
     participant FE as Frontend
     participant BE as Backend
-    participant Reco as Reco Service
-    participant Cache as Redis
-    participant DB as DB
+    participant DB as PostgreSQL
+    participant Neo4j as Neo4j
     
-    User->>FE: 추천 요청
-    FE->>BE: GET /api/recommend/
+    User->>FE: 매물 조회
+    FE->>BE: GET /api/listings/{id}
     
-    BE->>Cache: 캐시 확인
+    BE->>DB: 매물 위치 조회
+    DB-->>BE: 위도, 경도
     
-    alt 캐시 있음
-        Cache-->>BE: 추천 결과
-    else 캐시 없음
-        BE->>DB: 사용자 프로필 조회
-        DB-->>BE: 선호도, 이력
-        
-        BE->>Reco: 추천 요청
-        Reco->>DB: 행동 로그 조회
-        DB-->>Reco: 사용자 로그
-        
-        Reco->>Reco: 협업 필터링
-        Reco->>Reco: 콘텐츠 기반 필터링
-        Reco->>Reco: ML 모델 추론
-        Reco->>Reco: 순위 계산
-        
-        Reco-->>BE: 추천 매물 (Top 20)
-        BE->>Cache: 캐싱 (30분)
-    end
+    BE->>Neo4j: 공원 거리 쿼리<br/>MATCH (l:Listing)-[:NEAR]->(p:Park)<br/>WHERE distance < 800m
+    Neo4j-->>BE: 반경 800m 내 공원 목록 + 거리
     
-    BE-->>FE: 추천 매물
+    BE->>DB: 공원 상세 정보 조회
+    DB-->>BE: 면적, 시설(5종류), 유형
+    
+    Note over BE: 각 공원 품질 점수<br/>1. 크기 점수 (Min-Max 정규화) × 40%<br/>2. 시설 점수 (5종류/5) × 40%<br/>3. 유형 점수 (근린1.0/어린이0.8) × 20%
+    
+    Note over BE: 거리 점수 계산<br/>exp(-거리/400)
+    
+    Note over BE: 매물 공원 점수<br/>각 공원 (품질×거리) 거리 가중 평균<br/>가중치 = 1/(1+거리/300)
+    
+    BE->>BE: 정규화 후 온도 변환<br/>30 + (공원점수 × 13)
+    
+    BE-->>FE: 매물 + 공원온도 (30~43°C)
+    FE-->>User: 결과 표시
+```
+
+### 2-3. 편의시설 온도 계산 (30~43°C)
+
+```mermaid
+sequenceDiagram
+    actor User as 사용자
+    participant FE as Frontend
+    participant BE as Backend
+    participant DB as PostgreSQL
+    participant Neo4j as Neo4j
+    
+    User->>FE: 매물 조회
+    FE->>BE: GET /api/listings/{id}
+    
+    BE->>DB: 매물 정보 조회
+    DB-->>BE: 위도, 경도, 옵션<br/>(세탁기, 냉장고, 싱크대, 가스레인지)
+    
+    Note over BE: 필요도(Need) 계산<br/>편의시설: 0.7 + 세탁기없음(0.1) + 부실주방(0.1)<br/>병원/약국: 0.7 (고정)
+    
+    BE->>Neo4j: 편의시설 거리 쿼리<br/>MATCH (l:Listing)-[:NEAR]->(c:ConvenienceStore)
+    Neo4j-->>BE: 가장 가까운 편의점 + 500m 내 개수
+    
+    BE->>Neo4j: 병원 거리 쿼리<br/>MATCH (l:Listing)-[:NEAR]->(h:Hospital)
+    Neo4j-->>BE: 가장 가까운 병원 + 800m 내 개수
+    
+    BE->>Neo4j: 약국 거리 쿼리<br/>MATCH (l:Listing)-[:NEAR]->(p:Pharmacy)
+    Neo4j-->>BE: 가장 가까운 약국 + 800m 내 개수
+    
+    Note over BE: 각 유형별 접근성(Access)<br/>거리점수(60%) + 밀도점수(40%)<br/>편의: d_max=800m, n_sat=5<br/>병원/약국: d_max=1200m, n_sat=2
+    
+    Note over BE: 유형별 점수 = Need × Access<br/>최종 = 편의50% + 병원25% + 약국25%
+    
+    BE->>BE: 온도 변환<br/>30 + (편의점수 × 13)
+    
+    BE-->>FE: 매물 + 편의시설온도 (30~43°C)
+    FE-->>User: 결과 표시
+```
+
+### 2-4. 안전 온도 계산 (0~100점)
+
+```mermaid
+sequenceDiagram
+    actor User as 사용자
+    participant FE as Frontend
+    participant BE as Backend
+    participant DB as PostgreSQL
+    participant Neo4j as Neo4j
+    
+    User->>FE: 매물 조회
+    FE->>BE: GET /api/listings/{id}
+    
+    BE->>DB: 매물 정보 조회
+    DB-->>BE: 주소, 구 정보
+    
+    BE->>DB: 구별 범죄 통계 조회<br/>(5대 범죄: 살인/강도/강간/절도/폭력)
+    DB-->>BE: 2024년 범죄 발생 건수, 검거율
+    
+    BE->>Neo4j: 안전 인프라 쿼리<br/>MATCH (l:Listing)-[:IN]->(d:District)
+    Neo4j-->>BE: CCTV, 지구대/파출소, 소방서, 안전비상벨 개수
+    
+    Note over BE: 안전 온도 계산<br/>1. 범죄 점수 (역수, Min-Max) × 30%<br/>2. CCTV 점수 × 30%<br/>3. 지구대/파출소 점수 × 20%<br/>4. 소방서 점수 × 10%<br/>5. 안전비상벨 점수 × 10%
+    
+    BE->>BE: 가중 평균 (0~100점)<br/>등급: 매우안전(66~100)<br/>안전(33~66), 주의(0~33)
+    
+    BE-->>FE: 매물 + 안전온도 (0~100점)
+    FE-->>User: 결과 표시
+```
+
+### 2-5. 허위매물 온도 계산 (0~100점)
+
+```mermaid
+sequenceDiagram
+    actor User as 사용자
+    participant FE as Frontend
+    participant BE as Backend
+    participant DB as PostgreSQL
+    
+    User->>FE: 매물 조회
+    FE->>BE: GET /api/listings/{id}
+    
+    BE->>DB: 매물 정보 조회
+    DB-->>BE: 가격, 면적, 중개사 정보, 구 정보
+    
+    BE->>DB: 중개사 신뢰도 조회
+    DB-->>BE: 행정처분 이력, 영업 상태
+    
+    BE->>DB: 구별 부동산 통계 조회
+    DB-->>BE: 중개업소 수, 행정처분 건수, 경매 건수
+    
+    Note over BE: 행정처분 점수<br/>등록취소(5점) + 업무정지(3점) + 적발(1점)<br/>→ 행정처분 비율 = 점수 / 중개업소 수
+    
+    Note over BE: 문제업소 비율<br/>(휴업 + 업무정지 + 휴업연장) / 전체 × 100
+    
+    Note over BE: 허위매물 온도 계산<br/>1. 행정처분 비율 × 40%<br/>2. 경매건수 (Min-Max) × 30%<br/>3. 문제업소 비율 × 30%
+    
+    BE->>BE: 가중 평균 (0~100점)<br/>등급: 고위험(66~100)<br/>주의(33~66), 안전(0~33)
+    
+    BE-->>FE: 매물 + 허위매물온도 (0~100점)
     FE-->>User: 결과 표시
 ```
 
 ---
 
-## 6. RAG 챗봇 시퀀스 다이어그램
-
-```mermaid
-sequenceDiagram
-    actor User as 👤 사용자
-    participant FE as Frontend
-    participant RAG as RAG Service
-    participant DB as PostgreSQL
-    participant Graph as Neo4j
-    participant LLM as OpenAI GPT
-    
-    User->>FE: 챗봇 질문 입력<br/>"강남역 근처 원룸 찾아줘"
-    FE->>RAG: POST /rag/query<br/>{question, user_id}
-    
-    RAG->>RAG: 질문 분석<br/>(의도 파악, 엔티티 추출)
-    
-    Note over RAG: 1️⃣ 검색 단계
-    RAG->>DB: 벡터 유사도 검색<br/>(pgvector)
-    DB-->>RAG: 유사 매물 목록
-    
-    RAG->>Graph: 그래프 쿼리<br/>MATCH (l:Listing)-[:NEAR]->(f:Facility)
-    Graph-->>RAG: 관계 데이터<br/>(매물-시설 거리)
-    
-    RAG->>DB: 매물 상세 정보 조회
-    DB-->>RAG: 매물 데이터 + 온도
-    
-    Note over RAG: 2️⃣ 컨텍스트 구성
-    RAG->>RAG: 검색 결과 정리<br/>(Top 5 매물)
-    RAG->>RAG: 프롬프트 생성<br/>(질문 + 컨텍스트)
-    
-    Note over RAG: 3️⃣ LLM 호출
-    RAG->>LLM: POST /v1/chat/completions<br/>{prompt, context}
-    LLM-->>RAG: 생성된 답변
-    
-    Note over RAG: 4️⃣ 후처리
-    RAG->>RAG: 답변 검증<br/>(환각 체크)
-    RAG->>RAG: 답변 포맷팅<br/>(마크다운, 링크 추가)
-    
-    RAG->>DB: 대화 이력 저장
-    DB-->>RAG: 저장 완료
-    
-    RAG-->>FE: 답변 + 추천 매물 카드
-    FE->>FE: 답변 렌더링
-    FE-->>User: 챗봇 응답 표시
-    
-    alt 추가 질문
-        User->>FE: "가격대는 어떻게 돼?"
-        FE->>RAG: POST /rag/query<br/>{question, conversation_id}
-        RAG->>DB: 이전 대화 이력 조회
-        DB-->>RAG: 컨텍스트 복원
-        RAG->>LLM: 연속 대화 처리
-        LLM-->>RAG: 답변
-        RAG-->>FE: 응답
-        FE-->>User: 답변 표시
-    end
-```
-
----
-
-## 7. ML 모델 동작 흐름
+## 3. ML 모델 동작 흐름
 
 ```mermaid
 flowchart LR
-    subgraph TRAINING["학습 단계 Offline"]
+    subgraph TRAINING["학습 단계"]
         direction LR
         DATA_COLLECT[데이터<br/>수집] --> DATA_PREP[데이터<br/>전처리]
         DATA_PREP --> FEATURE_ENG[피처<br/>생성]
@@ -336,38 +252,27 @@ flowchart LR
         MODEL_EVAL -->|성능 부족| MODEL_TRAIN
     end
     
-    subgraph INFERENCE["추론 단계 Online"]
+    subgraph INFERENCE["추론 단계"]
         direction LR
         REQUEST[추론<br/>요청] --> LOAD_MODEL[모델<br/>로드]
         LOAD_MODEL --> LOAD_DATA[데이터<br/>로드]
-        LOAD_DATA --> PREPROCESS[전처리]
+        LOAD_DATA --> PREPROCESS[전처리<br/>피처 생성]
         PREPROCESS --> PREDICT[예측<br/>수행]
-        PREDICT --> POSTPROCESS[후처리]
-        POSTPROCESS --> RESPONSE[응답<br/>반환]
-    end
-    
-    subgraph MONITORING["모니터링"]
-        direction LR
-        PERFORMANCE[성능<br/>모니터링] --> DRIFT[드리프트<br/>감지]
-        DRIFT --> RETRAIN[재학습<br/>트리거]
+        PREDICT --> RESPONSE[응답<br/>반환]
     end
     
     MODEL_SAVE -.-> LOAD_MODEL
-    RESPONSE -.-> PERFORMANCE
-    RETRAIN -.-> DATA_COLLECT
     
     classDef training fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
     classDef inference fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
-    classDef monitoring fill:#fff3e0,stroke:#e65100,stroke-width:2px
     
     class DATA_COLLECT,DATA_PREP,FEATURE_ENG,MODEL_TRAIN,MODEL_EVAL,MODEL_SAVE training
-    class REQUEST,LOAD_MODEL,LOAD_DATA,PREPROCESS,PREDICT,POSTPROCESS,RESPONSE inference
-    class PERFORMANCE,DRIFT,RETRAIN monitoring
+    class REQUEST,LOAD_MODEL,LOAD_DATA,PREPROCESS,PREDICT,RESPONSE inference
 ```
 
 ---
 
-## 8. LangGraph RAG 구조
+## 4. LangGraph RAG 구조
 
 ```mermaid
 flowchart TD
@@ -375,11 +280,11 @@ flowchart TD
     
     START --> CLASSIFY[classify_node<br/>질문 분류]
     
-    CLASSIFY --> RISK[risk_analysis_node<br/>매물 전세사기 위험도 분석]
-    CLASSIFY --> LANDFIND[landfind_node<br/>사용자가 찾으려는 매물 추출]
-    CLASSIFY --> PREPARSER[preparser_node<br/>소프트 필터 추출]
-    CLASSIFY --> INFO[info_node<br/>부동산 일반 정보]
-    CLASSIFY --> FAQ[faq_node<br/>서비스 운영 정보]
+    CLASSIFY --> RISK[risk_analysis_node<br/>전세사기 위험도 분석<br/>예: 이 매물 안전한가요?]
+    CLASSIFY --> LANDFIND[landfind_node<br/>매물 찾기<br/>예: 강남역 근처 원룸 찾아줘]
+    CLASSIFY --> PREPARSER[preparser_node<br/>소프트 필터 추출<br/>예: 조용하고 깨끗한 방]
+    CLASSIFY --> INFO[info_node<br/>부동산 일반 정보<br/>예: 전세와 월세 차이는?]
+    CLASSIFY --> FAQ[faq_node<br/>서비스 운영 정보<br/>예: 회원가입은 어떻게 하나요?]
     
     RISK --> GEN
     
@@ -441,93 +346,4 @@ flowchart TD
 | **SQL_node** | RDB 검색 | PostgreSQL에서 매물 상세 정보 조회 |
 | **Gen_node** | LLM 응답 생성 | LLM을 호출하여 최종 답변 생성 (위험도 분석, 가격 적정성, 추천 매물 등) |
 
----
 
-## 9. 전체 데이터 파이프라인
-
-```mermaid
-flowchart LR
-    subgraph SOURCE["데이터 소스"]
-        CRAWL[크롤링]
-        OPEN_DATA[공공 데이터]
-        USER_DATA[사용자 데이터]
-    end
-    
-    subgraph ETL["ETL 처리"]
-        EXTRACT[추출]
-        TRANSFORM[변환]
-        LOAD[적재]
-    end
-    
-    subgraph STORAGE["저장소"]
-        PG[(PostgreSQL)]
-        NEO[(Neo4j)]
-        S3[(S3)]
-    end
-    
-    subgraph ANALYTICS["분석"]
-        JUPYTER[Jupyter]
-        ML_TRAIN[ML 학습]
-        REPORT[리포트]
-    end
-    
-    subgraph APPLICATION["애플리케이션"]
-        API[REST API]
-        RAG_APP[RAG 챗봇]
-        RECO_APP[추천 시스템]
-    end
-    
-    CRAWL --> EXTRACT
-    OPEN_DATA --> EXTRACT
-    USER_DATA --> EXTRACT
-    
-    EXTRACT --> TRANSFORM
-    TRANSFORM --> LOAD
-    
-    LOAD --> PG
-    LOAD --> NEO
-    LOAD --> S3
-    
-    PG --> JUPYTER
-    NEO --> JUPYTER
-    S3 --> JUPYTER
-    
-    JUPYTER --> ML_TRAIN
-    JUPYTER --> REPORT
-    
-    PG --> API
-    PG --> RAG_APP
-    PG --> RECO_APP
-    
-    NEO --> RAG_APP
-    
-    ML_TRAIN --> RECO_APP
-    
-    classDef source fill:#e8f5e9,stroke:#2e7d32
-    classDef etl fill:#fff3e0,stroke:#e65100
-    classDef storage fill:#e3f2fd,stroke:#1565c0
-    classDef analytics fill:#f3e5f5,stroke:#6a1b9a
-    classDef app fill:#fce4ec,stroke:#c2185b
-    
-    class CRAWL,OPEN_DATA,USER_DATA source
-    class EXTRACT,TRANSFORM,LOAD etl
-    class PG,NEO,S3 storage
-    class JUPYTER,ML_TRAIN,REPORT analytics
-    class API,RAG_APP,RECO_APP app
-```
-
----
-
-## 📊 다이어그램 요약
-
-| 다이어그램 | 목적 | 주요 내용 |
-|-----------|------|-----------|
-| **전체 시스템 아키텍처** | 시스템 전체 구조 | 계층별 컴포넌트 및 연결 관계 |
-| **Layered Architecture** | 계층형 구조 | Presentation → Application → Domain → Infrastructure → Data |
-| **데이터 흐름도** | 데이터 처리 과정 | 입력 → 처리 → 저장 → 조회 → 출력 |
-| **온도 계산 시퀀스** | 온도 계산 흐름 | 5가지 온도 병렬 계산 및 캐싱 |
-| **추천 시스템 시퀀스** | 추천 알고리즘 | 협업 필터링 + 콘텐츠 기반 + ML 모델 |
-| **RAG 챗봇 시퀀스** | 챗봇 동작 원리 | 검색 → 컨텍스트 구성 → LLM 호출 → 답변 생성 |
-| **ML 모델 동작** | 모델 학습/추론 | 학습 → 저장 → 로드 → 추론 → 모니터링 |
-| **LangGraph RAG 구조** | RAG 그래프 구조 | 질문 분류 → 병렬 검색 → 답변 생성 |
-| **데이터 파이프라인** | 데이터 흐름 전체 | 수집 → ETL → 저장 → 분석 → 애플리케이션 |
