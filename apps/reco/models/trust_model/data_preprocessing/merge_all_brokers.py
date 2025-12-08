@@ -53,15 +53,15 @@ class BrokerMerger:
         print(f"land_brokers.csv 로드: {len(data)}건")
         return data
     
-    def load_broker_offices(self, filepath: str) -> Dict[str, Dict[str, Any]]:
+    def load_broker_offices(self, filepath: str) -> Dict[str, List[Dict[str, Any]]]:
         """
-        broker_offices.csv 데이터 로드 (jurirno를 키로 하는 딕셔너리)
+        broker_offices.csv 데이터 로드 (jurirno를 키로 하는 딕셔너리, 리스트로 저장)
         
         Args:
             filepath: CSV 파일 경로
             
         Returns:
-            등록번호를 키로 하는 중개사 정보 딕셔너리
+            등록번호를 키로 하는 중개사 정보 딕셔너리 (값은 리스트)
         """
         filepath = Path(filepath)
         
@@ -69,25 +69,27 @@ class BrokerMerger:
             reader = csv.DictReader(f)
             data = list(reader)
         
-        # jurirno를 키로 하는 딕셔너리 생성
+        # jurirno를 키로 하는 딕셔너리 생성 (리스트로 저장)
         for broker in data:
             reg_num = self.normalize_registration_number(broker.get('jurirno'))
             if reg_num:
-                self.broker_offices[reg_num] = broker
+                if reg_num not in self.broker_offices:
+                    self.broker_offices[reg_num] = []
+                self.broker_offices[reg_num].append(broker)
         
         print(f"broker_offices.csv 로드: {len(data)}건")
         print(f"  - 유효한 등록번호: {len(self.broker_offices)}건")
         return self.broker_offices
     
-    def load_seoul_brokers(self, filepath: str) -> Dict[str, Dict[str, Any]]:
+    def load_seoul_brokers(self, filepath: str) -> Dict[str, List[Dict[str, Any]]]:
         """
-        seoul_brokers.csv 데이터 로드 (jurirno를 키로 하는 딕셔너리)
+        seoul_brokers.csv 데이터 로드 (jurirno를 키로 하는 딕셔너리, 리스트로 저장)
         
         Args:
             filepath: CSV 파일 경로
             
         Returns:
-            등록번호를 키로 하는 중개사 정보 딕셔너리
+            등록번호를 키로 하는 중개사 정보 딕셔너리 (값은 리스트)
         """
         filepath = Path(filepath)
         
@@ -95,11 +97,13 @@ class BrokerMerger:
             reader = csv.DictReader(f)
             data = list(reader)
         
-        # jurirno를 키로 하는 딕셔너리 생성
+        # jurirno를 키로 하는 딕셔너리 생성 (리스트로 저장)
         for broker in data:
             reg_num = self.normalize_registration_number(broker.get('jurirno'))
             if reg_num:
-                self.seoul_brokers[reg_num] = broker
+                if reg_num not in self.seoul_brokers:
+                    self.seoul_brokers[reg_num] = []
+                self.seoul_brokers[reg_num].append(broker)
         
         print(f"seoul_brokers.csv 로드: {len(data)}건")
         print(f"  - 유효한 등록번호: {len(self.seoul_brokers)}건")
@@ -108,6 +112,7 @@ class BrokerMerger:
     def merge_brokers(self) -> List[Dict[str, Any]]:
         """
         land_brokers를 기준으로 broker_offices와 seoul_brokers 병합
+        중개보조원이 여러 명인 경우 각각 별도 행으로 생성
         
         Returns:
             병합된 중개사 정보 리스트
@@ -117,47 +122,94 @@ class BrokerMerger:
         matched_with_offices = 0
         matched_with_seoul = 0
         matched_with_both = 0
+        total_office_records = 0
+        total_seoul_records = 0
         
         for land_broker in self.land_brokers:
             # land_brokers의 등록번호 정규화
             land_reg = self.normalize_registration_number(land_broker.get('등록번호'))
             
-            # 병합된 데이터 초기화 (land_brokers 데이터로 시작)
-            merged_broker = {}
+            # 매칭된 office와 seoul 데이터 가져오기
+            office_list = self.broker_offices.get(land_reg, []) if land_reg else []
+            seoul_list = self.seoul_brokers.get(land_reg, []) if land_reg else []
             
-            # land_brokers 데이터 추가 (접두사 land_)
-            for key, value in land_broker.items():
-                merged_broker[f'land_{key}'] = value
+            # 매칭된 데이터가 있는지 확인
+            has_office = len(office_list) > 0
+            has_seoul = len(seoul_list) > 0
             
-            # broker_offices 데이터 매칭 및 추가
-            office_matched = False
-            if land_reg and land_reg in self.broker_offices:
-                office_data = self.broker_offices[land_reg]
-                for key, value in office_data.items():
-                    merged_broker[f'office_{key}'] = value
-                office_matched = True
+            if has_office:
                 matched_with_offices += 1
-            
-            # seoul_brokers 데이터 매칭 및 추가
-            seoul_matched = False
-            if land_reg and land_reg in self.seoul_brokers:
-                seoul_data = self.seoul_brokers[land_reg]
-                for key, value in seoul_data.items():
-                    merged_broker[f'seoul_{key}'] = value
-                seoul_matched = True
+                total_office_records += len(office_list)
+            if has_seoul:
                 matched_with_seoul += 1
-            
-            # 둘 다 매칭된 경우
-            if office_matched and seoul_matched:
+                total_seoul_records += len(seoul_list)
+            if has_office and has_seoul:
                 matched_with_both += 1
             
-            self.merged_brokers.append(merged_broker)
+            # 매칭된 데이터가 없으면 land 데이터만 추가
+            if not has_office and not has_seoul:
+                merged_broker = {}
+                for key, value in land_broker.items():
+                    merged_broker[f'land_{key}'] = value
+                self.merged_brokers.append(merged_broker)
+                continue
+            
+            # office와 seoul 데이터의 모든 조합에 대해 행 생성
+            # 둘 다 있으면 카르테시안 곱, 하나만 있으면 그것만 사용
+            if has_office and has_seoul:
+                # 둘 다 있는 경우: 모든 조합 생성
+                for office_data in office_list:
+                    for seoul_data in seoul_list:
+                        merged_broker = {}
+                        
+                        # land 데이터 추가
+                        for key, value in land_broker.items():
+                            merged_broker[f'land_{key}'] = value
+                        
+                        # office 데이터 추가
+                        for key, value in office_data.items():
+                            merged_broker[f'office_{key}'] = value
+                        
+                        # seoul 데이터 추가
+                        for key, value in seoul_data.items():
+                            merged_broker[f'seoul_{key}'] = value
+                        
+                        self.merged_brokers.append(merged_broker)
+            
+            elif has_office:
+                # office만 있는 경우
+                for office_data in office_list:
+                    merged_broker = {}
+                    
+                    # land 데이터 추가
+                    for key, value in land_broker.items():
+                        merged_broker[f'land_{key}'] = value
+                    
+                    # office 데이터 추가
+                    for key, value in office_data.items():
+                        merged_broker[f'office_{key}'] = value
+                    
+                    self.merged_brokers.append(merged_broker)
+            
+            else:  # has_seoul
+                # seoul만 있는 경우
+                for seoul_data in seoul_list:
+                    merged_broker = {}
+                    
+                    # land 데이터 추가
+                    for key, value in land_broker.items():
+                        merged_broker[f'land_{key}'] = value
+                    
+                    # seoul 데이터 추가
+                    for key, value in seoul_data.items():
+                        merged_broker[f'seoul_{key}'] = value
+                    
+                    self.merged_brokers.append(merged_broker)
         
         print(f"병합 완료: {len(self.merged_brokers)}건")
-        print(f"  - broker_offices와 매칭: {matched_with_offices}건")
-        print(f"  - seoul_brokers와 매칭: {matched_with_seoul}건")
+        print(f"  - broker_offices와 매칭: {matched_with_offices}건 (총 {total_office_records}개 레코드)")
+        print(f"  - seoul_brokers와 매칭: {matched_with_seoul}건 (총 {total_seoul_records}개 레코드)")
         print(f"  - 둘 다 매칭: {matched_with_both}건")
-        print(f"  - 매칭 안됨: {len(self.merged_brokers) - matched_with_both}건")
         
         return self.merged_brokers
     

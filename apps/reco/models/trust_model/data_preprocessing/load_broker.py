@@ -222,11 +222,6 @@ def collect_seoul_brokers():
                 max_results=10000
             )
             
-            # 구 정보 추가
-            for broker in brokers:
-                broker["district_code"] = ld_code
-                broker["district_name"] = district_name
-            
             all_brokers.extend(brokers)
             print(f"[{district_name}] {len(brokers)}건 수집 완료")
             
