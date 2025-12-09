@@ -36,7 +36,7 @@ def run_pipeline():
     print(f"   - 정확도: {max(r['accuracy'] for r in results.values()):.4f}")
     print(f"   - F1-Score: {max(r['f1_score'] for r in results.values()):.4f}")
     print(f"   - 피처 수: {len(feature_names)}")
-    print(f"   - 타겟: 하이브리드 (거래완료율 40% + 인력 30% + 경력 20% + 운영 10%)")
+    print(f"   - 타겟: 하이브리드 (거래완료율 30% + 인력 40% + 경력 20% + 운영 10%)")
     print("\n💾 저장된 파일:")
     print(f"   - 모델: apps/reco/models/trust_model/saved_models/trust_model.pkl")
     print(f"   - 스케일러: apps/reco/models/trust_model/saved_models/scaler.pkl")

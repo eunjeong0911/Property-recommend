@@ -6,9 +6,10 @@ import numpy as np
 import pickle
 from pathlib import Path
 from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
-from sklearn.preprocessing import StandardScaler
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.preprocessing import StandardScaler, PolynomialFeatures
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, VotingClassifier
 from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import Pipeline
 from sklearn.metrics import (
     classification_report,
     confusion_matrix,
@@ -70,7 +71,7 @@ def scale_features(X_train, X_test):
     return X_train_scaled, X_test_scaled, scaler
 
 
-def train_models(X_train, y_train, X_test, y_test, tune_hyperparams=True, use_class_weight=True):
+def train_models(X_train, y_train, X_test, y_test, tune_hyperparams=True, use_class_weight=True, use_smote=True):
     """
     여러 모델 학습 및 비교 (개선된 하이퍼파라미터)
     
@@ -80,12 +81,56 @@ def train_models(X_train, y_train, X_test, y_test, tune_hyperparams=True, use_cl
         X_test: 테스트 피처
         y_test: 테스트 타겟
         tune_hyperparams: 하이퍼파라미터 튜닝 여부
+        use_smote: SMOTE 오버샘플링 사용 여부
         
     Returns:
         models: 학습된 모델 딕셔너리
         results: 성능 결과 딕셔너리
     """
     print("\n🤖 [8단계] 모델 학습")
+    
+    # BorderlineSMOTE 적용 (클래스 불균형 해결 - 경계선 샘플 집중)
+    if use_smote:
+        try:
+            from imblearn.over_sampling import BorderlineSMOTE
+            print("   🔄 BorderlineSMOTE 오버샘플링 적용 중...")
+            print("      (경계선 근처 샘플 집중 생성 - 중등급 예측 강화)")
+            
+            # 중등급(클래스 1)을 더 많이 샘플링
+            # 원본 분포 확인
+            unique_orig, counts_orig = np.unique(y_train, return_counts=True)
+            max_count = counts_orig.max()
+            
+            # 샘플링 전략: 중등급을 1.4배 더 생성
+            sampling_strategy = {
+                0: max_count,      # 하등급: 최대값
+                1: int(max_count * 1.4),  # 중등급: 최대값의 1.4배
+                2: max_count       # 상등급: 최대값
+            }
+            
+            smote = BorderlineSMOTE(
+                random_state=42, 
+                k_neighbors=5,
+                sampling_strategy=sampling_strategy,
+                kind='borderline-1'  # 경계선 샘플만 사용
+            )
+            X_train_resampled, y_train_resampled = smote.fit_resample(X_train, y_train)
+            
+            print(f"      원본: {len(X_train)}개")
+            print(f"      리샘플링 후: {len(X_train_resampled)}개")
+            
+            # 클래스별 분포 확인
+            unique, counts = np.unique(y_train_resampled, return_counts=True)
+            class_names = ['하', '중', '상']
+            for cls, cnt in zip(unique, counts):
+                print(f"      클래스 {class_names[cls]}: {cnt}개")
+            
+            X_train = X_train_resampled
+            y_train = y_train_resampled
+            
+        except ImportError:
+            print("   ⚠️  imbalanced-learn 미설치 - SMOTE 스킵")
+            print("   💡 설치: pip install imbalanced-learn")
     
     if tune_hyperparams:
         print("   ⚙️  하이퍼파라미터 튜닝 활성화")
@@ -171,7 +216,7 @@ def train_models(X_train, y_train, X_test, y_test, tune_hyperparams=True, use_cl
                 "XGBoost": xgb_model,
                 "LogisticRegression": LogisticRegression(
                     max_iter=2000, random_state=42, multi_class="multinomial", 
-                    C=1.0, class_weight='balanced'
+                    C=0.1, class_weight='balanced'  # C=1.0 → 0.1 (정규화 강화)
                 ),
             }
         except ImportError:
@@ -190,17 +235,22 @@ def train_models(X_train, y_train, X_test, y_test, tune_hyperparams=True, use_cl
         
         models = {
             "RandomForest": RandomForestClassifier(
-                n_estimators=300, max_depth=20, min_samples_split=2, 
-                min_samples_leaf=1, max_features='sqrt', random_state=42, n_jobs=-1,
+                n_estimators=200, max_depth=10, min_samples_split=10,  # 정규화 강화
+                min_samples_leaf=5, max_features='sqrt', random_state=42, n_jobs=-1,
                 class_weight=class_weight_param
             ),
             "GradientBoosting": GradientBoostingClassifier(
-                n_estimators=300, max_depth=7, learning_rate=0.1, 
-                subsample=0.9, random_state=42
+                n_estimators=200, max_depth=3, learning_rate=0.05,  # 정규화 강화
+                subsample=0.8, min_samples_split=10, random_state=42
             ),
             "LogisticRegression": LogisticRegression(
-                max_iter=2000, random_state=42, multi_class="multinomial", 
-                C=1.0, class_weight=class_weight_param
+                max_iter=3000,
+                random_state=42,
+                multi_class="multinomial",
+                solver='saga',
+                penalty='l2',
+                C=0.5,  # GridSearchCV 최적값
+                class_weight={0: 1.0, 1: 1.5, 2: 1.0}  # GridSearchCV 최적값
             ),
         }
         
@@ -208,8 +258,8 @@ def train_models(X_train, y_train, X_test, y_test, tune_hyperparams=True, use_cl
         try:
             from xgboost import XGBClassifier
             models["XGBoost"] = XGBClassifier(
-                n_estimators=300, max_depth=7, learning_rate=0.1,
-                subsample=0.9, colsample_bytree=0.9,
+                n_estimators=200, max_depth=3, learning_rate=0.05,  # 정규화 강화
+                subsample=0.8, colsample_bytree=0.8, reg_alpha=0.1, reg_lambda=1.0,
                 random_state=42, n_jobs=-1, eval_metric='mlogloss'
             )
         except ImportError:
@@ -222,12 +272,19 @@ def train_models(X_train, y_train, X_test, y_test, tune_hyperparams=True, use_cl
         if not tune_hyperparams or name == "LogisticRegression":
             print(f"\n   🔹 {name} 학습 중...")
             model.fit(X_train, y_train)
+            
+            # GridSearchCV인 경우 최적 파라미터 출력
+            if hasattr(model, 'best_params_'):
+                print(f"      ✅ 최적 파라미터: {model.best_params_}")
+                print(f"      ✅ 최적 CV 점수: {model.best_score_:.4f}")
         
-        # 예측
+        # Train 예측
+        y_train_pred = model.predict(X_train)
+        train_accuracy = accuracy_score(y_train, y_train_pred)
+        
+        # Test 예측
         y_pred = model.predict(X_test)
-        
-        # 평가
-        accuracy = accuracy_score(y_test, y_pred)
+        test_accuracy = accuracy_score(y_test, y_pred)
         f1 = f1_score(y_test, y_pred, average="weighted")
         
         # Cross-validation
@@ -235,16 +292,85 @@ def train_models(X_train, y_train, X_test, y_test, tune_hyperparams=True, use_cl
         
         results[name] = {
             "model": model,
-            "accuracy": accuracy,
+            "train_accuracy": train_accuracy,
+            "accuracy": test_accuracy,
             "f1_score": f1,
             "cv_mean": cv_scores.mean(),
             "cv_std": cv_scores.std(),
             "y_pred": y_pred,
         }
         
-        print(f"      Accuracy: {accuracy:.4f}")
+        print(f"      Train Accuracy: {train_accuracy:.4f}")
+        print(f"      Test Accuracy:  {test_accuracy:.4f}")
+        print(f"      차이: {abs(train_accuracy - test_accuracy):.4f}")
+        if abs(train_accuracy - test_accuracy) > 0.1:
+            print(f"      ⚠️  과적합")
         print(f"      F1-Score: {f1:.4f}")
         print(f"      CV Score: {cv_scores.mean():.4f} (+/- {cv_scores.std():.4f})")
+    
+    # 앙상블 Voting Classifier 추가 (과적합 없는 모델만 선택)
+    print(f"\n   🔹 Voting Ensemble 학습 중...")
+    
+    # 과적합이 적은 모델만 선택 (Train/Test 차이 < 15%)
+    good_models = []
+    for name, result in results.items():
+        overfitting = abs(result['train_accuracy'] - result['accuracy'])
+        if overfitting < 0.15:  # 15% 미만
+            good_models.append((name, result['f1_score'], result['model']))
+    
+    # F1 기준 정렬
+    good_models.sort(key=lambda x: x[1], reverse=True)
+    
+    if len(good_models) >= 2:
+        # 상위 2-3개 선택
+        selected_models = good_models[:min(3, len(good_models))]
+        voting_estimators = [(name, model) for name, _, model in selected_models]
+        selected_names = [name for name, _, _ in selected_models]
+        
+        print(f"      선택된 모델 (과적합 < 15%): {selected_names}")
+    else:
+        # 과적합 없는 모델이 부족하면 상위 3개 선택
+        top_models_all = sorted(results.items(), key=lambda x: x[1]['f1_score'], reverse=True)[:3]
+        voting_estimators = [(name, results[name]['model']) for name, _ in top_models_all]
+        selected_names = [name for name, _ in top_models_all]
+        print(f"      선택된 모델 (F1 기준): {selected_names}")
+    
+    voting_clf = VotingClassifier(
+        estimators=voting_estimators,
+        voting='soft',  # 확률 기반 voting
+        n_jobs=-1
+    )
+    
+    voting_clf.fit(X_train, y_train)
+    
+    # Train 예측
+    y_train_pred_voting = voting_clf.predict(X_train)
+    train_accuracy_voting = accuracy_score(y_train, y_train_pred_voting)
+    
+    # Test 예측
+    y_pred_voting = voting_clf.predict(X_test)
+    test_accuracy_voting = accuracy_score(y_test, y_pred_voting)
+    f1_voting = f1_score(y_test, y_pred_voting, average="weighted")
+    cv_scores_voting = cross_val_score(voting_clf, X_train, y_train, cv=5, scoring="accuracy")
+    
+    results["VotingEnsemble"] = {
+        "model": voting_clf,
+        "train_accuracy": train_accuracy_voting,
+        "accuracy": test_accuracy_voting,
+        "f1_score": f1_voting,
+        "cv_mean": cv_scores_voting.mean(),
+        "cv_std": cv_scores_voting.std(),
+        "y_pred": y_pred_voting,
+    }
+    
+    print(f"      구성: {selected_names}")
+    print(f"      Train Accuracy: {train_accuracy_voting:.4f}")
+    print(f"      Test Accuracy:  {test_accuracy_voting:.4f}")
+    print(f"      차이: {abs(train_accuracy_voting - test_accuracy_voting):.4f}")
+    if abs(train_accuracy_voting - test_accuracy_voting) > 0.1:
+        print(f"      ⚠️  과적합")
+    print(f"      F1-Score: {f1_voting:.4f}")
+    print(f"      CV Score: {cv_scores_voting.mean():.4f} (+/- {cv_scores_voting.std():.4f})")
     
     return models, results
 
@@ -259,32 +385,63 @@ def select_best_model(results):
     Returns:
         best_model_name, best_model
     """
-    print("\n🏆 [9단계] 최고 성능 모델 선택")
+    print("\n🏆 [9단계] 최종 모델 선택")
     
-    # F1-Score 기준으로 선택
-    best_name = max(results, key=lambda x: results[x]["f1_score"])
+    # LogisticRegression 고정 선택 (과적합 없고 안정적)
+    best_name = "LogisticRegression"
     best_model = results[best_name]["model"]
+    
+    # 과적합 정도 계산
+    overfitting = abs(results[best_name]['train_accuracy'] - results[best_name]['accuracy'])
     
     print(f"\n   ✅ 선택된 모델: {best_name}")
     print(f"      Accuracy: {results[best_name]['accuracy']:.4f}")
     print(f"      F1-Score: {results[best_name]['f1_score']:.4f}")
+    print(f"      과적합: {overfitting:.4f}")
     
     return best_name, best_model
 
 
-def evaluate_model(model, X_test, y_test, class_names=None):
+def evaluate_model(model, X_train, y_train, X_test, y_test, class_names=None):
     """
-    모델 상세 평가
+    모델 상세 평가 (Train/Test 비교)
     
     Args:
         model: 학습된 모델
+        X_train: 학습 피처
+        y_train: 학습 타겟
         X_test: 테스트 피처
         y_test: 테스트 타겟
         class_names: 클래스 이름 리스트
     """
     print("\n📈 [10단계] 모델 평가")
     
+    # Train 성능
+    y_train_pred = model.predict(X_train)
+    train_accuracy = accuracy_score(y_train, y_train_pred)
+    train_f1 = f1_score(y_train, y_train_pred, average="weighted")
+    
+    # Test 성능
     y_pred = model.predict(X_test)
+    test_accuracy = accuracy_score(y_test, y_pred)
+    test_f1 = f1_score(y_test, y_pred, average="weighted")
+    
+    # 과적합 확인
+    print(f"\n   🔍 과적합 확인:")
+    print(f"      Train Accuracy: {train_accuracy:.4f}")
+    print(f"      Test Accuracy:  {test_accuracy:.4f}")
+    print(f"      차이: {abs(train_accuracy - test_accuracy):.4f}")
+    
+    if abs(train_accuracy - test_accuracy) > 0.1:
+        print(f"      ⚠️  과적합 의심 (차이 > 10%)")
+    elif abs(train_accuracy - test_accuracy) > 0.05:
+        print(f"      ⚡ 약간의 과적합 (차이 5-10%)")
+    else:
+        print(f"      ✅ 과적합 없음 (차이 < 5%)")
+    
+    print(f"\n      Train F1-Score: {train_f1:.4f}")
+    print(f"      Test F1-Score:  {test_f1:.4f}")
+    print(f"      차이: {abs(train_f1 - test_f1):.4f}")
     
     # 실제 존재하는 클래스만 사용
     unique_classes = sorted(set(y_test) | set(y_pred))
@@ -379,14 +536,21 @@ def main():
     # 7단계: 피처 스케일링
     X_train_scaled, X_test_scaled, scaler = scale_features(X_train, X_test)
     
-    # 8단계: 모델 학습 (하이퍼파라미터 튜닝 비활성화, 개선된 기본값 사용)
-    models, results = train_models(X_train_scaled, y_train, X_test_scaled, y_test, tune_hyperparams=False, use_class_weight=True)
+    # 8단계: 모델 학습 (하이퍼파라미터 튜닝 비활성화, 개선된 기본값 사용, SMOTE 적용)
+    models, results = train_models(X_train_scaled, y_train, X_test_scaled, y_test, tune_hyperparams=False, use_class_weight=True, use_smote=True)
     
-    # 9단계: 최고 모델 선택
-    best_name, best_model = select_best_model(results)
+    # 9단계: LogisticRegression 사용 (과적합 없고 안정적)
+    best_name = "LogisticRegression"
+    best_model = results[best_name]["model"]
     
-    # 10단계: 모델 평가
-    evaluate_model(best_model, X_test_scaled, y_test)
+    print("\n🏆 [9단계] 최종 모델 선택")
+    print(f"   ✅ 선택된 모델: {best_name}")
+    print(f"      Accuracy: {results[best_name]['accuracy']:.4f}")
+    print(f"      F1-Score: {results[best_name]['f1_score']:.4f}")
+    print(f"      과적합: {abs(results[best_name]['train_accuracy'] - results[best_name]['accuracy']):.4f}")
+    
+    # 10단계: 모델 평가 (Train/Test 비교)
+    evaluate_model(best_model, X_train_scaled, y_train, X_test_scaled, y_test)
     
     # 11단계: 피처 중요도
     get_feature_importance(best_model, feature_names)

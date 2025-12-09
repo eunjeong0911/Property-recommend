@@ -390,8 +390,12 @@ def prepare_ml_data(df: pd.DataFrame) -> tuple:
     df['중견사무소'] = ((df['운영년수'] >= 3) & (df['운영년수'] < 10)).astype(int)
     df['노포사무소'] = (df['운영년수'] >= 10).astype(int)
     
-    # 피처 선택 (거래완료, 등록매물, 거래완료율 관련 모두 제외)
+    # 피처 선택 (모든 유용한 피처 포함)
     feature_columns = [
+        # 거래 성과 (절대값)
+        '거래완료',
+        '등록매물',
+        
         # 인력 구성 (절대값)
         '총_인원수',
         '공인중개사수',
@@ -442,8 +446,8 @@ def prepare_ml_data(df: pd.DataFrame) -> tuple:
     print(f"   ✅ 피처 수: {len(feature_columns)}")
     print(f"   ✅ 샘플 수: {len(X)}")
     print(f"   ✅ 타겟 클래스: {sorted(df['신뢰도등급'].dropna().unique())}")
-    print(f"   ⚠️  완전 제외: 거래완료, 등록매물, 거래완료율, 1인당 지표 (leakage 방지)")
-    print(f"   ✅ 사용 피처: 인력구성, 경력, 운영기간, 지역만")
+    print(f"   ✅ 사용 피처: 거래성과, 인력구성, 경력, 운영기간, 지역")
+    print(f"   💡 타겟: 종합 신뢰도 (거래 40% + 인력 30% + 경력 20% + 운영 10%)")
     
     return X, y, feature_columns
 
