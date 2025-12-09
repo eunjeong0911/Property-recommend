@@ -1,2 +1,0 @@
-﻿timestamp,experiment_name,n_estimators,learning_rate,max_depth,min_child_weight,subsample,colsample_bytree,gamma,reg_alpha,reg_lambda,MAE,RMSE,R2,MAPE,notes
-2025-12-05 11:29:32,clean_features_v1,1000,0.05,6,1,0.8,0.8,0,0,1,2496.7858805851974,4401.372994410309,0.7137430631260365,16.486096942331987,"타깃 누수 제거, 유의미한 특성 2개만 추가 (옵션개수, 층비율)"
