@@ -33,10 +33,34 @@ def clean_merged_brokers():
     
     print(f"\n삭제할 행 수 (land_ 컬럼만 있는 행): {len(land_only_rows)}")
     
+    if len(land_only_rows) > 0:
+        print("\n=== land_ 컬럼만 있고 나머지가 비어있는 행들 ===")
+        print("=" * 100)
+        for idx, row in land_only_rows.iterrows():
+            print(f"\n[행 번호: {idx}]")
+            # land_ 컬럼 중 값이 있는 것만 출력
+            for col in land_cols:
+                if pd.notna(row[col]):
+                    print(f"  {col}: {row[col]}")
+            print("-" * 100)
+    
     # 해당 행들 제거
     cleaned_df = df[~df.index.isin(land_only_rows.index)]
     
     print(f"정제된 데이터: {len(cleaned_df)}행")
+    
+    # # 거래완료와 등록매물이 둘 다 비어있는 행 제거
+    # if 'land_거래완료' in cleaned_df.columns and 'land_등록매물' in cleaned_df.columns:
+    #     empty_transaction_rows = cleaned_df[
+    #         cleaned_df['land_거래완료'].isna() & 
+    #         cleaned_df['land_등록매물'].isna()
+    #     ]
+    #     
+    #     print(f"삭제할 행 수 (거래완료·등록매물 둘 다 비어있는 행): {len(empty_transaction_rows)}")
+    #     
+    #     cleaned_df = cleaned_df[~cleaned_df.index.isin(empty_transaction_rows.index)]
+    #     
+    #     print(f"정제된 데이터 (2차): {len(cleaned_df)}행")
     
     # 삭제할 컬럼 목록
     columns_to_drop = [
