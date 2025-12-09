@@ -78,10 +78,12 @@ services:
     environment:
       - NEO4J_URI=bolt://neo4j:7687
       - POSTGRES_HOST=postgres
+      - REDIS_HOST=redis
       - PYTHONUNBUFFERED=1
     depends_on:
       - postgres
       - neo4j
+      - redis
 
   reco:
     build:
