@@ -63,7 +63,7 @@ class AmenityImporter:
                 session.run(query, batch=batch)
                 
         print("Finished importing Hospitals.")
-        # self._link_hospital()
+        self.link_hospital()
 
     def link_hospital(self):
         print("Linking Hospitals...")
@@ -131,7 +131,7 @@ class AmenityImporter:
                 session.run(query, batch=batch)
                 
         print("Finished importing Pharmacies.")
-        # self._link_pharmacy()
+        self.link_pharmacy()
 
     def link_pharmacy(self):
         print("Linking Pharmacies (200m)...")
@@ -192,7 +192,7 @@ class AmenityImporter:
                 session.run(query, batch=batch)
                 
         print("Finished importing Colleges.")
-        # self._link_college()
+        self.link_college()
 
     def link_college(self):
         print("Linking Colleges (2km)...")
@@ -266,7 +266,7 @@ class AmenityImporter:
                 session.run(query, batch=batch)
                 
         print("Finished importing Stores.")
-        # self._link_convenience()
+        self.link_convenience()
 
     def link_convenience(self):
         print("Linking Convenience Stores (200m)...")
@@ -332,7 +332,7 @@ class AmenityImporter:
                     session.run(query, batch=batch)
                     
         print("Finished importing Parks.")
-        # self._link_park()
+        self.link_park()
 
     def link_park(self):
         print("Linking Parks (500m)...")

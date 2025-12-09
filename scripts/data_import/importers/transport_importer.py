@@ -56,7 +56,7 @@ class TransportImporter:
                 session.run(query, batch=batch)
                 
             print("Finished importing Subway Stations.")
-            # self._link_subway(session)
+            self._link_subway_logic(session)
 
     def link_subway(self):
         with self.driver.session() as session:
@@ -123,7 +123,7 @@ class TransportImporter:
                 session.run(query, batch=batch)
                 
             print("Finished importing Bus Stations.")
-            # self._link_bus(session)
+            self._link_bus_logic(session)
 
     def link_bus(self):
         with self.driver.session() as session:

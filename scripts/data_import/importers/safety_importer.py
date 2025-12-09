@@ -56,7 +56,7 @@ class SafetyImporter:
                 session.run(query, batch=batch)
                 
         print("Finished importing CCTV.")
-        # self._link_cctv()
+        self.link_cctv()
 
     def link_cctv(self):
         print("Linking CCTV (200m)...")
@@ -119,7 +119,7 @@ class SafetyImporter:
                 session.run(query, batch=batch)
                 
         print("Finished importing Emergency Bells.")
-        # self._link_bell()
+        self.link_bell()
 
     def link_bell(self):
         print("Linking Emergency Bells (200m)...")
@@ -192,7 +192,7 @@ class SafetyImporter:
                 session.run(query, batch=batch)
                 
         print("Finished importing Police Stations.")
-        # self._link_police()
+        self.link_police()
 
     def link_police(self):
         print("Linking Police Stations (1km)...")
@@ -265,7 +265,7 @@ class SafetyImporter:
                 session.run(query, batch=batch)
                 
         print("Finished importing Fire Stations.")
-        # self._link_fire()
+        self.link_fire()
 
     def link_fire(self):
         print("Linking Fire Stations (2.5km)...")
