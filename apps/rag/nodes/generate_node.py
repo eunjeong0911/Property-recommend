@@ -1,4 +1,5 @@
 from common.state import RAGState
+import json
 
 def generate(state: RAGState) -> RAGState:
     from langchain_openai import ChatOpenAI
@@ -8,6 +9,8 @@ def generate(state: RAGState) -> RAGState:
     question = state["question"]
     graph_results = state.get("graph_results", [])
     sql_results = state.get("sql_results", [])
+    search_context = state.get("search_context")
+    use_cache = state.get("use_cache", False)
     
     print(f"\n{'='*60}")
     print(f"[Generate] 🚀 Starting answer generation...")
@@ -32,10 +35,21 @@ def generate(state: RAGState) -> RAGState:
     # helper to format detail list
     def format_details(details_list):
         if not details_list: return ""
+        
+        # Handle single dict (from head(collect(...)))
+        if isinstance(details_list, dict):
+            details_list = [details_list]
+        
+        # Ensure it's a list
+        if not isinstance(details_list, list):
+            return ""
+        
         # details_list is list of dicts: {'name': '...', 'dist': 123.0, 'time': 1.5}
         formatted = []
         for d in details_list:
-            name = d.get('name', 'Facility')
+            if not isinstance(d, dict):
+                continue
+            name = d.get('name', 'Facility') or 'Facility'
             dist = d.get('dist') or 0
             time = d.get('time') or 0
             # Format: 'OOO (123m, 2분)'
@@ -84,9 +98,10 @@ def generate(state: RAGState) -> RAGState:
                  if not details_list: return []
                  return [d for d in details_list if d.get('name') not in poi_names]
 
-            # 2. General Facilities (Convenience, Hospital, Park, Education)
+            # 2. General Facilities (Convenience, Hospital, Park, Education, Pharmacy)
             fac_summary = []
-            if result.get('med_details'): fac_summary.append(f"의료(병원/약국): {format_details(result['med_details'])}")
+            if result.get('med_details'): fac_summary.append(f"의료(병원): {format_details(result['med_details'])}")
+            if result.get('pharm_details'): fac_summary.append(f"약국: {format_details(result['pharm_details'])}")
             if result.get('gen_hosp_details'): fac_summary.append(f"의료(종합/대학병원): {format_details(result['gen_hosp_details'])}")
             if result.get('conv_details'): fac_summary.append(f"편의: {format_details(result['conv_details'])}")
             if result.get('park_details'): fac_summary.append(f"공원: {format_details(result['park_details'])}")
@@ -129,7 +144,32 @@ def generate(state: RAGState) -> RAGState:
     context = unique_results
     print(f"\n[Generate] ✅ Context merging complete!")
     print(f"[Generate] 📝 Prepared {len(context)} unique properties for answer generation")
+    
+    # Check for zero results - return immediately without LLM call
+    if not context or len(context) == 0:
+        print(f"[Generate] ⚠️ No results found - returning 'no match' message")
+        state["answer"] = "죄송합니다. 해당 조건을 만족하는 매물이 없습니다."
+        state["full_results"] = []
+        return state
+    
+    # Store full results for Redis caching
+    full_results = context
+    
+    # Select top 3 for display
+    context_for_display = context[:3]
+    print(f"[Generate] 📊 Showing top 3 out of {len(full_results)} total results")
     print(f"[Generate] 🤖 Sending to LLM...\n")
+
+    # 검색 컨텍스트 정보
+    context_info = ""
+    if search_context:
+        context_info = f"""
+📌 이전 검색 조건:
+- 위치: {search_context.get('location', '')}
+- 적용된 필터: {', '.join(search_context.get('criteria', []))}
+
+현재 질문은 위 조건을 기반으로 {'추가 필터링' if use_cache else '새 검색'}입니다.
+"""
 
     # Simple generation using LLM
     llm = ChatOpenAI(model="gpt-4o", temperature=0)
@@ -137,6 +177,11 @@ def generate(state: RAGState) -> RAGState:
     prompt = ChatPromptTemplate.from_template(
         """
         당신은 유용한 부동산 AI 비서입니다. 검색 결과를 바탕으로 사용자의 질문에 친절하게 답변해 주세요.
+        
+        **중요: 예시 생성 금지**
+        검색 결과(Context)에 포함된 매물만 소개하세요. 절대로 임의로 예시를 만들거나 가상의 매물을 생성하지 마세요.
+
+        {context_info}
 
         검색 결과 (Context):
         {context}
@@ -165,9 +210,51 @@ def generate(state: RAGState) -> RAGState:
         - **관리비**: [관리비 정보] (없으면 생략)
         - **면적/구조**: [전용면적], [방/욕실 개수]
         - **역 접근성**: [formatted_poi 내용 위주로 작성]
+        - **주변 인프라**: [formatted_infrastructure의 모든 내용을 표시 - 편의점, 병원, 공원 등 이전 검색에서 누적된 모든 시설 정보 포함]
+        - **안전 시설**: [formatted_safety 내용] (정보가 있으면 작성)
+        - **한줄 요약**: [이 매물의 장점 요약]
+
+
+        **2순위 (옵션 B)**
+        - **주소**: [주소]
+        - **타입**: [건물형태]
+        - **가격**: [보증금/월세 또는 전세가]
+        - **관리비**: [관리비 정보] (없으면 생략)
+        - **면적/구조**: [전용면적], [방/욕실 개수]
+        - **역 접근성**: [formatted_poi 내용 위주로 작성]
         - **주변 인프라**: [formatted_infrastructure 내용 중 질문과 관련된 것 위주로 작성]
         - **안전 시설**: [formatted_safety 내용] (정보가 있으면 작성)
         - **한줄 요약**: [이 매물의 장점 요약]
+
+        **3순위 (옵션 C)**
+        - **주소**: [주소]
+        - **타입**: [건물형태]
+        - **가격**: [보증금/월세 또는 전세가]
+        - **관리비**: [관리비 정보] (없으면 생략)
+        - **면적/구조**: [전용면적], [방/욕실 개수]
+        - **역 접근성**: [formatted_poi 내용 위주로 작성]
+        - **주변 인프라**: [formatted_infrastructure 내용 중 질문과 관련된 것 위주로 작성]
+        - **안전 시설**: [formatted_safety 내용] (정보가 있으면 작성)
+        - **한줄 요약**: [이 매물의 장점 요약]
+
+        **후속 질문 생성 (매물 소개 후):**
+        답변 끝에 자연스럽게 2-3개의 후속 질문을 추가하세요.
+        
+        사용 가능한 필터 옵션:
+        - 가격: 보증금, 월세, 전세가, 매매가
+        - 구조: 방/욕실 개수, 전용/공급면적, 층수
+        - 시설: 엘리베이터, 주차, 난방방식
+        - 입주: 입주가능일
+        - 위치 세부: 병원, 편의점, 공원, 안전시설 근접성
+        
+        이미 적용된 조건은 다시 묻지 마세요. 자연스러운 대화 톤으로 물어보세요.
+        
+        **예시**:
+        "... (매물 결과)
+        
+        💬 추가로 도와드릴까요?
+        - 원하시는 가격대가 있으신가요? (예: 보증금 5000만원 이하)
+        - 층수나 방 구조에 선호사항이 있으신가요?"
 
         질문: {question}
         """
@@ -175,9 +262,14 @@ def generate(state: RAGState) -> RAGState:
     
     chain = prompt | llm | StrOutputParser()
     
-    print("[Generate] 🤖 Generating final answer with GPT-5-mini...")
-    answer = chain.invoke({"question": question, "context": context})
+    print("[Generate] 🤖 Generating final answer with GPT-4o...")
+    answer = chain.invoke({
+        "question": question, 
+        "context": context_for_display,  # Only send top 3 to LLM
+        "context_info": context_info
+    })
     print(f"[Generate] ✅ Answer generated:\n{answer}")
     
     state["answer"] = answer
+    state["full_results"] = full_results  # Store all results for Redis caching
     return state
