@@ -26,18 +26,17 @@ interface LandImageProps {
     isLiked?: boolean;
 }
 
+const DEFAULT_PLACEHOLDER = '/images/placeholder.svg';
+
 export default function LandImage({
     id = '1',
-    images = [
-        'https://img.peterpanz.com/photo/20250115/16772468/67871b38ee314_origin.jpg',
-        'https://img.peterpanz.com/photo/20250115/16772468/67871b3976aac_origin.jpg',
-        'https://img.peterpanz.com/photo/20250115/16772468/67871b39eb65a_origin.jpg',
-        'https://img.peterpanz.com/photo/20250115/16772468/67871b3a65cad_origin.jpg'
-    ],
+    images: propImages,
     price,
     onLike,
     isLiked = false
 }: LandImageProps) {
+    // 이미지가 없거나 빈 배열이면 placeholder 사용
+    const images = propImages && propImages.length > 0 ? propImages : [DEFAULT_PLACEHOLDER];
     const router = useRouter();
     const [liked, setLiked] = useState(isLiked);
     const [isHovered, setIsHovered] = useState(false);
@@ -88,6 +87,7 @@ export default function LandImage({
                     src={images[currentImageIndex]}
                     alt="매물 이미지"
                     fill
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
                     className="object-cover"
                 />
 

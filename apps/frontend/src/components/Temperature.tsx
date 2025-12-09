@@ -41,9 +41,9 @@ export default function Temperature({ label, value, maxValue = 1 }: TemperatureP
             onClick={handleClick}
         >
             <span className="text-sm font-medium text-slate-700 w-24 flex-shrink-0">{label}</span>
-            <div className="flex-1 bg-white/50 rounded-full h-2.5 overflow-hidden border border-white/40 shadow-inner">
+            <div className="flex-1 bg-white/60 rounded-full h-2.5 overflow-hidden border border-purple-200/40 shadow-inner">
                 <div
-                    className="h-full rounded-full transition-all duration-1000 ease-out bg-gradient-to-r from-sky-400 to-blue-500 shadow-sm"
+                    className="h-full rounded-full transition-all duration-1000 ease-out bg-gradient-to-r from-purple-500 via-blue-500 to-cyan-400 shadow-sm"
                     style={{ width: `${percentage}%` }}
                 />
             </div>

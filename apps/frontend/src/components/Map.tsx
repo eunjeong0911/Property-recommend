@@ -13,7 +13,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useParticleEffect } from '../hooks/useParticleEffect';
+import { fetchLandLocations, LandLocation } from '../api/landApi';
+import { seoulDistricts, getTemperatureColor } from '../mapdata/seoulDistricts';
 
 declare global {
     interface Window {
@@ -21,16 +22,26 @@ declare global {
     }
 }
 
-export default function Map() {
+interface MapProps {
+    landId?: string; // 매물 상세 페이지에서 전달되는 매물 ID
+}
+
+export default function Map({ landId }: MapProps) {
     const mapContainer = useRef<HTMLDivElement>(null);
     const mapRef = useRef<any>(null);
-    const markerRef = useRef<any>(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const { triggerEffect } = useParticleEffect();
+    const markersRef = useRef<Array<{ marker: any; overlay: any; overlayState?: { isOpen: boolean; overlay: any } }>>([]);
+    const polygonsRef = useRef<any[]>([]);
+    const overlaysRef = useRef<any[]>([]);
+    const [locations, setLocations] = useState<LandLocation[]>([]);
+    const [currentLand, setCurrentLand] = useState<LandLocation | null>(null);
 
     useEffect(() => {
         // window 객체 체크 (SSR 대응)
         if (typeof window === 'undefined') return;
+
+        // 상세 페이지: currentLand가 로드될 때까지 대기
+        // 메인 페이지: 바로 지도 초기화
+        if (landId && !currentLand) return;
 
         // 이미 스크립트가 로드되어 있는지 확인
         const existingScript = document.querySelector('script[src*="dapi.kakao.com"]');
@@ -59,7 +70,6 @@ export default function Map() {
 
         script.onerror = () => {
             console.error('카카오 지도 스크립트 로드 실패');
-            setIsLoading(false);
         };
 
         document.head.appendChild(script);
@@ -68,7 +78,35 @@ export default function Map() {
             // 컴포넌트 언마운트 시에도 스크립트는 유지 (재사용을 위해)
             // document.head.removeChild(script);
         };
-    }, []);
+    }, [currentLand]);
+
+    // 매물 위치 데이터 로드 (상세 페이지에서만)
+    useEffect(() => {
+        const loadLocations = async () => {
+            // 상세 페이지에서만 매물 위치 로드
+            if (!landId) {
+                // 메인 페이지: 마커 없이 지도만 표시
+                setCurrentLand(null);
+                setLocations([]);
+                return;
+            }
+
+            try {
+                const data = await fetchLandLocations({ land_id: landId });
+                if (data.length > 0) {
+                    setCurrentLand(data[0]);
+                    setLocations(data);
+                    console.log('매물 위치 로드 완료:', data[0]);
+                } else {
+                    console.warn('매물 위치 정보를 찾을 수 없습니다:', landId);
+                }
+            } catch (error) {
+                console.error('매물 위치 로드 실패:', error);
+            }
+        };
+
+        loadLocations();
+    }, [landId]);
 
     const initializeMap = () => {
         if (!mapContainer.current) {
@@ -81,105 +119,357 @@ export default function Map() {
             window.kakao.maps.load(() => {
                 console.log('카카오 지도 API 로드 완료');
 
+                // 매물 상세 페이지인 경우 해당 매물 위치 중심, 아니면 서울 중심
+                // 메인 페이지: 지도 중심 조정
+                const centerLat = currentLand?.latitude || (landId ? 37.5665 : 37.5715);
+                const centerLng = currentLand?.longitude || (landId ? 126.9780 : 126.9705);
+                const zoomLevel = landId ? 3 : 9; // 상세 페이지는 더 확대, 메인은 서울 전역
+
                 const options = {
-                    center: new window.kakao.maps.LatLng(37.5665, 126.9780), // 서울 중심 좌표
-                    level: 3, // 지도 확대 레벨
+                    center: new window.kakao.maps.LatLng(centerLat, centerLng),
+                    level: zoomLevel,
                 };
 
                 const map = new window.kakao.maps.Map(mapContainer.current, options);
                 mapRef.current = map;
                 console.log('지도 생성 완료');
 
-                // 예시: 마커 추가
-                const markerPosition = new window.kakao.maps.LatLng(37.5665, 126.9780);
-                const marker = new window.kakao.maps.Marker({
-                    position: markerPosition,
-                });
-                marker.setMap(map);
-                markerRef.current = marker;
-                console.log('마커 추가 완료');
+                // 메인 페이지에서만 구별 폴리곤 표시
+                if (!landId) {
+                    // 지도 이동/확대 제한 (서울 전역 고정)
+                    map.setZoomable(false);
+                    map.setDraggable(false);
+                    
+                    drawDistrictPolygons(map);
+                }
             });
         }
     };
 
-    const moveToCurrentLocation = (e: React.MouseEvent) => {
-        triggerEffect(e.currentTarget as HTMLElement);
+    // 서울시 구별 폴리곤 그리기
+    const drawDistrictPolygons = (map: any) => {
+        // 기존 폴리곤 제거
+        polygonsRef.current.forEach(polygon => polygon.setMap(null));
+        overlaysRef.current.forEach(overlay => overlay.setMap(null));
+        polygonsRef.current = [];
+        overlaysRef.current = [];
 
-        if (!navigator.geolocation) {
-            alert('현재 위치를 지원하지 않는 브라우저입니다.');
-            return;
-        }
+        seoulDistricts.forEach((district) => {
+            const path = district.path.map(
+                coord => new window.kakao.maps.LatLng(coord.lat, coord.lng)
+            );
 
-        setIsLoading(true);
+            const color = getTemperatureColor(district.temperature);
 
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const { latitude, longitude } = position.coords;
+            // 폴리곤 생성
+            const polygon = new window.kakao.maps.Polygon({
+                path: path,
+                strokeWeight: 2,
+                strokeColor: color,
+                strokeOpacity: 0.8,
+                fillColor: color,
+                fillOpacity: 0.4,
+            });
 
-                if (mapRef.current && markerRef.current && window.kakao) {
-                    // 현재 위치로 지도 중심 이동
-                    const moveLatLon = new window.kakao.maps.LatLng(latitude, longitude);
-                    mapRef.current.setCenter(moveLatLon);
+            polygon.setMap(map);
+            polygonsRef.current.push(polygon);
 
-                    // 커스텀 마커 이미지 생성
-                    const imageSrc = '/icons/nowLocation.png';
-                    const imageSize = new window.kakao.maps.Size(40, 40); // 마커 이미지 크기
-                    const imageOption = { offset: new window.kakao.maps.Point(20, 40) }; // 마커 이미지의 기준점
+            // 구 이름만 표시 (마커 없이 텍스트만)
+            const content = document.createElement('div');
+            content.style.cssText = `
+                font-size: 12px;
+                font-weight: 700;
+                color: #1f2937;
+                text-shadow: 1px 1px 2px white, -1px -1px 2px white, 1px -1px 2px white, -1px 1px 2px white;
+                pointer-events: none;
+            `;
+            content.textContent = district.name;
 
-                    const markerImage = new window.kakao.maps.MarkerImage(
-                        imageSrc,
-                        imageSize,
-                        imageOption
-                    );
+            const overlay = new window.kakao.maps.CustomOverlay({
+                position: new window.kakao.maps.LatLng(district.center.lat, district.center.lng),
+                content: content,
+                yAnchor: 0.5,
+                xAnchor: 0.5,
+            });
 
-                    // 새로운 커스텀 마커 생성
-                    const newMarker = new window.kakao.maps.Marker({
-                        position: moveLatLon,
-                        image: markerImage
-                    });
+            overlay.setMap(map);
+            overlaysRef.current.push(overlay);
 
-                    newMarker.setMap(mapRef.current);
-                    markerRef.current = newMarker;
+            // 폴리곤 호버 이벤트
+            window.kakao.maps.event.addListener(polygon, 'mouseover', () => {
+                polygon.setOptions({
+                    fillOpacity: 0.7,
+                    strokeWeight: 3,
+                });
+            });
 
-                    console.log('현재 위치로 이동:', latitude, longitude);
-                }
+            window.kakao.maps.event.addListener(polygon, 'mouseout', () => {
+                polygon.setOptions({
+                    fillOpacity: 0.4,
+                    strokeWeight: 2,
+                });
+            });
+        });
 
-                setIsLoading(false);
-            },
-            (error) => {
-                console.error('위치 정보를 가져올 수 없습니다:', error);
-                alert('위치 정보를 가져올 수 없습니다. 위치 권한을 확인해주세요.');
-                setIsLoading(false);
-            },
-            {
-                enableHighAccuracy: true, // 높은 정확도
-                timeout: 5000, // 5초 타임아웃
-                maximumAge: 0 // 캐시 사용 안함
-            }
-        );
+        console.log('서울시 구별 폴리곤 표시 완료');
     };
 
+    // 매물 마커 표시 (상세 페이지에서만)
+    useEffect(() => {
+        if (!mapRef.current || !window.kakao || !landId || locations.length === 0) return;
+
+        // 기존 매물 마커 제거
+        markersRef.current.forEach(item => {
+            if (item.marker) item.marker.setMap(null);
+            if (item.overlay) item.overlay.setMap(null);
+        });
+        markersRef.current = [];
+
+        // CSS 애니메이션 추가 (한 번만)
+        if (!document.getElementById('overlay-animation-style')) {
+            const style = document.createElement('style');
+            style.id = 'overlay-animation-style';
+            style.textContent = `
+                @keyframes popUp {
+                    0% {
+                        opacity: 0;
+                        transform: scale(0.3);
+                    }
+                    50% {
+                        transform: scale(1.05);
+                    }
+                    100% {
+                        opacity: 1;
+                        transform: scale(1);
+                    }
+                }
+                .overlay-close-btn:hover {
+                    transform: scale(1.15) rotate(90deg);
+                    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+                }
+                .overlay-wrapper {
+                    filter: drop-shadow(0 12px 24px rgba(0,0,0,0.2));
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        // 새 매물 마커 추가
+        locations.forEach((location) => {
+            const position = new window.kakao.maps.LatLng(location.latitude, location.longitude);
+            
+            // 마커 생성
+            const marker = new window.kakao.maps.Marker({
+                position: position,
+                title: location.address,
+            });
+
+            marker.setMap(mapRef.current);
+
+            // 커스텀 오버레이 생성 (클릭 가능한 상세 정보)
+            const isDetailPage = !!landId;
+            
+            // 오버레이 컨텐츠 생성
+            const overlayContent = document.createElement('div');
+            overlayContent.className = 'overlay-wrapper';
+            overlayContent.style.cssText = `
+                position: relative;
+                background: linear-gradient(to bottom, #ffffff 0%, #f8fafc 100%);
+                border-radius: 16px;
+                padding: 14px;
+                width: ${isDetailPage ? '260px' : '220px'};
+                max-width: 300px;
+                animation: popUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+                border: 2px solid transparent;
+                background-clip: padding-box;
+                transform-origin: left center;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                box-sizing: border-box;
+            `;
+
+            // 그라데이션 테두리 효과
+            const borderGradient = document.createElement('div');
+            borderGradient.style.cssText = `
+                position: absolute;
+                inset: -2px;
+                border-radius: 16px;
+                padding: 2px;
+                background: linear-gradient(135deg, #3b82f6, #8b5cf6, #ec4899);
+                -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+                -webkit-mask-composite: xor;
+                mask-composite: exclude;
+                pointer-events: none;
+                z-index: -1;
+            `;
+            overlayContent.appendChild(borderGradient);
+
+            const contentHTML = isDetailPage ? `
+                <div style="position: relative;">
+                    <button id="close-overlay-${location.id}" class="overlay-close-btn" style="position: absolute; top: -10px; right: -10px; width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; border: 2px solid white; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold; box-shadow: 0 3px 8px rgba(239, 68, 68, 0.4); transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); z-index: 10;">×</button>
+                    
+                    <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 10px 12px; border-radius: 10px 10px 0 0; margin: -14px -14px 10px -14px; box-shadow: 0 3px 8px rgba(59, 130, 246, 0.3);">
+                        <div style="font-weight: 700; font-size: 16px; letter-spacing: -0.3px;">${location.price || '매물 정보'}</div>
+                    </div>
+                    
+                    <div style="font-size: 12px; color: #1f2937; margin-bottom: 8px; line-height: 1.5; font-weight: 600; display: flex; align-items: start; gap: 6px; word-break: keep-all; overflow-wrap: break-word;">
+                        <span style="font-size: 14px; flex-shrink: 0;">📍</span>
+                        <span style="flex: 1; min-width: 0;">${location.address}</span>
+                    </div>
+                    
+                    <div style="display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap;">
+                        <span style="background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); color: #1e40af; padding: 5px 10px; border-radius: 8px; font-size: 11px; font-weight: 700; box-shadow: 0 1px 4px rgba(30, 64, 175, 0.15); border: 1px solid #93c5fd;">${location.deal_type || '거래유형'}</span>
+                        <span style="background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%); color: #0369a1; padding: 5px 10px; border-radius: 8px; font-size: 11px; font-weight: 700; box-shadow: 0 1px 4px rgba(3, 105, 161, 0.15); border: 1px solid #7dd3fc;">${location.building_type || '건물유형'}</span>
+                    </div>
+                    
+                    <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); padding: 8px; border-radius: 8px; font-size: 11px; color: #0c4a6e; line-height: 1.6; border: 1.5px solid #bae6fd;">
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span style="font-size: 16px;">📐</span>
+                            <div>
+                                <div style="font-weight: 700; color: #0369a1; font-size: 10px; margin-bottom: 1px;">면적</div>
+                                <div style="font-weight: 600; font-size: 12px;">${location.area || '-'}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="color: #94a3b8; font-size: 9px; margin-top: 6px; text-align: center; font-weight: 500;">
+                        매물번호: ${location.id}
+                    </div>
+                </div>
+            ` : `
+                <div style="position: relative; cursor: pointer;" id="overlay-${location.id}">
+                    <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 8px 10px; border-radius: 10px 10px 0 0; margin: -14px -14px 8px -14px; box-shadow: 0 3px 8px rgba(59, 130, 246, 0.3);">
+                        <div style="font-weight: 700; font-size: 14px; letter-spacing: -0.2px;">${location.price || '매물'}</div>
+                    </div>
+                    
+                    <div style="font-size: 11px; color: #1f2937; margin-bottom: 8px; line-height: 1.4; font-weight: 600; display: flex; align-items: start; gap: 4px; word-break: keep-all; overflow-wrap: break-word;">
+                        <span style="font-size: 13px;">📍</span>
+                        <span style="flex: 1; min-width: 0;">${location.address}</span>
+                    </div>
+                    
+                    <div style="display: flex; gap: 4px; margin-bottom: 8px; flex-wrap: wrap;">
+                        <span style="background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%); color: #0369a1; padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; border: 1px solid #7dd3fc;">${location.building_type || ''}</span>
+                    </div>
+                    
+                    <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); padding: 6px; border-radius: 6px; font-size: 11px; color: #0369a1; text-align: center; font-weight: 700; border: 1.5px solid #bae6fd; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                        <span style="font-size: 13px;">📐</span>
+                        <span>${location.area || '면적 정보 없음'}</span>
+                    </div>
+                    
+                    <div style="font-size: 10px; color: #3b82f6; padding-top: 6px; margin-top: 6px; border-top: 1.5px dashed #bae6fd; text-align: center; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                        <span>상세보기</span>
+                        <span style="font-size: 12px;">→</span>
+                    </div>
+                </div>
+            `;
+
+            overlayContent.innerHTML = contentHTML;
+
+            // 커스텀 오버레이 생성 - 마커 오른쪽에 표시
+            const customOverlay = new window.kakao.maps.CustomOverlay({
+                position: position,
+                content: overlayContent,
+                yAnchor: 0.5,
+                xAnchor: -0.2,
+                zIndex: 100
+            });
+
+            // 오버레이 상태 관리 객체
+            const overlayState = {
+                isOpen: isDetailPage,
+                overlay: customOverlay
+            };
+
+            // 상세 페이지에서는 오버레이를 자동으로 표시
+            if (isDetailPage) {
+                customOverlay.setMap(mapRef.current);
+                
+                // 닫기 버튼 이벤트
+                setTimeout(() => {
+                    const closeBtn = document.getElementById(`close-overlay-${location.id}`);
+                    if (closeBtn) {
+                        closeBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            customOverlay.setMap(null);
+                            overlayState.isOpen = false;
+                        });
+                    }
+                }, 100);
+            }
+
+            // 마커 클릭 이벤트 - 상태 객체 참조
+            const markerClickHandler = () => {
+                console.log('🔵 마커 클릭됨:', location.id, '현재 상태:', overlayState.isOpen);
+                
+                // 다른 모든 오버레이 닫기
+                markersRef.current.forEach(item => {
+                    if (item.overlay !== customOverlay && item.overlay && item.overlayState) {
+                        item.overlay.setMap(null);
+                        item.overlayState.isOpen = false;
+                    }
+                });
+
+                if (overlayState.isOpen) {
+                    // 이미 열려있으면 오버레이 닫기
+                    customOverlay.setMap(null);
+                    overlayState.isOpen = false;
+                    console.log('❌ 오버레이 닫힘');
+                } else {
+                    // 오버레이 열기
+                    customOverlay.setMap(mapRef.current);
+                    overlayState.isOpen = true;
+                    console.log('✅ 오버레이 열림');
+                    
+                    // 닫기 버튼 및 오버레이 클릭 이벤트 등록
+                    setTimeout(() => {
+                        if (isDetailPage) {
+                            const closeBtn = document.getElementById(`close-overlay-${location.id}`);
+                            if (closeBtn) {
+                                closeBtn.onclick = (e) => {
+                                    e.stopPropagation();
+                                    customOverlay.setMap(null);
+                                    overlayState.isOpen = false;
+                                    console.log('🔴 닫기 버튼으로 오버레이 닫힘');
+                                };
+                            }
+                        } else {
+                            // 메인 페이지에서 오버레이 클릭 시 상세 페이지로 이동
+                            const overlayElement = document.getElementById(`overlay-${location.id}`);
+                            if (overlayElement) {
+                                overlayElement.onclick = () => {
+                                    console.log('🔗 오버레이 클릭 - 상세 페이지로 이동:', location.id);
+                                    window.location.href = `/landDetail/${location.id}`;
+                                };
+                            }
+                        }
+                    }, 50);
+                }
+            };
+
+            // 카카오맵 마커 클릭 이벤트 등록
+            try {
+                window.kakao.maps.event.addListener(marker, 'click', markerClickHandler);
+                console.log('✅ 마커 클릭 이벤트 등록 완료:', location.id);
+            } catch (error) {
+                console.error('❌ 마커 클릭 이벤트 등록 실패:', error);
+            }
+
+            // 마커와 오버레이 저장 (상태 객체 포함)
+            markersRef.current.push({ 
+                marker, 
+                overlay: customOverlay,
+                overlayState: overlayState
+            });
+        });
+
+        console.log(`매물 마커 ${locations.length}개 표시 완료`);
+    }, [locations, landId]);
+
     return (
-        <div className="relative w-full h-[450px] rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md shadow-2xl overflow-hidden p-2">
+        <div className="relative w-[600px] h-[500px] rounded-2xl border border-purple-200/60 bg-gradient-to-b from-purple-50/90 via-blue-50/90 to-cyan-50/90 backdrop-blur-md shadow-lg overflow-hidden p-2">
             <div
                 ref={mapContainer}
                 className="w-full h-full rounded-xl overflow-hidden"
             />
-
-            {/* 현재 위치 버튼 */}
-            <button
-                onClick={moveToCurrentLocation}
-                disabled={isLoading}
-                className="absolute bottom-5 right-5 z-10 flex items-center gap-2 px-4 py-3 bg-white hover:bg-gray-50 disabled:bg-gray-100 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 border border-gray-200"
-                style={{
-                    cursor: isLoading ? 'not-allowed' : 'pointer',
-                }}
-            >
-                <span className="text-xl">{isLoading ? '⏳' : '📍'}</span>
-                <span className="font-semibold text-gray-700 text-sm">
-                    {isLoading ? '찾는 중...' : '내 위치'}
-                </span>
-            </button>
         </div>
     );
 }
