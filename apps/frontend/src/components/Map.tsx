@@ -13,8 +13,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useParticleEffect } from '../hooks/useParticleEffect';
 import { fetchLandLocations, LandLocation } from '../api/landApi';
+import { seoulDistricts, getTemperatureColor } from '../mapdata/seoulDistricts';
 
 declare global {
     interface Window {
@@ -29,18 +29,18 @@ interface MapProps {
 export default function Map({ landId }: MapProps) {
     const mapContainer = useRef<HTMLDivElement>(null);
     const mapRef = useRef<any>(null);
-    const markerRef = useRef<any>(null);
     const markersRef = useRef<Array<{ marker: any; overlay: any; overlayState?: { isOpen: boolean; overlay: any } }>>([]);
-    const [isLoading, setIsLoading] = useState(false);
+    const polygonsRef = useRef<any[]>([]);
+    const overlaysRef = useRef<any[]>([]);
     const [locations, setLocations] = useState<LandLocation[]>([]);
     const [currentLand, setCurrentLand] = useState<LandLocation | null>(null);
-    const { triggerEffect } = useParticleEffect();
 
     useEffect(() => {
         // window 객체 체크 (SSR 대응)
         if (typeof window === 'undefined') return;
 
-        // landId가 있는데 currentLand가 아직 로드되지 않았으면 대기
+        // 상세 페이지: currentLand가 로드될 때까지 대기
+        // 메인 페이지: 바로 지도 초기화
         if (landId && !currentLand) return;
 
         // 이미 스크립트가 로드되어 있는지 확인
@@ -70,7 +70,6 @@ export default function Map({ landId }: MapProps) {
 
         script.onerror = () => {
             console.error('카카오 지도 스크립트 로드 실패');
-            setIsLoading(false);
         };
 
         document.head.appendChild(script);
@@ -81,25 +80,25 @@ export default function Map({ landId }: MapProps) {
         };
     }, [currentLand]);
 
-    // 매물 위치 데이터 로드
+    // 매물 위치 데이터 로드 (상세 페이지에서만)
     useEffect(() => {
         const loadLocations = async () => {
+            // 상세 페이지에서만 매물 위치 로드
+            if (!landId) {
+                // 메인 페이지: 마커 없이 지도만 표시
+                setCurrentLand(null);
+                setLocations([]);
+                return;
+            }
+
             try {
-                if (landId) {
-                    // 상세 페이지: 해당 매물만 로드
-                    const data = await fetchLandLocations({ land_id: landId });
-                    if (data.length > 0) {
-                        setCurrentLand(data[0]);
-                        setLocations(data);
-                        console.log('매물 위치 로드 완료:', data[0]);
-                    } else {
-                        console.warn('매물 위치 정보를 찾을 수 없습니다:', landId);
-                    }
-                } else {
-                    // 메인 페이지: 여러 매물 로드
-                    const data = await fetchLandLocations({ limit: 100 });
+                const data = await fetchLandLocations({ land_id: landId });
+                if (data.length > 0) {
+                    setCurrentLand(data[0]);
                     setLocations(data);
-                    console.log(`매물 위치 ${data.length}개 로드 완료`);
+                    console.log('매물 위치 로드 완료:', data[0]);
+                } else {
+                    console.warn('매물 위치 정보를 찾을 수 없습니다:', landId);
                 }
             } catch (error) {
                 console.error('매물 위치 로드 실패:', error);
@@ -121,9 +120,10 @@ export default function Map({ landId }: MapProps) {
                 console.log('카카오 지도 API 로드 완료');
 
                 // 매물 상세 페이지인 경우 해당 매물 위치 중심, 아니면 서울 중심
-                const centerLat = currentLand?.latitude || 37.5665;
-                const centerLng = currentLand?.longitude || 126.9780;
-                const zoomLevel = landId ? 3 : 7; // 상세 페이지는 더 확대
+                // 메인 페이지: 지도 중심 조정
+                const centerLat = currentLand?.latitude || (landId ? 37.5665 : 37.5715);
+                const centerLng = currentLand?.longitude || (landId ? 126.9780 : 126.9705);
+                const zoomLevel = landId ? 3 : 9; // 상세 페이지는 더 확대, 메인은 서울 전역
 
                 const options = {
                     center: new window.kakao.maps.LatLng(centerLat, centerLng),
@@ -134,21 +134,89 @@ export default function Map({ landId }: MapProps) {
                 mapRef.current = map;
                 console.log('지도 생성 완료');
 
-                // 현재 위치 마커 (초기)
-                const markerPosition = new window.kakao.maps.LatLng(centerLat, centerLng);
-                const marker = new window.kakao.maps.Marker({
-                    position: markerPosition,
-                });
-                marker.setMap(map);
-                markerRef.current = marker;
-                console.log('마커 추가 완료');
+                // 메인 페이지에서만 구별 폴리곤 표시
+                if (!landId) {
+                    // 지도 이동/확대 제한 (서울 전역 고정)
+                    map.setZoomable(false);
+                    map.setDraggable(false);
+                    
+                    drawDistrictPolygons(map);
+                }
             });
         }
     };
 
-    // 매물 마커 표시
+    // 서울시 구별 폴리곤 그리기
+    const drawDistrictPolygons = (map: any) => {
+        // 기존 폴리곤 제거
+        polygonsRef.current.forEach(polygon => polygon.setMap(null));
+        overlaysRef.current.forEach(overlay => overlay.setMap(null));
+        polygonsRef.current = [];
+        overlaysRef.current = [];
+
+        seoulDistricts.forEach((district) => {
+            const path = district.path.map(
+                coord => new window.kakao.maps.LatLng(coord.lat, coord.lng)
+            );
+
+            const color = getTemperatureColor(district.temperature);
+
+            // 폴리곤 생성
+            const polygon = new window.kakao.maps.Polygon({
+                path: path,
+                strokeWeight: 2,
+                strokeColor: color,
+                strokeOpacity: 0.8,
+                fillColor: color,
+                fillOpacity: 0.4,
+            });
+
+            polygon.setMap(map);
+            polygonsRef.current.push(polygon);
+
+            // 구 이름만 표시 (마커 없이 텍스트만)
+            const content = document.createElement('div');
+            content.style.cssText = `
+                font-size: 12px;
+                font-weight: 700;
+                color: #1f2937;
+                text-shadow: 1px 1px 2px white, -1px -1px 2px white, 1px -1px 2px white, -1px 1px 2px white;
+                pointer-events: none;
+            `;
+            content.textContent = district.name;
+
+            const overlay = new window.kakao.maps.CustomOverlay({
+                position: new window.kakao.maps.LatLng(district.center.lat, district.center.lng),
+                content: content,
+                yAnchor: 0.5,
+                xAnchor: 0.5,
+            });
+
+            overlay.setMap(map);
+            overlaysRef.current.push(overlay);
+
+            // 폴리곤 호버 이벤트
+            window.kakao.maps.event.addListener(polygon, 'mouseover', () => {
+                polygon.setOptions({
+                    fillOpacity: 0.7,
+                    strokeWeight: 3,
+                });
+            });
+
+            window.kakao.maps.event.addListener(polygon, 'mouseout', () => {
+                polygon.setOptions({
+                    fillOpacity: 0.4,
+                    strokeWeight: 2,
+                });
+            });
+        });
+
+        console.log('서울시 구별 폴리곤 표시 완료');
+    };
+
+    // 매물 마커 표시 (상세 페이지에서만)
     useEffect(() => {
-        if (!mapRef.current || !window.kakao || locations.length === 0) return;
+        if (!mapRef.current || !window.kakao || !landId || locations.length === 0) return;
 
         // 기존 매물 마커 제거
         markersRef.current.forEach(item => {
@@ -396,84 +464,12 @@ export default function Map({ landId }: MapProps) {
         console.log(`매물 마커 ${locations.length}개 표시 완료`);
     }, [locations, landId]);
 
-    const moveToCurrentLocation = (e: React.MouseEvent) => {
-        triggerEffect(e.currentTarget as HTMLElement);
-
-        if (!navigator.geolocation) {
-            alert('현재 위치를 지원하지 않는 브라우저입니다.');
-            return;
-        }
-
-        setIsLoading(true);
-
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const { latitude, longitude } = position.coords;
-
-                if (mapRef.current && markerRef.current && window.kakao) {
-                    // 현재 위치로 지도 중심 이동
-                    const moveLatLon = new window.kakao.maps.LatLng(latitude, longitude);
-                    mapRef.current.setCenter(moveLatLon);
-
-                    // 커스텀 마커 이미지 생성
-                    const imageSrc = '/icons/nowLocation.png';
-                    const imageSize = new window.kakao.maps.Size(40, 40); // 마커 이미지 크기
-                    const imageOption = { offset: new window.kakao.maps.Point(20, 40) }; // 마커 이미지의 기준점
-
-                    const markerImage = new window.kakao.maps.MarkerImage(
-                        imageSrc,
-                        imageSize,
-                        imageOption
-                    );
-
-                    // 새로운 커스텀 마커 생성
-                    const newMarker = new window.kakao.maps.Marker({
-                        position: moveLatLon,
-                        image: markerImage
-                    });
-
-                    newMarker.setMap(mapRef.current);
-                    markerRef.current = newMarker;
-
-                    console.log('현재 위치로 이동:', latitude, longitude);
-                }
-
-                setIsLoading(false);
-            },
-            (error) => {
-                console.error('위치 정보를 가져올 수 없습니다:', error);
-                alert('위치 정보를 가져올 수 없습니다. 위치 권한을 확인해주세요.');
-                setIsLoading(false);
-            },
-            {
-                enableHighAccuracy: true, // 높은 정확도
-                timeout: 5000, // 5초 타임아웃
-                maximumAge: 0 // 캐시 사용 안함
-            }
-        );
-    };
-
     return (
-        <div className="relative w-full h-[450px] rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md shadow-2xl overflow-hidden p-2">
+        <div className="relative w-[600px] h-[500px] rounded-2xl border border-purple-200/60 bg-gradient-to-b from-purple-50/90 via-blue-50/90 to-cyan-50/90 backdrop-blur-md shadow-lg overflow-hidden p-2">
             <div
                 ref={mapContainer}
                 className="w-full h-full rounded-xl overflow-hidden"
             />
-
-            {/* 현재 위치 버튼 */}
-            <button
-                onClick={moveToCurrentLocation}
-                disabled={isLoading}
-                className="absolute bottom-5 right-5 z-10 flex items-center gap-2 px-4 py-3 bg-white hover:bg-gray-50 disabled:bg-gray-100 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 border border-gray-200"
-                style={{
-                    cursor: isLoading ? 'not-allowed' : 'pointer',
-                }}
-            >
-                <span className="text-xl">{isLoading ? '⏳' : '📍'}</span>
-                <span className="font-semibold text-gray-700 text-sm">
-                    {isLoading ? '찾는 중...' : '내 위치'}
-                </span>
-            </button>
         </div>
     );
 }
