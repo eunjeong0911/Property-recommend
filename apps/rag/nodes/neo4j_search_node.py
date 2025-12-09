@@ -103,7 +103,7 @@ def execute_hybrid_query(location_keyword: str, facility_labels: str, facility_r
     RETURN p.id as id, p.address as address, total_score, 
            [anchor_info] as poi_details,
            fac_details as {facility_name_key}
-    ORDER BY total_score DESC LIMIT 5
+    ORDER BY total_score DESC LIMIT 20
     """
     
     full_cypher = core_query + final_return
@@ -129,7 +129,7 @@ def search_properties_near_subway(location_keyword: str):
     RETURN p.id as id, p.address as address, total_score,
            collect({name: s.name, dist: coalesce(toInteger(r.distance), 9999), time: coalesce(toInteger(r.walking_time), 9999)}) as poi_details,
            collect({name: s.name, dist: coalesce(toInteger(r.distance), 9999), time: coalesce(toInteger(r.walking_time), 9999)}) as trans_details
-    ORDER BY total_score DESC LIMIT 5
+    ORDER BY total_score DESC LIMIT 20
     """
     return get_graph().query(query, params={"keyword": location_keyword})
 
@@ -173,8 +173,32 @@ def search_properties_near_park(location_keyword: str):
 def search_properties_near_university(location_keyword: str):
     """
     Find properties near Universities/Colleges.
+    Uses a specialized query that ONLY matches College nodes as anchors.
+    Returns: poi_details = nearby subway station, edu_details = searched university only
     """
-    return execute_hybrid_query(location_keyword, "College", "NEAR_COLLEGE", "edu_details", "dist")
+    query = """
+    MATCH (anchor:College) 
+    WHERE (anchor.name CONTAINS $keyword OR $keyword CONTAINS anchor.name)
+    
+    MATCH (p:Property)-[r_anchor:NEAR_COLLEGE]->(anchor)
+    
+    // 가장 가까운 지하철역 조회 (역 접근성용)
+    OPTIONAL MATCH (p)-[r_sub:NEAR_SUBWAY]->(sub:SubwayStation)
+    
+    WITH p, anchor, r_anchor, sub, r_sub,
+         (5000 - coalesce(toInteger(r_anchor.distance), 5000)) as total_score
+    
+    RETURN p.id as id, p.address as address, total_score,
+           CASE WHEN sub IS NOT NULL 
+                THEN [{name: sub.name, dist: coalesce(toInteger(r_sub.distance), 9999), time: coalesce(toInteger(r_sub.walking_time), 9999)}]
+                ELSE [] 
+           END as poi_details,
+           [{name: anchor.name, dist: coalesce(toInteger(r_anchor.distance), 9999), time: coalesce(toInteger(r_anchor.walking_time), 9999)}] as edu_details
+    ORDER BY total_score DESC LIMIT 20
+    """
+    print(f"[Debug] University Search: '{location_keyword}'")
+    return get_graph().query(query, params={"keyword": location_keyword})
+
 
 @tool
 def search_properties_with_safety(location_keyword: str):
@@ -226,7 +250,7 @@ def search_properties_with_safety(location_keyword: str):
     RETURN p.id as id, p.address as address, total_score,
            [anchor_info] as poi_details,
            cctv_count, bell_count, police_details, fire_details
-    ORDER BY total_score DESC LIMIT 5
+    ORDER BY total_score DESC LIMIT 20
     """
     return get_graph().query(query, params={"keyword": location_keyword})
 
@@ -313,7 +337,7 @@ def search_properties_multi_criteria(
            conv_details, hosp_details as med_details, pharm_details as pharmacy_details,
            cctv_count, bell_count, police_details, fire_details,
            park_details
-    ORDER BY total_score DESC LIMIT 5
+    ORDER BY total_score DESC LIMIT 20
     """
     
     params = {
@@ -353,6 +377,21 @@ def search(state: RAGState):
     messages = [
         SystemMessage(content="""
         You are a smart real estate assistant.
+        
+        **CRITICAL SAFETY RULE** (HIGHEST PRIORITY - CHECK THIS FIRST):
+        If the question contains ANY of these safety keywords:
+        - Korean: 안전, 치안, CCTV, 경찰서, 소방서, 비상벨, 안심, 안심벨
+        - English: safety, secure, police, fire, CCTV, emergency, bell
+        
+        →  **IMMEDIATELY** call `search_properties_with_safety(location_keyword="...")`
+        →  Do NOT consider other tools
+        →  Location keyword: Extract from question OR use previous location context
+        →  This OVERRIDES all other tool selection logic
+        
+        Examples:
+        - "안전한 방이었으면 좋겠어" → `search_properties_with_safety(location_keyword="홍대입구")`
+        - "주변에 CCTV 많은 곳" → `search_properties_with_safety(location_keyword="...")`
+        - "치안이 좋은 곳" → `search_properties_with_safety(location_keyword="...")`
         
         **Your Goal**: Select the MOST RELEVANT search tool based on the user's facility requirement.
         
