@@ -8,6 +8,7 @@ class RAGState(TypedDict):
     cached_property_ids: Optional[List[str]]  # Q1에서 저장된 매물 ID
     use_cache: Optional[bool]  # 캐시 사용 여부
     filter_source: Optional[str]  # "neo4j:safety", "neo4j:convenience", "postgres" 등
+    price_conditions: Optional[Dict[str, int]]  # 가격 조건: deposit_max, rent_max 등
     
     # 누적 검색 컨텍스트 (Q1+Q2+Q3... 모든 이전 결과)
     accumulated_results: Optional[Dict[str, Dict]]  # {property_id: {merged_data}}
