@@ -20,12 +20,12 @@ class PostgresImporter:
     - user_profiles_id (FK, int) - 사용자 프로필 id
     """
     
-    # 파일명과 building_type 매핑
+    # 파일명과 building_type 매핑 (_parsed.json 파일 사용)
     FILE_TYPE_MAPPING = {
-        "00_통합_빌라주택.json": "빌라주택",
-        "00_통합_아파트.json": "아파트",
-        "00_통합_오피스텔.json": "오피스텔",
-        "00_통합_원투룸.json": "원투룸"
+        "00_통합_빌라주택_parsed.json": "빌라주택",
+        "00_통합_아파트_parsed.json": "아파트",
+        "00_통합_오피스텔_parsed.json": "오피스텔",
+        "00_통합_원투룸_parsed.json": "원투룸"
     }
     
     def __init__(self):
@@ -76,12 +76,13 @@ class PostgresImporter:
         # 테이블 생성
         self._create_land_table()
         
-        # Docker 환경에서는 /data/landData, 로컬에서는 상대 경로
+        # Docker 환경에서는 /data/landData, 로컬에서는 GraphDB_data/home_data
         if os.path.exists("/data/landData"):
             data_dir = "/data/landData"
             print("Docker 환경 감지: /data/landData 사용")
         else:
-            data_dir = os.path.join(Config.BASE_DIR, "data", "landData")
+            # 로컬에서는 GraphDB_data/home_data 사용 (parsed 파일 있는 곳)
+            data_dir = os.path.join(Config.BASE_DIR, "GraphDB_data", "home_data")
             print(f"로컬 환경 감지: {data_dir} 사용")
         
         if not os.path.exists(data_dir):
@@ -129,7 +130,13 @@ class PostgresImporter:
         print(f"\n총 결과: {total_inserted}건 삽입, {total_updated}건 업데이트")
 
     def _extract_deal_type(self, trade_info):
-        """거래방식에서 전세/월세/매매 추출"""
+        """거래유형 추출 (parsed 파일에서는 거래유형 필드 직접 사용)"""
+        # parsed 파일의 경우 거래유형 필드가 있음
+        deal_type = trade_info.get("거래유형")
+        if deal_type and deal_type != "-":
+            return deal_type
+        
+        # fallback: 기존 거래방식 필드에서 추출
         deal_str = trade_info.get("거래방식", "")
         if "전세" in deal_str:
             return "전세"
@@ -137,6 +144,8 @@ class PostgresImporter:
             return "월세"
         elif "매매" in deal_str:
             return "매매"
+        elif "단기임대" in deal_str:
+            return "단기임대"
         return deal_str[:50] if deal_str else None
 
     def _insert_land(self, item, building_type):
