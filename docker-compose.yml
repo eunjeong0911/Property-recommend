@@ -42,6 +42,24 @@ services:
     volumes:
       - redis_data:/data
 
+  elasticsearch:
+    image: elasticsearch:8.11.0
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+      - ./infra/elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
   backend:
     build:
       context: .
@@ -59,9 +77,11 @@ services:
     environment:
       - POSTGRES_HOST=postgres
       - NEO4J_URI=bolt://neo4j:7687
+      - ELASTICSEARCH_HOST=elasticsearch
     depends_on:
       - postgres
       - redis
+      - elasticsearch
 
   rag:
     build:
@@ -176,4 +196,5 @@ volumes:
   postgres_data:
   neo4j_data:
   redis_data:
+  es_data:
   frontend_node_modules:
