@@ -100,7 +100,7 @@ def execute_hybrid_query(location_keyword: str, facility_labels: str, facility_r
     WITH p, anchor, fac_count, fac_details, (anchor_score + fac_score + priority_score) as total_score,
          {{name: anchor.name, dist: coalesce(toInteger(r_anchor.distance), 9999), time: coalesce(toInteger(r_anchor.walking_time), 9999)}} as anchor_info
     
-    RETURN p.id as id, p.address as address, total_score, 
+    RETURN p.id as id, total_score, 
            [anchor_info] as poi_details,
            fac_details as {facility_name_key}
     ORDER BY total_score DESC LIMIT 300
@@ -126,7 +126,7 @@ def search_properties_near_subway(location_keyword: str):
     MATCH (p:Property)-[r:NEAR_SUBWAY]->(s)
     
     WITH p, s, r, (5000 - coalesce(toInteger(r.distance), 5000)) as total_score
-    RETURN p.id as id, p.address as address, total_score,
+    RETURN p.id as id, total_score,
            collect({name: s.name, dist: coalesce(toInteger(r.distance), 9999), time: coalesce(toInteger(r.walking_time), 9999)}) as poi_details,
            collect({name: s.name, dist: coalesce(toInteger(r.distance), 9999), time: coalesce(toInteger(r.walking_time), 9999)}) as trans_details
     ORDER BY total_score DESC LIMIT 300
@@ -188,7 +188,7 @@ def search_properties_near_university(location_keyword: str):
     WITH p, anchor, r_anchor, sub, r_sub,
          (5000 - coalesce(toInteger(r_anchor.distance), 5000)) as total_score
     
-    RETURN p.id as id, p.address as address, total_score,
+    RETURN p.id as id, total_score,
            CASE WHEN sub IS NOT NULL 
                 THEN [{name: sub.name, dist: coalesce(toInteger(r_sub.distance), 9999), time: coalesce(toInteger(r_sub.walking_time), 9999)}]
                 ELSE [] 
@@ -247,7 +247,7 @@ def search_properties_with_safety(location_keyword: str):
          (count_score + police_score + fire_score + anchor_score + priority_score) as total_score,
          {name: anchor.name, dist: coalesce(toInteger(r_anchor.distance), 9999), time: coalesce(toInteger(r_anchor.walking_time), 9999)} as anchor_info
     
-    RETURN p.id as id, p.address as address, total_score,
+    RETURN p.id as id, total_score,
            [anchor_info] as poi_details,
            cctv_count, bell_count, police_details, fire_details
     ORDER BY total_score DESC LIMIT 300
@@ -332,7 +332,7 @@ def search_properties_multi_criteria(
          conv_details, hosp_details, pharm_details,
          cctv_count, bell_count, police_details, fire_details, park_details
     
-    RETURN p.id as id, p.address as address, total_score,
+    RETURN p.id as id, total_score,
            [anchor_info] as poi_details,
            conv_details, hosp_details as med_details, pharm_details as pharmacy_details,
            cctv_count, bell_count, police_details, fire_details,
