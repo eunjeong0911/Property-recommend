@@ -72,7 +72,6 @@ logs/
 *desktop.ini
 
 # 데이터
-data\
-data\landData_enriched\
+data
 
 .kiro
