@@ -33,10 +33,7 @@ export default function RootLayout({
             <body className={inter.className}>
                 <AuthProvider>
                     <div className="fixed inset-0 -z-10 bg-[#F0F8FF]">
-                        <Aurora
-                            colorStops={['#90CAF9', '#80DEEA', '#E1F5FE']}
-                            speed={0.5}
-                        />
+                        {/* <Aurora speed={0.5} /> */}
                     </div>
                     <div className="relative z-10">
                         <Header />
