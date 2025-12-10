@@ -13,11 +13,17 @@ df = pd.read_csv(PATH_SRC, encoding="utf-8-sig")
 print("원본 shape :", df.shape)
 
 # ─────────────────────────────────────
-# 1. '주소'에 '경기도'가 포함된 행 삭제
+# 1. '주소'에 '경기' 또는 '인천' 이 포함된 행 삭제
 # ─────────────────────────────────────
-mask_gyeonggi = df["주소"].astype(str).str.contains("경기", na=False)
-df_no_gyeonggi = df[~mask_gyeonggi].copy()
-print("경기 제거 후 shape :", df_no_gyeonggi.shape)
+addr_str = df["주소"].astype(str)
+
+mask_gyeonggi = addr_str.str.contains("경기", na=False)
+mask_incheon  = addr_str.str.contains("인천", na=False)
+
+mask_exclude = mask_gyeonggi | mask_incheon   # 둘 중 하나라도 True면 제거 대상
+
+df_no_region = df[~mask_exclude].copy()
+print("'경기' 또는 '인천' 제거 후 shape :", df_no_region.shape)
 
 # ─────────────────────────────────────
 # 2. '공인중개사' 와 'estbsBeginDe' 둘 다 값이 없는 행 분리
@@ -26,13 +32,13 @@ print("경기 제거 후 shape :", df_no_gyeonggi.shape)
 col_agent = "공인중개사"
 col_begin = "estbsBeginDe"
 
-cond_agent_empty = df_no_gyeonggi[col_agent].isna() | (df_no_gyeonggi[col_agent].astype(str).str.strip() == "")
-cond_begin_empty = df_no_gyeonggi[col_begin].isna() | (df_no_gyeonggi[col_begin].astype(str).str.strip() == "")
+cond_agent_empty = df_no_region[col_agent].isna() | (df_no_region[col_agent].astype(str).str.strip() == "")
+cond_begin_empty = df_no_region[col_begin].isna() | (df_no_region[col_begin].astype(str).str.strip() == "")
 
 cond_both_empty = cond_agent_empty & cond_begin_empty
 
-only_peterpanz = df_no_gyeonggi[cond_both_empty].copy()
-match_data     = df_no_gyeonggi[~cond_both_empty].copy()
+only_peterpanz = df_no_region[cond_both_empty].copy()
+match_data     = df_no_region[~cond_both_empty].copy()
 
 print("only_peterpanz shape :", only_peterpanz.shape)
 print("match_data shape     :", match_data.shape)
