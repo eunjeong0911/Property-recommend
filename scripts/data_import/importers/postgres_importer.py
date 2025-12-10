@@ -8,24 +8,40 @@ class PostgresImporter:
     """
     PostgreSQL Land 테이블에 매물 데이터를 적재하는 Importer
     
+    데이터 역할 분리:
+    - PostgreSQL: 매물의 모든 상세 정보 저장 (주소, 가격, 옵션, 이미지, 설명 등)
+    - Neo4j: 매물번호 + 좌표만 저장 (공간 기반 그래프 검색용)
+    
+    데이터 소스:
+    - 경로: data/RDB/land/*.json
+    - 파일: 00_통합_빌라주택.json, 00_통합_아파트.json, 00_통합_오피스텔.json, 00_통합_원투룸.json
+    - 내용: 크롤링한 매물의 전체 정보
+    
     ERD 기준 Land 테이블:
     - land_id (PK, SERIAL)
     - landbroker_id (FK, int) - 중개사 id
-    - land_num (varchar(10), NOT NULL) - 매물번호
-    - building_type (varchar(10), NOT NULL) - 건물형태 (원룸, 빌라, 다가구 등)
-    - address (varchar(50)) - 주소
-    - like_count (int(10)) - 찜수
-    - view_count (int(10)) - 조회수
-    - deal_type (varchar(30)) - 거래방식 (전세/월세/매매)
+    - land_num (varchar(20), NOT NULL) - 매물번호
+    - building_type (varchar(20), NOT NULL) - 건물형태 (원룸, 빌라, 다가구 등)
+    - address (varchar(200)) - 주소
+    - like_count (int) - 찜수
+    - view_count (int) - 조회수
+    - deal_type (varchar(50)) - 거래방식 (전세/월세/매매)
     - user_profiles_id (FK, int) - 사용자 프로필 id
+    - url (text) - 매물 URL
+    - images (jsonb) - 매물 이미지 목록
+    - trade_info (jsonb) - 거래 정보 (가격, 면적 등)
+    - listing_info (jsonb) - 매물 정보 (방 개수, 층수 등)
+    - additional_options (text[]) - 추가 옵션
+    - description (text) - 상세 설명
+    - agent_info (jsonb) - 중개사 정보
     """
     
-    # 파일명과 building_type 매핑 (_parsed.json 파일 사용)
+    # 파일명과 building_type 매핑 (RDB/land의 JSON 파일 사용)
     FILE_TYPE_MAPPING = {
-        "00_통합_빌라주택_parsed.json": "빌라주택",
-        "00_통합_아파트_parsed.json": "아파트",
-        "00_통합_오피스텔_parsed.json": "오피스텔",
-        "00_통합_원투룸_parsed.json": "원투룸"
+        "00_통합_빌라주택.json": "빌라주택",
+        "00_통합_아파트.json": "아파트",
+        "00_통합_오피스텔.json": "오피스텔",
+        "00_통합_원투룸.json": "원투룸"
     }
     
     def __init__(self):
@@ -38,51 +54,58 @@ class PostgresImporter:
         )
         self.cur = self.conn.cursor()
         
-    def _create_land_table(self):
-        """Land 테이블 생성 (없으면 생성)"""
-        create_table_query = """
-        CREATE TABLE IF NOT EXISTS land (
-            land_id SERIAL PRIMARY KEY,
-            landbroker_id INT,
-            land_num VARCHAR(20) NOT NULL,
-            building_type VARCHAR(20) NOT NULL,
-            address VARCHAR(200),
-            like_count INT DEFAULT 0,
-            view_count INT DEFAULT 0,
-            deal_type VARCHAR(50),
-            user_profiles_id INT,
-            url TEXT,
-            images JSONB,
-            trade_info JSONB,
-            listing_info JSONB,
-            additional_options TEXT[],
-            description TEXT,
-            agent_info JSONB,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(land_num)
+    def _create_listings_table(self):
+        """Listings 테이블 확인 (init.sql에서 생성됨)"""
+        # init.sql에서 이미 생성되어 있으므로 확인만 수행
+        check_query = """
+        SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_name = 'listings'
         );
-        
-        CREATE INDEX IF NOT EXISTS idx_land_building_type ON land(building_type);
-        CREATE INDEX IF NOT EXISTS idx_land_address ON land(address);
-        CREATE INDEX IF NOT EXISTS idx_land_deal_type ON land(deal_type);
         """
-        self.cur.execute(create_table_query)
-        self.conn.commit()
-        print("✓ Land 테이블 생성/확인 완료")
+        self.cur.execute(check_query)
+        exists = self.cur.fetchone()[0]
+        
+        if not exists:
+            # listings 테이블이 없으면 생성 (init.sql 스키마와 동일)
+            create_table_query = """
+            CREATE TABLE IF NOT EXISTS listings (
+                id SERIAL PRIMARY KEY,
+                listing_id VARCHAR(50) UNIQUE NOT NULL,
+                title VARCHAR(255),
+                address TEXT,
+                url TEXT,
+                images JSONB,
+                address_info JSONB,
+                floor_plan_url TEXT[],
+                trade_info JSONB,
+                listing_info JSONB,
+                additional_options TEXT[],
+                nearby_schools TEXT[],
+                description TEXT,
+                agent_info JSONB,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            """
+            self.cur.execute(create_table_query)
+            self.conn.commit()
+            print("✓ Listings 테이블 생성 완료")
+        else:
+            print("✓ Listings 테이블 확인 완료")
 
     def import_properties(self):
-        """data/landData 폴더의 JSON 파일들을 Land 테이블에 적재"""
-        # 테이블 생성
-        self._create_land_table()
+        """data/RDB/land 폴더의 JSON 파일들을 Listings 테이블에 적재"""
+        # 테이블 확인
+        self._create_listings_table()
         
-        # Docker 환경에서는 /data/landData, 로컬에서는 GraphDB_data/home_data
-        if os.path.exists("/data/landData"):
-            data_dir = "/data/landData"
-            print("Docker 환경 감지: /data/landData 사용")
+        # Docker 환경에서는 /data/RDB/land, 로컬에서는 data/RDB/land
+        if os.path.exists("/data/RDB/land"):
+            data_dir = "/data/RDB/land"
+            print("Docker 환경 감지: /data/RDB/land 사용")
         else:
-            # 로컬에서는 GraphDB_data/home_data 사용 (parsed 파일 있는 곳)
-            data_dir = os.path.join(Config.BASE_DIR, "GraphDB_data", "home_data")
+            # 로컬에서는 data/RDB/land 사용 (전체 매물 정보)
+            data_dir = os.path.join(Config.BASE_DIR, "data", "RDB", "land")
             print(f"로컬 환경 감지: {data_dir} 사용")
         
         if not os.path.exists(data_dir):
@@ -149,44 +172,52 @@ class PostgresImporter:
         return deal_str[:50] if deal_str else None
 
     def _insert_land(self, item, building_type):
-        """Land 테이블에 매물 데이터 삽입"""
-        land_num = item.get("매물번호")
-        if not land_num:
+        """Listings 테이블에 매물 데이터 삽입"""
+        listing_id = item.get("매물번호")
+        if not listing_id:
             return None
 
-        # 필드 추출
-        address = item.get("주소_정보", {}).get("전체주소", "")[:200] if item.get("주소_정보") else None
-        trade_info = item.get("거래_정보", {})
-        deal_type = self._extract_deal_type(trade_info)
+        # 필드 추출 (listings 테이블 스키마에 맞춤)
+        address = item.get("주소_정보", {}).get("전체주소", "") if item.get("주소_정보") else None
+        address_info = Json(item.get("주소_정보", {}))
+        trade_info = Json(item.get("거래_정보", {}))
+        
+        # title은 건물형태 + 주소로 생성
+        title = f"{building_type} - {address}" if address else building_type
         
         url = item.get("매물_URL")
         images = Json(item.get("매물_이미지", []))
-        trade_info_json = Json(trade_info)
+        floor_plan_url = item.get("평면도_URL", [])
         listing_info = Json(item.get("매물_정보", {}))
         additional_options = item.get("추가_옵션", [])
+        nearby_schools = item.get("주변_학교", [])
         description = item.get("상세_설명")
         agent_info = Json(item.get("중개사_정보", {}))
 
-        # UPSERT 쿼리
+        # UPSERT 쿼리 (listings 테이블 스키마)
         query = """
-            INSERT INTO land (
-                land_num, building_type, address, deal_type,
-                url, images, trade_info, listing_info, 
-                additional_options, description, agent_info
+            INSERT INTO listings (
+                listing_id, title, address, url,
+                images, address_info, floor_plan_url,
+                trade_info, listing_info, additional_options,
+                nearby_schools, description, agent_info
             ) VALUES (
                 %s, %s, %s, %s,
-                %s, %s, %s, %s,
+                %s, %s, %s,
+                %s, %s, %s,
                 %s, %s, %s
             )
-            ON CONFLICT (land_num) DO UPDATE SET
-                building_type = EXCLUDED.building_type,
+            ON CONFLICT (listing_id) DO UPDATE SET
+                title = EXCLUDED.title,
                 address = EXCLUDED.address,
-                deal_type = EXCLUDED.deal_type,
                 url = EXCLUDED.url,
                 images = EXCLUDED.images,
+                address_info = EXCLUDED.address_info,
+                floor_plan_url = EXCLUDED.floor_plan_url,
                 trade_info = EXCLUDED.trade_info,
                 listing_info = EXCLUDED.listing_info,
                 additional_options = EXCLUDED.additional_options,
+                nearby_schools = EXCLUDED.nearby_schools,
                 description = EXCLUDED.description,
                 agent_info = EXCLUDED.agent_info,
                 updated_at = CURRENT_TIMESTAMP
@@ -194,9 +225,10 @@ class PostgresImporter:
         """
 
         self.cur.execute(query, (
-            land_num, building_type, address, deal_type,
-            url, images, trade_info_json, listing_info,
-            additional_options, description, agent_info
+            listing_id, title, address, url,
+            images, address_info, floor_plan_url,
+            trade_info, listing_info, additional_options,
+            nearby_schools, description, agent_info
         ))
         
         result = self.cur.fetchone()
