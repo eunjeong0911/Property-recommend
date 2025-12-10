@@ -1,5 +1,6 @@
 import os
 import re
+import json
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from common.state import RAGState
@@ -231,7 +232,7 @@ def search(state: RAGState) -> RAGState:
     graph_results = state.get("graph_results", [])
     
     print(f"[SQL Search] graph_results type: {type(graph_results)}")
-    print(f"[SQL Search] graph_results: {graph_results[:500] if isinstance(graph_results, str) else graph_results}")
+    print(f"[SQL Search] graph_results RAW: {str(graph_results)[:2000]}")
     
     if not graph_results:
         state["sql_results"] = []
@@ -294,10 +295,11 @@ def search(state: RAGState) -> RAGState:
         # 기본 쿼리 - trade_info에서 거래방식 필드를 추출
         query = """
             SELECT 
-                land_num,
-                building_type,
+                id as land_id,
+                listing_id as land_num,
+                title as building_type,
                 address,
-                deal_type,
+                trade_info->>'거래유형' as deal_type,
                 url,
                 images,
                 trade_info,
@@ -305,15 +307,27 @@ def search(state: RAGState) -> RAGState:
                 additional_options,
                 description,
                 agent_info,
-                like_count,
-                view_count,
+                0 as like_count,
+                0 as view_count,
                 'm' as distance_unit
-            FROM land
-            WHERE land_num = ANY(%s)
+            FROM listings
+            WHERE listing_id = ANY(%s::text[])
         """
+        
+        print(f"[SQL Search] 🔍 Executing PostgreSQL query with {len(land_nums)} IDs")
+        print(f"[SQL Search] 📋 Sample IDs: {land_nums[:3]}")
         
         cur.execute(query, (land_nums,))
         rows = cur.fetchall()
+        
+        print(f"[SQL Search] ✅ Query executed, fetched {len(rows)} rows")
+        if len(rows) == 0 and land_nums:
+            print(f"[SQL Search] ⚠️ No rows returned! Testing first ID...")
+            test_cur = conn.cursor()
+            test_cur.execute("SELECT listing_id FROM listings WHERE listing_id = %s", (land_nums[0],))
+            test_result = test_cur.fetchone()
+            print(f"[SQL Search] Test query for '{land_nums[0]}': {test_result}")
+            test_cur.close()
         
         # dict로 변환하고 가격 조건 필터링 (Python에서 처리)
         filtered_results = []
