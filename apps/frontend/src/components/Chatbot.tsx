@@ -27,6 +27,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { sendChatQuestion } from '../api/chatApi'
+import ReactMarkdown from 'react-markdown'
 
 interface Message {
   id: string
@@ -163,8 +164,8 @@ export default function Chatbot() {
     setIsLoading(true)
 
     try {
-      // Real API call
-      const answer = await sendChatQuestion(inputValue.trim())
+      // Real API call - currentSessionId 전달하여 후속 질문 컨텍스트 유지
+      const answer = await sendChatQuestion(inputValue.trim(), currentSessionId || undefined)
 
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -507,9 +508,24 @@ export default function Chatbot() {
                       }
                     `}
                   >
-                    <p className="text-sm whitespace-pre-wrap break-words">
-                      {message.content}
-                    </p>
+                    {message.type === 'ai' ? (
+                      <div className="prose prose-sm max-w-none text-gray-800">
+                        <ReactMarkdown
+                          components={{
+                            strong: ({children}) => <span className="font-bold text-purple-700">{children}</span>,
+                            p: ({children}) => <p className="mb-2 last:mb-0">{children}</p>,
+                            ul: ({children}) => <ul className="list-disc pl-4 mb-2 space-y-1">{children}</ul>,
+                            li: ({children}) => <li className="text-sm">{children}</li>,
+                          }}
+                        >
+                          {message.content}
+                        </ReactMarkdown>
+                      </div>
+                    ) : (
+                      <p className="text-sm whitespace-pre-wrap break-words">
+                        {message.content}
+                      </p>
+                    )}
                     <p
                       className={`
                         text-xs mt-1
