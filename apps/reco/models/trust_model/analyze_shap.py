@@ -1,5 +1,7 @@
 """
-SHAP을 이용한 모델 해석
+Feature 중요도 분석 (LogisticRegression 계수 기반)
+- 모델이 추론하는데 각 feature가 결과에 얼마나 기여했는지 분석
+- 가로 막대 그래프로 feature 중요도 시각화
 """
 import pickle
 import pandas as pd
@@ -11,204 +13,142 @@ from pathlib import Path
 plt.rcParams['font.family'] = 'Malgun Gothic'  # Windows
 plt.rcParams['axes.unicode_minus'] = False
 
+TEMP_MODEL_PATH = "apps/reco/models/trust_model/save_models/temp_trained_models.pkl"
+
 
 def load_model_and_data():
     """저장된 모델과 데이터 로드"""
     print("📂 모델 및 데이터 로드 중...")
     
-    model_dir = Path(__file__).parent / "saved_models"
+    # temp 모델 로드 (테스트 데이터 포함)
+    with open(TEMP_MODEL_PATH, "rb") as f:
+        temp_data = pickle.load(f)
     
-    # 모델 로드
-    with open(model_dir / "trust_model.pkl", "rb") as f:
-        model = pickle.load(f)
+    # 최고 성능 모델 선택 (LogisticRegression_Optimized)
+    models = temp_data["models"]
+    cv_results = temp_data.get("cv_results", {})
     
-    # 스케일러 로드
-    with open(model_dir / "scaler.pkl", "rb") as f:
-        scaler = pickle.load(f)
+    # CV 점수 기준으로 최고 모델 선택
+    best_model_name = max(cv_results.keys(), key=lambda k: cv_results[k]['cv_mean'])
+    model = models[best_model_name]
     
-    # 피처 이름 로드
-    with open(model_dir / "feature_names.pkl", "rb") as f:
-        feature_names = pickle.load(f)
+    scaler = temp_data["scaler"]
+    feature_names = temp_data["feature_names"]
     
-    # 데이터 전처리 파이프라인 실행
-    print("   데이터 전처리 중...")
-    import sys
-    pipeline_dir = Path(__file__).parent / "pipeline"
-    sys.path.insert(0, str(pipeline_dir))
+    # feature_names가 리스트인지 확인하고 변환
+    if not isinstance(feature_names, list):
+        feature_names = list(feature_names)
     
-    from _00_load_data import main as load_data
+    X_test_scaled = temp_data["X_test_scaled"]
+    y_test = temp_data["y_test"]
     
-    # 전체 파이프라인 실행
-    office_df, X, y, _ = load_data()
-    
-    # 스케일링
-    X_scaled = scaler.transform(X)
-    
-    print(f"   ✅ 모델: {type(model).__name__}")
+    print(f"   ✅ 모델: {best_model_name}")
     print(f"   ✅ 피처 수: {len(feature_names)}")
-    print(f"   ✅ 샘플 수: {len(X)}")
+    print(f"   ✅ 테스트 샘플 수: {len(X_test_scaled)}")
     
-    return model, X_scaled, X, feature_names, y
+    return model, X_test_scaled, feature_names, y_test
 
 
-def analyze_shap(model, X_scaled, X, feature_names, sample_size=100):
-    """SHAP 분석"""
-    print("\n🔍 SHAP 분석 중...")
+def get_feature_importance_from_coefficients(model, feature_names):
+    """LogisticRegression 계수로부터 Feature 중요도 추출"""
+    print("\n🔍 Feature 중요도 계산 중...")
     
-    try:
-        import shap
-    except ImportError:
-        print("❌ SHAP 미설치")
-        print("💡 설치: pip install shap")
-        return
+    # LogisticRegression의 계수 가져오기
+    coefficients = model.coef_  # shape: (n_classes, n_features)
     
-    # 샘플링 (전체 데이터는 시간이 오래 걸림)
-    if len(X) > sample_size:
-        indices = np.random.choice(len(X), sample_size, replace=False)
-        X_sample = X_scaled[indices]
-        X_original = X.iloc[indices]
-    else:
-        X_sample = X_scaled
-        X_original = X
+    print(f"   계수 shape: {coefficients.shape}")
+    print(f"   클래스 수: {len(model.classes_)}")
+    print(f"   클래스: {model.classes_}")
     
-    print(f"   샘플 크기: {len(X_sample)}개")
+    # 각 클래스별 계수의 절대값을 중요도로 사용
+    importance_by_class = {}
     
-    # SHAP Explainer 생성
-    print("   Explainer 생성 중...")
+    for i, class_label in enumerate(model.classes_):
+        # 해당 클래스의 계수
+        class_coef = coefficients[i]
+        
+        # 절대값을 중요도로 사용
+        importance = np.abs(class_coef)
+        
+        importance_by_class[class_label] = importance
     
-    model_type = type(model).__name__
+    print("   ✅ Feature 중요도 계산 완료")
     
-    if model_type in ['RandomForestClassifier', 'GradientBoostingClassifier', 'XGBClassifier']:
-        # Tree 기반 모델
-        explainer = shap.TreeExplainer(model)
-        shap_values = explainer.shap_values(X_sample)
-    elif model_type == 'LogisticRegression':
-        # Linear 모델
-        explainer = shap.LinearExplainer(model, X_sample)
-        shap_values = explainer.shap_values(X_sample)
-    else:
-        # 기타 모델 (KernelExplainer - 느림)
-        explainer = shap.KernelExplainer(model.predict_proba, X_sample)
-        shap_values = explainer.shap_values(X_sample)
-    
-    print("   ✅ SHAP 값 계산 완료")
-    
-    return explainer, shap_values, X_sample, X_original, feature_names
+    return importance_by_class
 
 
-def plot_shap_summary(shap_values, X_original, feature_names, class_names=['하', '중', '상']):
-    """SHAP Summary Plot"""
-    print("\n📊 SHAP Summary Plot 생성 중...")
+def plot_feature_importance(importance_by_class, feature_names):
+    """Feature 중요도를 가로 막대 그래프로 시각화"""
+    print("\n📊 Feature 중요도 그래프 생성 중...")
     
-    import shap
+    # 결과 저장 디렉토리
+    output_dir = Path(__file__).parent / "results"
+    output_dir.mkdir(exist_ok=True)
     
-    # 다중 클래스인 경우
-    if isinstance(shap_values, list):
-        for i, class_name in enumerate(class_names):
-            plt.figure(figsize=(12, 8))
-            shap.summary_plot(
-                shap_values[i], 
-                X_original, 
-                feature_names=feature_names,
-                show=False,
-                max_display=15
-            )
-            plt.title(f'SHAP Summary Plot - {class_name}등급', fontsize=16, pad=20)
-            plt.tight_layout()
-            
-            output_path = Path(__file__).parent / "results" / f"shap_summary_{class_name}.png"
-            output_path.parent.mkdir(exist_ok=True)
-            plt.savefig(output_path, dpi=300, bbox_inches='tight')
-            print(f"   ✅ 저장: {output_path}")
-            plt.close()
-    else:
-        # 이진 분류
-        plt.figure(figsize=(12, 8))
-        shap.summary_plot(
-            shap_values, 
-            X_original, 
-            feature_names=feature_names,
-            show=False,
-            max_display=15
-        )
-        plt.title('SHAP Summary Plot', fontsize=16, pad=20)
+    # 각 클래스별로 그래프 생성
+    for class_label, importance in importance_by_class.items():
+        print(f"\n   처리 중: {class_label}등급")
+        
+        # Feature 중요도 데이터프레임 생성
+        importance_df = pd.DataFrame({
+            'feature': feature_names,
+            'importance': importance
+        }).sort_values('importance', ascending=True)  # 오름차순 정렬 (가로 막대)
+        
+        # 상위 20개만 표시
+        top_n = min(20, len(importance_df))
+        importance_df = importance_df.tail(top_n)
+        
+        # 그래프 생성
+        fig_height = max(8, top_n * 0.4)
+        plt.figure(figsize=(12, fig_height))
+        bars = plt.barh(importance_df['feature'], importance_df['importance'], color='steelblue')
+        plt.xlabel('계수 절대값 (중요도)', fontsize=13, fontweight='bold')
+        plt.ylabel('Feature', fontsize=13, fontweight='bold')
+        plt.title(f'Feature 중요도 - {class_label}등급 예측', fontsize=15, fontweight='bold', pad=20)
+        plt.grid(axis='x', alpha=0.3, linestyle='--')
+        
+        # 값 표시
+        for bar in bars:
+            width = bar.get_width()
+            plt.text(width * 1.02, bar.get_y() + bar.get_height()/2, 
+                    f'{width:.3f}', ha='left', va='center', fontsize=10)
+        
         plt.tight_layout()
         
-        output_path = Path(__file__).parent / "results" / "shap_summary.png"
-        output_path.parent.mkdir(exist_ok=True)
+        # 저장
+        output_path = output_dir / f"feature_importance_{class_label}.png"
         plt.savefig(output_path, dpi=300, bbox_inches='tight')
         print(f"   ✅ 저장: {output_path}")
         plt.close()
-
-
-def plot_shap_bar(shap_values, feature_names, class_names=['하', '중', '상']):
-    """SHAP Bar Plot (평균 절대값)"""
-    print("\n📊 SHAP Bar Plot 생성 중...")
-    
-    import shap
-    
-    # 다중 클래스인 경우
-    if isinstance(shap_values, list):
-        for i, class_name in enumerate(class_names):
-            plt.figure(figsize=(10, 8))
-            shap.summary_plot(
-                shap_values[i], 
-                feature_names=feature_names,
-                plot_type="bar",
-                show=False,
-                max_display=15
-            )
-            plt.title(f'SHAP Feature Importance - {class_name}등급', fontsize=16, pad=20)
-            plt.tight_layout()
-            
-            output_path = Path(__file__).parent / "results" / f"shap_bar_{class_name}.png"
-            plt.savefig(output_path, dpi=300, bbox_inches='tight')
-            print(f"   ✅ 저장: {output_path}")
-            plt.close()
-    else:
-        plt.figure(figsize=(10, 8))
-        shap.summary_plot(
-            shap_values, 
-            feature_names=feature_names,
-            plot_type="bar",
-            show=False,
-            max_display=15
-        )
-        plt.title('SHAP Feature Importance', fontsize=16, pad=20)
-        plt.tight_layout()
         
-        output_path = Path(__file__).parent / "results" / "shap_bar.png"
-        plt.savefig(output_path, dpi=300, bbox_inches='tight')
-        print(f"   ✅ 저장: {output_path}")
-        plt.close()
+        # 중요도 테이블 출력
+        print(f"\n   📋 {class_label}등급 - 상위 10개 Feature:")
+        top_10 = importance_df.tail(10).sort_values('importance', ascending=False)
+        for idx, row in top_10.iterrows():
+            print(f"      {row['feature']:30s}: {row['importance']:.4f}")
 
 
 def main():
     """메인 실행"""
     print("=" * 70)
-    print("🔍 SHAP 분석 - 모델 해석")
+    print("🔍 Feature 중요도 분석 (LogisticRegression 계수 기반)")
     print("=" * 70)
     
     # 1. 모델 및 데이터 로드
-    model, X_scaled, X, feature_names, y = load_model_and_data()
+    model, X_test_scaled, feature_names, y_test = load_model_and_data()
     
-    # 2. SHAP 분석
-    explainer, shap_values, X_sample, X_original, feature_names = analyze_shap(
-        model, X_scaled, X, feature_names, sample_size=100
-    )
+    # 2. Feature 중요도 계산
+    importance_by_class = get_feature_importance_from_coefficients(model, feature_names)
     
-    # 3. SHAP Summary Plot
-    plot_shap_summary(shap_values, X_original, feature_names)
-    
-    # 4. SHAP Bar Plot
-    plot_shap_bar(shap_values, feature_names)
+    # 3. Feature 중요도 시각화
+    plot_feature_importance(importance_by_class, feature_names)
     
     print("\n" + "=" * 70)
-    print("✅ SHAP 분석 완료!")
+    print("✅ Feature 중요도 분석 완료!")
     print("=" * 70)
     print("\n📁 결과 파일:")
-    print("   - apps/reco/models/trust_model/results/shap_summary_*.png")
-    print("   - apps/reco/models/trust_model/results/shap_bar_*.png")
+    print("   - apps/reco/models/trust_model/results/feature_importance_*.png")
     print("=" * 70 + "\n")
 
 

@@ -105,158 +105,193 @@ def load_data():
     return X, y
 
 
-def optimize_logistic_regression(X_train_scaled, y_train):
-    """
-    LogisticRegression 하이퍼파라미터 최적화
-    """
-    print("🔍 LogisticRegression 하이퍼파라미터 최적화 중...")
-    
-    # 단계별 최적화 (더 안정적)
-    # 1단계: 기본 파라미터들
-    param_grid_1 = {
-        'C': [0.001, 0.01, 0.1, 1, 10, 100],
-        'penalty': ['l2'],  # 가장 안정적인 l2부터
-        'solver': ['lbfgs'],  # l2에 최적화된 solver
-        'class_weight': [None, 'balanced'],
-        'max_iter': [1000]
-    }
-    
-    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-    
-    # 1단계 최적화
-    base_model = LogisticRegression(random_state=42)
-    grid_search_1 = GridSearchCV(
-        base_model, 
-        param_grid_1,
-        cv=cv,
-        scoring='accuracy',
-        n_jobs=-1,
-        verbose=1
-    )
-    
-    grid_search_1.fit(X_train_scaled, y_train)
-    best_score_1 = grid_search_1.best_score_
-    best_params_1 = grid_search_1.best_params_
-    
-    print(f"1단계 최적 점수: {best_score_1:.4f}")
-    print(f"1단계 최적 파라미터: {best_params_1}")
-    
-    # 2단계: L1 정규화 시도
-    param_grid_2 = {
-        'C': [best_params_1['C'] * 0.1, best_params_1['C'], best_params_1['C'] * 10],
-        'penalty': ['l1'],
-        'solver': ['saga'],  # l1을 지원하는 solver
-        'class_weight': [best_params_1['class_weight']],
-        'max_iter': [2000]  # l1은 더 많은 반복이 필요할 수 있음
-    }
-    
-    grid_search_2 = GridSearchCV(
-        base_model,
-        param_grid_2,
-        cv=cv,
-        scoring='accuracy',
-        n_jobs=-1,
-        verbose=1
-    )
-    
-    grid_search_2.fit(X_train_scaled, y_train)
-    best_score_2 = grid_search_2.best_score_
-    best_params_2 = grid_search_2.best_params_
-    
-    print(f"2단계 최적 점수: {best_score_2:.4f}")
-    print(f"2단계 최적 파라미터: {best_params_2}")
-    
-    # 3단계: ElasticNet 시도
-    param_grid_3 = {
-        'C': [best_params_1['C'] * 0.1, best_params_1['C'], best_params_1['C'] * 10],
-        'penalty': ['elasticnet'],
-        'solver': ['saga'],
-        'l1_ratio': [0.1, 0.3, 0.5, 0.7, 0.9],
-        'class_weight': [best_params_1['class_weight']],
-        'max_iter': [2000]
-    }
-    
-    grid_search_3 = GridSearchCV(
-        base_model,
-        param_grid_3,
-        cv=cv,
-        scoring='accuracy',
-        n_jobs=-1,
-        verbose=1
-    )
-    
-    grid_search_3.fit(X_train_scaled, y_train)
-    best_score_3 = grid_search_3.best_score_
-    best_params_3 = grid_search_3.best_params_
-    
-    print(f"3단계 최적 점수: {best_score_3:.4f}")
-    print(f"3단계 최적 파라미터: {best_params_3}")
-    
-    # 최고 성능 선택
-    scores = [best_score_1, best_score_2, best_score_3]
-    params = [best_params_1, best_params_2, best_params_3]
-    estimators = [grid_search_1.best_estimator_, grid_search_2.best_estimator_, grid_search_3.best_estimator_]
-    
-    best_idx = np.argmax(scores)
-    final_best_score = scores[best_idx]
-    final_best_params = params[best_idx]
-    final_best_estimator = estimators[best_idx]
-    
-    print(f"\n✅ 최종 최적 하이퍼파라미터: {final_best_params}")
-    print(f"✅ 최종 최적 CV 점수: {final_best_score:.4f}")
-    
-    return final_best_estimator, final_best_params, final_best_score
+# ===== 하이퍼파라미터 최적화 함수 (주석 처리) =====
+# 이미 최적 파라미터를 찾았으므로 더 이상 그리드 서치를 실행하지 않습니다.
+# 최적 파라미터: C=1, penalty='l2', solver='lbfgs', max_iter=1000, class_weight=None
+
+# def optimize_logistic_regression(X_train_scaled, y_train):
+#     """
+#     LogisticRegression 하이퍼파라미터 최적화
+#     """
+#     print("🔍 LogisticRegression 하이퍼파라미터 최적화 중...")
+#     
+#     # 단계별 최적화 (더 안정적)
+#     # 1단계: 기본 파라미터들
+#     param_grid_1 = {
+#         'C': [0.001, 0.01, 0.1, 1, 10, 100],
+#         'penalty': ['l2'],  # 가장 안정적인 l2부터
+#         'solver': ['lbfgs'],  # l2에 최적화된 solver
+#         'class_weight': [None, 'balanced'],
+#         'max_iter': [1000]
+#     }
+#     
+#     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+#     
+#     # 1단계 최적화
+#     base_model = LogisticRegression(random_state=42)
+#     grid_search_1 = GridSearchCV(
+#         base_model, 
+#         param_grid_1,
+#         cv=cv,
+#         scoring='accuracy',
+#         n_jobs=-1,
+#         verbose=1
+#     )
+#     
+#     grid_search_1.fit(X_train_scaled, y_train)
+#     best_score_1 = grid_search_1.best_score_
+#     best_params_1 = grid_search_1.best_params_
+#     
+#     print(f"1단계 최적 점수: {best_score_1:.4f}")
+#     print(f"1단계 최적 파라미터: {best_params_1}")
+#     
+#     # 2단계: L1 정규화 시도
+#     param_grid_2 = {
+#         'C': [best_params_1['C'] * 0.1, best_params_1['C'], best_params_1['C'] * 10],
+#         'penalty': ['l1'],
+#         'solver': ['saga'],  # l1을 지원하는 solver
+#         'class_weight': [best_params_1['class_weight']],
+#         'max_iter': [2000]  # l1은 더 많은 반복이 필요할 수 있음
+#     }
+#     
+#     grid_search_2 = GridSearchCV(
+#         base_model,
+#         param_grid_2,
+#         cv=cv,
+#         scoring='accuracy',
+#         n_jobs=-1,
+#         verbose=1
+#     )
+#     
+#     grid_search_2.fit(X_train_scaled, y_train)
+#     best_score_2 = grid_search_2.best_score_
+#     best_params_2 = grid_search_2.best_params_
+#     
+#     print(f"2단계 최적 점수: {best_score_2:.4f}")
+#     print(f"2단계 최적 파라미터: {best_params_2}")
+#     
+#     # 3단계: ElasticNet 시도
+#     param_grid_3 = {
+#         'C': [best_params_1['C'] * 0.1, best_params_1['C'], best_params_1['C'] * 10],
+#         'penalty': ['elasticnet'],
+#         'solver': ['saga'],
+#         'l1_ratio': [0.1, 0.3, 0.5, 0.7, 0.9],
+#         'class_weight': [best_params_1['class_weight']],
+#         'max_iter': [2000]
+#     }
+#     
+#     grid_search_3 = GridSearchCV(
+#         base_model,
+#         param_grid_3,
+#         cv=cv,
+#         scoring='accuracy',
+#         n_jobs=-1,
+#         verbose=1
+#     )
+#     
+#     grid_search_3.fit(X_train_scaled, y_train)
+#     best_score_3 = grid_search_3.best_score_
+#     best_params_3 = grid_search_3.best_params_
+#     
+#     print(f"3단계 최적 점수: {best_score_3:.4f}")
+#     print(f"3단계 최적 파라미터: {best_params_3}")
+#     
+#     # 최고 성능 선택
+#     scores = [best_score_1, best_score_2, best_score_3]
+#     params = [best_params_1, best_params_2, best_params_3]
+#     estimators = [grid_search_1.best_estimator_, grid_search_2.best_estimator_, grid_search_3.best_estimator_]
+#     
+#     best_idx = np.argmax(scores)
+#     final_best_score = scores[best_idx]
+#     final_best_params = params[best_idx]
+#     final_best_estimator = estimators[best_idx]
+#     
+#     print(f"\n✅ 최종 최적 하이퍼파라미터: {final_best_params}")
+#     print(f"✅ 최종 최적 CV 점수: {final_best_score:.4f}")
+#     
+#     return final_best_estimator, final_best_params, final_best_score
 
 
 def train_models(X_train_scaled, y_train):
-    # 1) LogisticRegression 하이퍼파라미터 최적화
-    best_lr, best_lr_params, best_lr_score = optimize_logistic_regression(X_train_scaled, y_train)
+    # ===== 최적 하이퍼파라미터로 LogisticRegression 직접 생성 =====
+    # 그리드 서치 결과: C=1, penalty='l2', solver='lbfgs', max_iter=1000, class_weight=None
+    print("✅ 최적 하이퍼파라미터로 LogisticRegression 학습 중...")
     
-    # 2) 개별 모델들 정의
-    rf_model = RandomForestClassifier(
-        n_estimators=150,  # 증가
-        max_depth=10,      # 증가 (더 복잡한 패턴 학습)
-        min_samples_split=3,  # 감소
-        min_samples_leaf=1,   # 감소
-        class_weight='balanced',
+    best_lr = LogisticRegression(
+        C=1,
+        penalty='l2',
+        solver='lbfgs',
+        max_iter=1000,
+        class_weight=None,
         random_state=42
     )
     
-    gb_model = GradientBoostingClassifier(
-        n_estimators=100,  # 증가
-        max_depth=4,       # 증가
-        learning_rate=0.1, # 감소 (더 안정적)
-        min_samples_split=5,
-        min_samples_leaf=2,
-        random_state=42
-    )
+    best_lr.fit(X_train_scaled, y_train)
     
-    # 3) SVM 추가 (다른 접근법)
-    svm_model = SVC(
-        C=1.0,
-        kernel='rbf',
-        class_weight='balanced',
-        probability=True,  # 앙상블을 위해 필요
-        random_state=42
-    )
+    best_lr_params = {
+        'C': 1,
+        'penalty': 'l2',
+        'solver': 'lbfgs',
+        'max_iter': 1000,
+        'class_weight': None
+    }
     
-    # 4) 앙상블 모델 생성
-    ensemble_model = VotingClassifier(
-        estimators=[
-            ('lr', best_lr),
-            ('rf', rf_model),
-            ('gb', gb_model),
-            ('svm', svm_model)
-        ],
-        voting='soft'  # 확률 기반 투표
-    )
+    # CV 점수 계산
+    from sklearn.model_selection import cross_val_score, StratifiedKFold
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    cv_scores = cross_val_score(best_lr, X_train_scaled, y_train, cv=cv, scoring='accuracy')
+    best_lr_score = cv_scores.mean()
+    
+    print(f"✅ 최적 하이퍼파라미터: {best_lr_params}")
+    print(f"✅ CV 점수: {best_lr_score:.4f}")
+    
+    # ===== 다른 모델들 (주석 처리) =====
+    # # 2) RandomForest
+    # rf_model = RandomForestClassifier(
+    #     n_estimators=150,
+    #     max_depth=10,
+    #     min_samples_split=3,
+    #     min_samples_leaf=1,
+    #     class_weight='balanced',
+    #     random_state=42
+    # )
+    
+    # # 3) GradientBoosting
+    # gb_model = GradientBoostingClassifier(
+    #     n_estimators=100,
+    #     max_depth=4,
+    #     learning_rate=0.1,
+    #     min_samples_split=5,
+    #     min_samples_leaf=2,
+    #     random_state=42
+    # )
+    
+    # # 4) SVM
+    # svm_model = SVC(
+    #     C=1.0,
+    #     kernel='rbf',
+    #     class_weight='balanced',
+    #     probability=True,
+    #     random_state=42
+    # )
+    
+    # # 5) 앙상블 모델
+    # ensemble_model = VotingClassifier(
+    #     estimators=[
+    #         ('lr', best_lr),
+    #         ('rf', rf_model),
+    #         ('gb', gb_model),
+    #         ('svm', svm_model)
+    #     ],
+    #     voting='soft'
+    # )
     
     models = {
-        "RandomForest_Enhanced": rf_model,
-        "GradientBoosting_Enhanced": gb_model,
-        "SVM": svm_model,
         "LogisticRegression_Optimized": best_lr,
-        "Ensemble_VotingClassifier": ensemble_model
+        # "RandomForest_Enhanced": rf_model,
+        # "GradientBoosting_Enhanced": gb_model,
+        # "SVM": svm_model,
+        # "Ensemble_VotingClassifier": ensemble_model
     }
 
     trained = {}
@@ -264,8 +299,6 @@ def train_models(X_train_scaled, y_train):
 
     for name, model in models.items():
         print(f"▶ Train: {name}")
-        if name != "LogisticRegression_Optimized":  # 이미 학습됨
-            model.fit(X_train_scaled, y_train)
         trained[name] = model
         
         # 최적화 정보 저장
