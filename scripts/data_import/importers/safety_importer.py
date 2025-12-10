@@ -1,9 +1,7 @@
 import os
 import pandas as pd
-import time
 from config import Config
 from database import Database
-from geocoder import Geocoder
 
 class SafetyImporter:
     def __init__(self):
@@ -146,6 +144,10 @@ class SafetyImporter:
             df = pd.read_csv(file_path, encoding='cp949')
             
         df = df[df['주소'].str.contains("서울특별시", na=False)]
+        # Filter out rows without coordinates
+        df = df.dropna(subset=['위도', '경도'])
+        
+        print(f"Found {len(df)} police stations with coordinates")
         
         with self.driver.session() as session:
             session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (p:PoliceStation) REQUIRE p.id IS UNIQUE")
@@ -167,10 +169,8 @@ class SafetyImporter:
             
             for _, row in df.iterrows():
                 address = str(row['주소'])
-                lat, lon = Geocoder.get_coordinates(address)
-                
-                if lat is None or lon is None:
-                    continue
+                lat = float(row['위도'])
+                lon = float(row['경도'])
                     
                 police_id = f"POLICE_{row['연번']}_{row['관서명']}"
                 
@@ -186,7 +186,6 @@ class SafetyImporter:
                 if len(batch) >= batch_size:
                     session.run(query, batch=batch)
                     batch = []
-                    time.sleep(0.1)
                     
             if batch:
                 session.run(query, batch=batch)
@@ -219,6 +218,10 @@ class SafetyImporter:
             df = pd.read_csv(file_path, encoding='cp949')
             
         df = df[df['소방본부'].str.contains("서울", na=False)]
+        # Filter out rows without coordinates
+        df = df.dropna(subset=['위도', '경도'])
+        
+        print(f"Found {len(df)} fire stations with coordinates")
         
         with self.driver.session() as session:
             session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (f:FireStation) REQUIRE f.id IS UNIQUE")
@@ -240,10 +243,8 @@ class SafetyImporter:
             
             for _, row in df.iterrows():
                 address = str(row['주소'])
-                lat, lon = Geocoder.get_coordinates(address)
-                
-                if lat is None or lon is None:
-                    continue
+                lat = float(row['위도'])
+                lon = float(row['경도'])
                     
                 fire_id = f"FIRE_{row['순번']}_{row['소방서']}"
                 
@@ -259,7 +260,6 @@ class SafetyImporter:
                 if len(batch) >= batch_size:
                     session.run(query, batch=batch)
                     batch = []
-                    time.sleep(0.1)
                     
             if batch:
                 session.run(query, batch=batch)
