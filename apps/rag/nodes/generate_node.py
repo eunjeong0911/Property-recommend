@@ -73,14 +73,13 @@ def generate(state: RAGState) -> RAGState:
         if not isinstance(result, dict): continue
         
         prop_id = result.get('p.id') or result.get('id')
-        address = result.get('p.address') or result.get('address')
         
-        unique_key = prop_id if prop_id else address
+        unique_key = prop_id
         if unique_key and unique_key not in seen_ids:
             seen_ids.add(unique_key)
             merged = {**result}
             
-            # Merge SQL details
+            # Merge SQL details (필수! Neo4j에는 ID만 있고 주소는 PostgreSQL에 있음)
             if prop_id and str(prop_id) in sql_details:
                 merged['postgres_details'] = sql_details[str(prop_id)]
             else:
@@ -141,6 +140,14 @@ def generate(state: RAGState) -> RAGState:
             
             # 4. Station Info
             merged['formatted_poi'] = poi_info
+            
+            # 5. Pre-generate detail link (확실한 링크 생성!)
+            postgres_details = merged.get('postgres_details', {})
+            land_id = postgres_details.get('land_id')
+            if land_id:
+                merged['detail_link'] = f"[📋 상세보기](/landDetail/{land_id})"
+            else:
+                merged['detail_link'] = ""
 
             unique_results.append(merged)
     
@@ -224,6 +231,29 @@ def generate(state: RAGState) -> RAGState:
 
         **답변 포맷 (상위 3개 매물):**
         
+        **중요: 각 매물마다 상세보기 링크를 반드시 포함하세요**
+        각 매물 데이터에는 `detail_link` 필드가 미리 준비되어 있습니다.
+        **이 값을 그대로 복사해서 사용하세요!** (직접 링크를 만들지 마세요)
+        
+        **데이터 구조 예시**:
+        ```
+        {{
+          "address": "서울 마포구...",
+          "detail_link": "[📋 상세보기](/landDetail/9458)",  ← 이것을 그대로 사용!
+          "postgres_details": {{ ... }},
+          ...
+        }}
+        ```
+        
+        **사용 방법**: 
+        매물 정보 마지막에 `� {{detail_link}}` 형식으로 넣으면 됩니다.
+        
+        ---
+        
+        **답변 작성 시 반드시 지켜야 할 포맷**:
+        
+        **중요**: 각 매물은 반드시 "**N순위 (옵션 X)**" 헤더로 시작해야 합니다!
+        
         **1순위 (옵션 A)**
         - **주소**: [주소]
         - **타입**: [건물형태]
@@ -234,6 +264,9 @@ def generate(state: RAGState) -> RAGState:
         - **주변 인프라**: [formatted_infrastructure의 모든 내용을 표시 - 편의점, 병원, 공원 등 이전 검색에서 누적된 모든 시설 정보 포함]
         - **안전 시설**: [formatted_safety 내용] (정보가 있으면 작성)
         - **한줄 요약**: [이 매물의 장점 요약]
+        
+        
+        👉 [매물의 detail_link 필드 값 그대로 넣기]
 
 
         **2순위 (옵션 B)**
@@ -246,6 +279,8 @@ def generate(state: RAGState) -> RAGState:
         - **주변 인프라**: [formatted_infrastructure 내용 중 질문과 관련된 것 위주로 작성]
         - **안전 시설**: [formatted_safety 내용] (정보가 있으면 작성)
         - **한줄 요약**: [이 매물의 장점 요약]
+        
+        👉 [매물의 detail_link 필드 값 그대로 넣기]
 
         **3순위 (옵션 C)**
         - **주소**: [주소]
@@ -257,6 +292,8 @@ def generate(state: RAGState) -> RAGState:
         - **주변 인프라**: [formatted_infrastructure 내용 중 질문과 관련된 것 위주로 작성]
         - **안전 시설**: [formatted_safety 내용] (정보가 있으면 작성)
         - **한줄 요약**: [이 매물의 장점 요약]
+        
+        👉 [매물의 detail_link 필드 값 그대로 넣기]
 
         **후속 질문 생성 (매물 소개 후):**
         답변 끝에 자연스럽게 2-3개의 후속 질문을 추가하세요.
