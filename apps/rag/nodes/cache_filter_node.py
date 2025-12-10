@@ -330,14 +330,120 @@ def _fetch_sql_details(property_ids: list) -> list:
 
 
 def _filter_by_postgres(property_ids: list, question: str, filter_type: str) -> list:
+    """PostgreSQL 기반 필터링 (가격 조건 포함)"""
+    from nodes.sql_search_node import extract_price_conditions, parse_price_from_trade_info
+    
     sql_results = _fetch_sql_details(property_ids)
     if not sql_results:
         return []
     
     if filter_type == "price":
-        match = re.search(r'(\d+)\s*만', question)
-        if match:
-            max_price = int(match.group(1)) * 10000
-            return [r for r in sql_results if (r.get('monthly_rent') or 0) <= max_price]
+        price_conditions = extract_price_conditions(question)
+        if not price_conditions:
+            print("[CacheFilter] No price conditions extracted")
+            return sql_results
+        
+        print(f"[CacheFilter] 💰 Price filtering with: {price_conditions}")
+        filtered = []
+        filtered_count = 0
+        
+        # 단기임대 포함 여부 확인
+        include_short_term = price_conditions.get('include_short_term', True)
+        
+        # 거래유형 필터 (매매 의도 시 매매만)
+        trade_type_filter = price_conditions.get('trade_type_filter')
+        
+        for r in sql_results:
+            trade_info = r.get('trade_info', {})
+            # trade_type_str = trade_info.get('거래방식', '') # 더 이상 사용 안함
+            
+            parsed = parse_price_from_trade_info(trade_info)
+            trade_type = parsed['type']  # 월세, 전세, 단기임대, 매매
+            deposit = parsed['deposit']  # 만원 단위 (매매의 경우 매매가)
+            rent = parsed['rent']  # 만원 단위
+            jeonse = parsed['jeonse']  # 만원 단위
+            
+            # 파싱된 가격 정보 저장 (정렬에 사용)
+            r['parsed_deposit'] = deposit
+            r['parsed_rent'] = rent
+            r['parsed_jeonse'] = jeonse
+            r['parsed_trade_type'] = trade_type
+            
+            # 거래유형 필터링 (매매 의도 시 매매만)
+            if trade_type_filter:
+                if trade_type != trade_type_filter:
+                    filtered_count += 1
+                    print(f"[CacheFilter] ❌ Excluded {r.get('land_num')}: 거래유형 '{trade_type}' ≠ '{trade_type_filter}'")
+                    continue
+            
+            # 단기임대 제외 로직: 단기 거주 의도가 없으면 보증금/월세 조건 시 제외
+            if trade_type == '단기임대' and not include_short_term:
+                has_deposit_condition = 'deposit_max' in price_conditions or 'deposit_min' in price_conditions
+                has_rent_condition = 'rent_max' in price_conditions or 'rent_min' in price_conditions
+                if has_deposit_condition or has_rent_condition:
+                    filtered_count += 1
+                    print(f"[CacheFilter] ❌ Excluded {r.get('land_num')}: 단기임대 제외 (사용자가 단기 거주 의도를 표현하지 않음)")
+                    continue
+            
+            passed = True
+            
+            # 보증금 조건 확인
+            if 'deposit_max' in price_conditions and deposit > price_conditions['deposit_max']:
+                passed = False
+                print(f"[CacheFilter] ❌ Excluded {r.get('land_num')}: 보증금 {deposit}만원 > {price_conditions['deposit_max']}만원")
+            if 'deposit_min' in price_conditions and deposit < price_conditions['deposit_min']:
+                passed = False
+            
+            # 월세 조건 확인
+            if 'rent_max' in price_conditions and rent > price_conditions['rent_max']:
+                passed = False
+                print(f"[CacheFilter] ❌ Excluded {r.get('land_num')}: 월세 {rent}만원 > {price_conditions['rent_max']}만원")
+            if 'rent_min' in price_conditions and rent < price_conditions['rent_min']:
+                passed = False
+            
+            # 전세 조건 확인
+            if 'jeonse_max' in price_conditions and jeonse > price_conditions['jeonse_max']:
+                passed = False
+                print(f"[CacheFilter] ❌ Excluded {r.get('land_num')}: 전세 {jeonse}만원 > {price_conditions['jeonse_max']}만원")
+            if 'jeonse_min' in price_conditions and jeonse < price_conditions['jeonse_min']:
+                passed = False
+            
+            # 매매가 조건 확인 (매매의 경우 deposit에 매매가가 저장됨)
+            if 'sale_max' in price_conditions:
+                if trade_type == '매매' and deposit > price_conditions['sale_max']:
+                    passed = False
+                    print(f"[CacheFilter] ❌ Excluded {r.get('land_num')}: 매매가 {deposit}만원 > {price_conditions['sale_max']}만원")
+            if 'sale_min' in price_conditions:
+                if trade_type == '매매' and deposit < price_conditions['sale_min']:
+                    passed = False
+                    print(f"[CacheFilter] ❌ Excluded {r.get('land_num')}: 매매가 {deposit}만원 < {price_conditions['sale_min']}만원")
+            
+            if passed:
+                print(f"[CacheFilter] ✅ Passed {r.get('land_num')}: {trade_type} 보증금/매매가 {deposit}만원, 월세 {rent}만원")
+                filtered.append(r)
+            else:
+                filtered_count += 1
+        
+        # 조건에 따른 정렬 로직
+        has_rent_condition = 'rent_max' in price_conditions or 'rent_min' in price_conditions
+        has_deposit_condition = 'deposit_max' in price_conditions or 'deposit_min' in price_conditions
+        has_jeonse_condition = 'jeonse_max' in price_conditions or 'jeonse_min' in price_conditions
+        has_sale_condition = 'sale_max' in price_conditions or 'sale_min' in price_conditions
+        
+        if has_rent_condition:
+            # 월세 조건이 있으면 월세(오른쪽 금액) 기준 오름차순 정렬
+            print(f"[CacheFilter] 💰 Sorting by monthly RENT (ascending)...")
+            filtered.sort(key=lambda x: (x.get('parsed_rent', float('inf')), x.get('parsed_deposit', float('inf'))))
+        elif has_sale_condition or trade_type_filter == '매매':
+            # 매매 조건이 있거나 매매 필터 시 매매가(deposit) 기준 오름차순 정렬
+            print(f"[CacheFilter] 💰 Sorting by SALE price (ascending)...")
+            filtered.sort(key=lambda x: (x.get('parsed_deposit', float('inf')),))
+        elif has_deposit_condition or has_jeonse_condition:
+            # 보증금/전세 조건이 있으면 보증금(왼쪽 금액) 기준 오름차순 정렬
+            print(f"[CacheFilter] 💰 Sorting by DEPOSIT price (ascending)...")
+            filtered.sort(key=lambda x: (x.get('parsed_deposit', float('inf')), x.get('parsed_rent', float('inf'))))
+        
+        print(f"[CacheFilter] 💰 Price filter: {len(sql_results)} → {len(filtered)} ({filtered_count}개 제외)")
+        return filtered
     
     return sql_results

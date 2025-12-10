@@ -83,6 +83,9 @@ def generate(state: RAGState) -> RAGState:
             # Merge SQL details
             if prop_id and str(prop_id) in sql_details:
                 merged['postgres_details'] = sql_details[str(prop_id)]
+            else:
+                # Exclude properties that failed SQL filtering or have no details
+                continue
 
             # --- PRE-PROCESS DETAILS FOR LLM ---
             # Extract and format the specific detail lists returned by neo4j_search_node
@@ -155,6 +158,24 @@ def generate(state: RAGState) -> RAGState:
     # Store full results for Redis caching
     full_results = context
     
+    # Sort by price if available (Prioritize cheaper options to ensure diversity)
+    # This addresses user feedback where only the most expensive options (e.g. at the limit) were shown.
+    def price_sort_key(item):
+        details = item.get('postgres_details', {})
+        deposit = details.get('parsed_deposit') # 만원 단위
+        rent = details.get('parsed_rent', 0)    # 만원 단위
+        
+        if deposit is not None:
+            return (deposit, rent)
+        return (float('inf'), float('inf'))
+        
+    # Check if we have price data to sort by
+    has_price_data = any(item.get('postgres_details', {}).get('parsed_deposit') is not None for item in context)
+    
+    if has_price_data:
+        print("[Generate] 💰 Sorting results by price (low to high)...")
+        context.sort(key=price_sort_key)
+    
     # Select top 3 for display
     context_for_display = context[:3]
     print(f"[Generate] 📊 Showing top 3 out of {len(full_results)} total results")
@@ -172,7 +193,7 @@ def generate(state: RAGState) -> RAGState:
 """
 
     # Simple generation using LLM
-    llm = ChatOpenAI(model="gpt-4o", temperature=0)
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
     
     prompt = ChatPromptTemplate.from_template(
         """

@@ -103,7 +103,7 @@ def execute_hybrid_query(location_keyword: str, facility_labels: str, facility_r
     RETURN p.id as id, p.address as address, total_score, 
            [anchor_info] as poi_details,
            fac_details as {facility_name_key}
-    ORDER BY total_score DESC LIMIT 20
+    ORDER BY total_score DESC LIMIT 300
     """
     
     full_cypher = core_query + final_return
@@ -129,7 +129,7 @@ def search_properties_near_subway(location_keyword: str):
     RETURN p.id as id, p.address as address, total_score,
            collect({name: s.name, dist: coalesce(toInteger(r.distance), 9999), time: coalesce(toInteger(r.walking_time), 9999)}) as poi_details,
            collect({name: s.name, dist: coalesce(toInteger(r.distance), 9999), time: coalesce(toInteger(r.walking_time), 9999)}) as trans_details
-    ORDER BY total_score DESC LIMIT 20
+    ORDER BY total_score DESC LIMIT 300
     """
     return get_graph().query(query, params={"keyword": location_keyword})
 
@@ -194,7 +194,7 @@ def search_properties_near_university(location_keyword: str):
                 ELSE [] 
            END as poi_details,
            [{name: anchor.name, dist: coalesce(toInteger(r_anchor.distance), 9999), time: coalesce(toInteger(r_anchor.walking_time), 9999)}] as edu_details
-    ORDER BY total_score DESC LIMIT 20
+    ORDER BY total_score DESC LIMIT 300
     """
     print(f"[Debug] University Search: '{location_keyword}'")
     return get_graph().query(query, params={"keyword": location_keyword})
@@ -250,7 +250,7 @@ def search_properties_with_safety(location_keyword: str):
     RETURN p.id as id, p.address as address, total_score,
            [anchor_info] as poi_details,
            cctv_count, bell_count, police_details, fire_details
-    ORDER BY total_score DESC LIMIT 20
+    ORDER BY total_score DESC LIMIT 300
     """
     return get_graph().query(query, params={"keyword": location_keyword})
 
@@ -337,7 +337,7 @@ def search_properties_multi_criteria(
            conv_details, hosp_details as med_details, pharm_details as pharmacy_details,
            cctv_count, bell_count, police_details, fire_details,
            park_details
-    ORDER BY total_score DESC LIMIT 20
+    ORDER BY total_score DESC LIMIT 300
     """
     
     params = {
@@ -360,7 +360,7 @@ def search(state: RAGState):
     question = state["question"]
     print(f"[Agent] Starting search for: {question}")
 
-    llm = ChatOpenAI(model="gpt-4o", temperature=0)
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
     
     tools = [
         search_properties_near_subway,
