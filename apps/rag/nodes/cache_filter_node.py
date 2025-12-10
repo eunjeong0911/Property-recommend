@@ -135,7 +135,7 @@ def _filter_by_facility(property_ids: list, facility_type: str) -> list:
             OPTIONAL MATCH (p)-[r:NEAR_FIRE]->(fire:FireStation)
             WITH p, cctv_count, bell_count, police_details,
                  head(collect({name:fire.name, dist:toInteger(r.distance), time:toInteger(r.walking_time)})) as fire_details
-            RETURN p.id as id, p.address as address,
+            RETURN p.id as id,
                    cctv_count, bell_count, police_details, fire_details,
                    (cctv_count*50 + bell_count*30) as total_score
             ORDER BY total_score DESC
@@ -147,7 +147,7 @@ def _filter_by_facility(property_ids: list, facility_type: str) -> list:
             WITH p, count(c) as conv_count,
                  collect({name:c.name, dist:toInteger(r.distance), time:toInteger(r.walking_time)})[..3] as conv_details
             WHERE conv_count > 0
-            RETURN p.id as id, p.address as address,
+            RETURN p.id as id,
                    conv_count, conv_details,
                    conv_count * 100 as total_score
             ORDER BY total_score DESC
@@ -159,7 +159,7 @@ def _filter_by_facility(property_ids: list, facility_type: str) -> list:
             WITH p, count(h) as hosp_count,
                  collect({name:h.name, dist:toInteger(r.distance), time:toInteger(r.walking_time)})[..3] as med_details
             WHERE hosp_count > 0
-            RETURN p.id as id, p.address as address,
+            RETURN p.id as id,
                    hosp_count, med_details,
                    hosp_count * 100 as total_score
             ORDER BY total_score DESC
@@ -171,7 +171,7 @@ def _filter_by_facility(property_ids: list, facility_type: str) -> list:
             WITH p, count(ph) as pharm_count,
                  collect({name:ph.name, dist:toInteger(r.distance), time:toInteger(r.walking_time)})[..3] as pharm_details
             WHERE pharm_count > 0
-            RETURN p.id as id, p.address as address,
+            RETURN p.id as id,
                    pharm_count, pharm_details,
                    pharm_count * 100 as total_score
             ORDER BY total_score DESC
@@ -183,7 +183,7 @@ def _filter_by_facility(property_ids: list, facility_type: str) -> list:
             WITH p, count(pk) as park_count,
                  collect({name:pk.name, dist:toInteger(r.distance), time:toInteger(r.walking_time)})[..3] as park_details
             WHERE park_count > 0
-            RETURN p.id as id, p.address as address,
+            RETURN p.id as id,
                    park_count, park_details,
                    park_count * 100 as total_score
             ORDER BY total_score DESC
@@ -207,7 +207,7 @@ def _filter_by_facility(property_ids: list, facility_type: str) -> list:
             WITH p, 
                  head(collect({name:s.name, dist:toInteger(r.distance), time:toInteger(r.walking_time)})) as station
             WHERE station IS NOT NULL
-            RETURN p.id as id, p.address as address,
+            RETURN p.id as id,
                    [station] as poi_details,
                    1000 - coalesce(station.dist, 9999) as total_score
             ORDER BY total_score DESC
@@ -309,10 +309,10 @@ def _fetch_sql_details(property_ids: list) -> list:
         cursor = conn.cursor()
         placeholders = ','.join(['%s'] * len(property_ids))
         cursor.execute(f"""
-            SELECT land_num, building_type, address, deal_type, url, images,
-                   trade_info, listing_info, additional_options, description,
-                   agent_info, like_count, view_count, 'm' as distance_unit
-            FROM land WHERE land_num = ANY(%s::text[])
+            SELECT id as land_id, listing_id as land_num, title, address, url, images,
+                   address_info, trade_info, listing_info, additional_options, description,
+                   agent_info, 0 as like_count, 0 as view_count, 'm' as distance_unit
+            FROM listings WHERE listing_id = ANY(%s::text[])
         """, (property_ids,))
         columns = [desc[0] for desc in cursor.description]
         results = [dict(zip(columns, row)) for row in cursor.fetchall()]
