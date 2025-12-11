@@ -1,9 +1,7 @@
 import os
 import pandas as pd
-import time
 from config import Config
 from database import Database
-from geocoder import Geocoder
 
 class SafetyImporter:
     def __init__(self):
@@ -56,7 +54,7 @@ class SafetyImporter:
                 session.run(query, batch=batch)
                 
         print("Finished importing CCTV.")
-        # self._link_cctv()
+        self.link_cctv()
 
     def link_cctv(self):
         print("Linking CCTV (200m)...")
@@ -68,8 +66,8 @@ class SafetyImporter:
                 MATCH (c:CCTV)
                 WHERE point.distance(p.location, c.location) < 200
                 MERGE (p)-[r:NEAR_CCTV]->(c)
-                SET r.distance = point.distance(p.location, c.location),
-                    r.walking_time = (point.distance(p.location, c.location) * 1.3) / 80
+                SET r.distance = toInteger(round(point.distance(p.location, c.location))),
+                    r.walking_time = toInteger(round((point.distance(p.location, c.location) * 1.3) / 80))
             } IN TRANSACTIONS OF 1000 ROWS
             """)
 
@@ -119,7 +117,7 @@ class SafetyImporter:
                 session.run(query, batch=batch)
                 
         print("Finished importing Emergency Bells.")
-        # self._link_bell()
+        self.link_bell()
 
     def link_bell(self):
         print("Linking Emergency Bells (200m)...")
@@ -131,8 +129,8 @@ class SafetyImporter:
                 MATCH (b:EmergencyBell)
                 WHERE point.distance(p.location, b.location) < 200
                 MERGE (p)-[r:NEAR_BELL]->(b)
-                SET r.distance = point.distance(p.location, b.location),
-                    r.walking_time = (point.distance(p.location, b.location) * 1.3) / 80
+                SET r.distance = toInteger(round(point.distance(p.location, b.location))),
+                    r.walking_time = toInteger(round((point.distance(p.location, b.location) * 1.3) / 80))
             } IN TRANSACTIONS OF 1000 ROWS
             """)
 
@@ -146,6 +144,10 @@ class SafetyImporter:
             df = pd.read_csv(file_path, encoding='cp949')
             
         df = df[df['주소'].str.contains("서울특별시", na=False)]
+        # Filter out rows without coordinates
+        df = df.dropna(subset=['위도', '경도'])
+        
+        print(f"Found {len(df)} police stations with coordinates")
         
         with self.driver.session() as session:
             session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (p:PoliceStation) REQUIRE p.id IS UNIQUE")
@@ -167,10 +169,8 @@ class SafetyImporter:
             
             for _, row in df.iterrows():
                 address = str(row['주소'])
-                lat, lon = Geocoder.get_coordinates(address)
-                
-                if lat is None or lon is None:
-                    continue
+                lat = float(row['위도'])
+                lon = float(row['경도'])
                     
                 police_id = f"POLICE_{row['연번']}_{row['관서명']}"
                 
@@ -186,13 +186,12 @@ class SafetyImporter:
                 if len(batch) >= batch_size:
                     session.run(query, batch=batch)
                     batch = []
-                    time.sleep(0.1)
                     
             if batch:
                 session.run(query, batch=batch)
                 
         print("Finished importing Police Stations.")
-        # self._link_police()
+        self.link_police()
 
     def link_police(self):
         print("Linking Police Stations (1km)...")
@@ -204,8 +203,8 @@ class SafetyImporter:
                 MATCH (pol:PoliceStation)
                 WHERE point.distance(p.location, pol.location) < 1000
                 MERGE (p)-[r:NEAR_POLICE]->(pol)
-                SET r.distance = point.distance(p.location, pol.location),
-                    r.walking_time = (point.distance(p.location, pol.location) * 1.3) / 80
+                SET r.distance = toInteger(round(point.distance(p.location, pol.location))),
+                    r.walking_time = toInteger(round((point.distance(p.location, pol.location) * 1.3) / 80))
             } IN TRANSACTIONS OF 1000 ROWS
             """)
 
@@ -219,6 +218,10 @@ class SafetyImporter:
             df = pd.read_csv(file_path, encoding='cp949')
             
         df = df[df['소방본부'].str.contains("서울", na=False)]
+        # Filter out rows without coordinates
+        df = df.dropna(subset=['위도', '경도'])
+        
+        print(f"Found {len(df)} fire stations with coordinates")
         
         with self.driver.session() as session:
             session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (f:FireStation) REQUIRE f.id IS UNIQUE")
@@ -240,10 +243,8 @@ class SafetyImporter:
             
             for _, row in df.iterrows():
                 address = str(row['주소'])
-                lat, lon = Geocoder.get_coordinates(address)
-                
-                if lat is None or lon is None:
-                    continue
+                lat = float(row['위도'])
+                lon = float(row['경도'])
                     
                 fire_id = f"FIRE_{row['순번']}_{row['소방서']}"
                 
@@ -259,13 +260,12 @@ class SafetyImporter:
                 if len(batch) >= batch_size:
                     session.run(query, batch=batch)
                     batch = []
-                    time.sleep(0.1)
                     
             if batch:
                 session.run(query, batch=batch)
                 
         print("Finished importing Fire Stations.")
-        # self._link_fire()
+        self.link_fire()
 
     def link_fire(self):
         print("Linking Fire Stations (2.5km)...")
@@ -277,8 +277,8 @@ class SafetyImporter:
                 MATCH (f:FireStation)
                 WHERE point.distance(p.location, f.location) < 2500
                 MERGE (p)-[r:NEAR_FIRE]->(f)
-                SET r.distance = point.distance(p.location, f.location),
-                    r.walking_time = (point.distance(p.location, f.location) * 1.3) / 80
+                SET r.distance = toInteger(round(point.distance(p.location, f.location))),
+                    r.walking_time = toInteger(round((point.distance(p.location, f.location) * 1.3) / 80))
             } IN TRANSACTIONS OF 1000 ROWS
             """)
 
