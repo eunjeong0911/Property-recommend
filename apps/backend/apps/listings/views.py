@@ -108,9 +108,36 @@ class LandViewSet(viewsets.ReadOnlyModelViewSet):
                 """
                 
                 result = session.run(query, params)
-                locations = []
+                neo4j_results = list(result)
                 
-                for record in result:
+                # 모든 land_num을 한 번에 수집
+                land_nums = [record['id'] for record in neo4j_results]
+                
+                # PostgreSQL에서 한 번에 조회 (N+1 문제 해결)
+                lands_queryset = Land.objects.filter(land_num__in=land_nums)
+                
+                # deal_type 필터 적용
+                if deal_type_filter:
+                    if deal_type_filter == '단기임대':
+                        lands_queryset = lands_queryset.filter(deal_type__icontains='단기임대')
+                    elif deal_type_filter == '미분류':
+                        from django.db.models import Q
+                        lands_queryset = lands_queryset.filter(Q(deal_type__isnull=True) | Q(deal_type=''))
+                    else:
+                        lands_queryset = lands_queryset.filter(deal_type=deal_type_filter)
+                
+                # land_num을 키로 하는 딕셔너리 생성
+                lands_dict = {land.land_num: land for land in lands_queryset}
+                
+                locations = []
+                for record in neo4j_results:
+                    land_num_key = record['id']
+                    land = lands_dict.get(land_num_key)
+                    
+                    # deal_type 필터가 있고 해당 매물이 없으면 스킵
+                    if deal_type_filter and not land:
+                        continue
+                    
                     location_data = {
                         'id': record['id'],
                         'latitude': record['latitude'],
@@ -119,40 +146,19 @@ class LandViewSet(viewsets.ReadOnlyModelViewSet):
                         'name': record['name']
                     }
                     
-                    # PostgreSQL에서 추가 정보 가져오기
-                    try:
-                        land = Land.objects.get(land_num=record['id'])
-                        
-                        # deal_type 필터 확인
-                        if deal_type_filter:
-                            if deal_type_filter == '단기임대':
-                                if '단기임대' not in (land.deal_type or ''):
-                                    continue
-                            elif deal_type_filter == '미분류':
-                                if land.deal_type:
-                                    continue
-                            else:
-                                if land.deal_type != deal_type_filter:
-                                    continue
-                        
-                        # 추가 정보 포함
+                    if land:
                         location_data['deal_type'] = land.deal_type or '미분류'
                         location_data['building_type'] = land.building_type
                         
                         # 면적 추출
                         if land.listing_info and isinstance(land.listing_info, dict):
-                            area = land.listing_info.get('전용/공급면적', '-')
-                            location_data['area'] = area
+                            location_data['area'] = land.listing_info.get('전용/공급면적', '-')
                         else:
                             location_data['area'] = '-'
                         
-                        # 가격 정보 (시리얼라이저 로직 재사용)
-                        from .serializers import LandSerializer
-                        serializer = LandSerializer(land)
-                        location_data['price'] = serializer.data.get('price', '-')
-                        
-                    except Land.DoesNotExist:
-                        # PostgreSQL에 없으면 기본값
+                        # 가격 정보 직접 계산 (Serializer 인스턴스화 제거)
+                        location_data['price'] = self._get_price_display(land)
+                    else:
                         location_data['deal_type'] = '정보없음'
                         location_data['building_type'] = '-'
                         location_data['area'] = '-'
@@ -166,3 +172,57 @@ class LandViewSet(viewsets.ReadOnlyModelViewSet):
                 })
         finally:
             driver.close()
+    
+    def _get_price_display(self, land):
+        """가격 표시 문자열 생성 (Serializer 없이 직접 계산)"""
+        deal_type = land.deal_type or ''
+        
+        if '단기임대' in deal_type:
+            return deal_type
+        
+        trade_info = land.trade_info or {}
+        deal_text = trade_info.get('거래방식', '') if isinstance(trade_info, dict) else ''
+        
+        import re
+        
+        def parse_price(price_str):
+            if not price_str:
+                return 0
+            price_str = price_str.replace(',', '').replace(' ', '')
+            eok_match = re.search(r'(\d+)억', price_str)
+            eok = int(eok_match.group(1)) * 100000000 if eok_match else 0
+            man_match = re.search(r'(\d+)만원', price_str)
+            man = int(man_match.group(1)) * 10000 if man_match else 0
+            return eok + man
+        
+        def format_price(amount):
+            if amount == 0:
+                return "0"
+            manwon = amount // 10000
+            eok = manwon // 10000
+            remaining = manwon % 10000
+            if eok > 0:
+                return f"{eok}억 {remaining:,}만원" if remaining else f"{eok}억"
+            return f"{remaining:,}만원"
+        
+        if deal_type == '매매':
+            match = re.search(r'매매\s+(\d+억\s*\d*,?\d*만원|\d+,?\d*만원|\d+억)', deal_text)
+            if match:
+                return f"매매 {format_price(parse_price(match.group(1)))}"
+            return '매매 (가격 미정)'
+        
+        if deal_type == '전세':
+            match = re.search(r'전세\s+(\d+억\s*\d*,?\d*만원|\d+,?\d*만원|\d+억)', deal_text)
+            if match:
+                return f"전세 {format_price(parse_price(match.group(1)))}"
+            return '전세 (가격 미정)'
+        
+        if deal_type == '월세':
+            match = re.search(r'월세\s+(\d+억\s*\d*,?\d*만원|\d+,?\d*만원)/(\d+,?\d*만원)', deal_text)
+            if match:
+                deposit = format_price(parse_price(match.group(1)))
+                monthly = format_price(parse_price(match.group(2)))
+                return f"월세 {deposit} / {monthly}"
+            return '월세 (가격 미정)'
+        
+        return deal_text if deal_text else '가격 정보 없음'
