@@ -58,7 +58,7 @@ export default function MarkerInfo() {
     };
 
     return (
-        <div className="rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md shadow-xl p-6" style={{ height: '500px' }}>
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6" style={{ height: '500px' }}>
             <h3 className="text-lg font-bold mb-4 text-slate-800">주변 시설 정보</h3>
 
             <div className="space-y-6">
@@ -66,7 +66,7 @@ export default function MarkerInfo() {
                     <div
                         key={marker.id}
                         onClick={handleClick}
-                        className="flex items-center gap-4 p-4 rounded-xl hover:bg-white/60 transition-colors border border-white/40 cursor-pointer"
+                        className="flex items-center gap-4 p-4 rounded-xl hover:bg-slate-50 transition-colors border border-slate-100 cursor-pointer"
                     >
                         <div className="flex-shrink-0">
                             <img

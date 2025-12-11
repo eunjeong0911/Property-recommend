@@ -26,6 +26,8 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { sendChatQuestion } from '../api/chatApi'
+import ReactMarkdown from 'react-markdown'
 
 interface Message {
   id: string
@@ -162,14 +164,13 @@ export default function Chatbot() {
     setIsLoading(true)
 
     try {
-      // AI 응답 시뮬레이션 (실제로는 API 호출)
-      // TODO: LangGraph API 엔드포인트로 교체 필요
-      await new Promise(resolve => setTimeout(resolve, 1500))
+      // Real API call - currentSessionId 전달하여 후속 질문 컨텍스트 유지
+      const answer = await sendChatQuestion(inputValue.trim(), currentSessionId || undefined)
 
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'ai',
-        content: '안녕하세요! 부동산 관련 질문에 답변드리겠습니다. 무엇을 도와드릴까요?',
+        content: answer,
         timestamp: new Date()
       }
 
@@ -259,51 +260,83 @@ export default function Chatbot() {
 
   return (
     <div className="fixed bottom-6 right-6 z-50">
-      {/* 챗봇 아이콘 */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
+      {/* 챗봇 플로팅 버튼 - 화려한 디자인 */}
+      <div
         className={`
-          w-14 h-14 rounded-full bg-blue-600 text-white shadow-lg
-          flex items-center justify-center
-          hover:bg-blue-700 transition-all duration-300
-          ${isOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'}
+          flex flex-col items-end gap-2
+          transition-all duration-300
+          ${isOpen ? 'scale-0 opacity-0 pointer-events-none' : 'scale-100 opacity-100'}
         `}
-        aria-label="챗봇 열기"
       >
-        <svg
-          className="w-7 h-7"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
+        {/* 말풍선 문구 */}
+        <div className="relative animate-bounce-slow">
+          <div className="bg-gradient-to-r from-purple-600 via-blue-600 to-cyan-500 text-white px-4 py-2 rounded-2xl shadow-lg text-sm font-semibold whitespace-nowrap">
+            <span className="mr-1">✨</span>
+            취향저격 AI 매물추천
+            <span className="ml-1">🏠</span>
+          </div>
+          {/* 말풍선 꼬리 */}
+          <div className="absolute -bottom-2 right-6 w-4 h-4 bg-gradient-to-br from-blue-600 to-cyan-500 rotate-45 rounded-sm"></div>
+        </div>
+        
+        {/* 챗봇 아이콘 버튼 */}
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="
+            relative w-16 h-16 rounded-full
+            bg-gradient-to-br from-purple-600 via-blue-600 to-cyan-500
+            text-white shadow-2xl
+            flex items-center justify-center
+            hover:scale-110 hover:shadow-purple-500/50
+            transition-all duration-300
+            group
+          "
+          aria-label="챗봇 열기"
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-          />
-        </svg>
-      </button>
+          {/* 글로우 이펙트 */}
+          <div className="absolute inset-0 rounded-full bg-gradient-to-br from-purple-400 via-blue-400 to-cyan-400 opacity-0 group-hover:opacity-50 blur-xl transition-opacity duration-300"></div>
+          {/* 펄스 링 애니메이션 */}
+          <div className="absolute inset-0 rounded-full border-2 border-white/30 animate-ping"></div>
+          <div className="absolute inset-[-4px] rounded-full border-2 border-purple-400/50 animate-pulse"></div>
+          {/* 아이콘 */}
+          <svg
+            className="w-8 h-8 relative z-10 drop-shadow-lg"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+            />
+          </svg>
+          {/* 스파클 이펙트 */}
+          <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full animate-pulse shadow-lg shadow-yellow-400/50"></div>
+        </button>
+      </div>
 
       {/* 챗봇 창 */}
       <div
         className={`
           absolute bottom-0 right-0
-          w-96 h-[600px] bg-white rounded-lg shadow-2xl
-          flex flex-col
+          w-[500px] h-[650px] rounded-2xl shadow-2xl
+          flex flex-col overflow-hidden
           transition-all duration-300 ease-in-out
+          border border-white/20
           ${isOpen
             ? 'scale-100 opacity-100 pointer-events-auto'
             : 'scale-0 opacity-0 pointer-events-none origin-bottom-right'
           }
         `}
       >
-        {/* 헤더 */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-blue-600 text-white rounded-t-lg">
+        {/* 헤더 - 그라데이션 적용 */}
+        <div className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-600 via-blue-600 to-cyan-500 text-white">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowSidebar(!showSidebar)}
-              className="hover:bg-blue-700 rounded-lg p-1 transition-colors"
+              className="hover:bg-white/20 rounded-lg p-1.5 transition-colors"
               aria-label="대화 목록"
               title="대화 목록 토글"
             >
@@ -321,13 +354,13 @@ export default function Chatbot() {
                 />
               </svg>
             </button>
-            <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-            <h3 className="font-semibold">AI 부동산 상담</h3>
+            <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse shadow-lg shadow-green-400/50"></div>
+            <h3 className="font-bold text-lg">🏠 AI 매물 상담</h3>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={handleNewChat}
-              className="hover:bg-blue-700 rounded-lg px-2 py-1 transition-colors text-sm"
+              className="hover:bg-white/20 rounded-lg px-2 py-1.5 transition-colors text-sm"
               aria-label="새 채팅"
               title="새 채팅"
             >
@@ -347,7 +380,7 @@ export default function Chatbot() {
             </button>
             <button
               onClick={() => setIsOpen(false)}
-              className="hover:bg-blue-700 rounded-full p-1 transition-colors"
+              className="hover:bg-white/20 rounded-full p-1.5 transition-colors"
               aria-label="챗봇 닫기"
             >
               <svg
@@ -436,11 +469,28 @@ export default function Chatbot() {
         {/* 대화창 */}
         <div
           ref={chatContainerRef}
-          className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50"
+          className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-slate-50 to-blue-50/30"
         >
           {messages.length === 0 ? (
-            <div className="text-center text-gray-500 mt-8">
-              <p>안녕하세요! 무엇을 도와드릴까요?</p>
+            <div className="text-center mt-8 space-y-4">
+              <div className="w-20 h-20 mx-auto bg-gradient-to-br from-purple-100 to-blue-100 rounded-full flex items-center justify-center">
+                <span className="text-4xl">🏠</span>
+              </div>
+              <div>
+                <p className="text-lg font-semibold text-slate-700">안녕하세요!</p>
+                <p className="text-slate-500 text-sm mt-1">AI 매물 상담사가 도와드릴게요</p>
+              </div>
+              <div className="flex flex-wrap justify-center gap-2 mt-4">
+                {['강남 원룸 추천해줘', '전세 매물 알려줘', '교통 좋은 곳 어디야?'].map((suggestion, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setInputValue(suggestion)}
+                    className="px-3 py-1.5 bg-white border border-purple-200 text-purple-600 rounded-full text-xs hover:bg-purple-50 hover:border-purple-300 transition-colors"
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
             </div>
           ) : (
             messages.map((message) => (
@@ -451,16 +501,31 @@ export default function Chatbot() {
                 <div className={`max-w-[80%] ${message.type === 'ai' ? 'space-y-2' : ''}`}>
                   <div
                     className={`
-                      rounded-lg p-3 shadow-sm
+                      rounded-2xl p-3 shadow-sm
                       ${message.type === 'user'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-white text-gray-800 border border-gray-200'
+                        ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
+                        : 'bg-white text-gray-800 border border-gray-100 shadow-md'
                       }
                     `}
                   >
-                    <p className="text-sm whitespace-pre-wrap break-words">
-                      {message.content}
-                    </p>
+                    {message.type === 'ai' ? (
+                      <div className="prose prose-sm max-w-none text-gray-800">
+                        <ReactMarkdown
+                          components={{
+                            strong: ({children}) => <span className="font-bold text-purple-700">{children}</span>,
+                            p: ({children}) => <p className="mb-2 last:mb-0">{children}</p>,
+                            ul: ({children}) => <ul className="list-disc pl-4 mb-2 space-y-1">{children}</ul>,
+                            li: ({children}) => <li className="text-sm">{children}</li>,
+                          }}
+                        >
+                          {message.content}
+                        </ReactMarkdown>
+                      </div>
+                    ) : (
+                      <p className="text-sm whitespace-pre-wrap break-words">
+                        {message.content}
+                      </p>
+                    )}
                     <p
                       className={`
                         text-xs mt-1
@@ -536,14 +601,14 @@ export default function Chatbot() {
           {/* 로딩 상태 표시 */}
           {isLoading && (
             <div className="flex justify-start">
-              <div className="bg-white text-gray-800 border border-gray-200 rounded-lg p-3 shadow-sm">
-                <div className="flex items-center gap-2">
+              <div className="bg-white text-gray-800 border border-gray-100 rounded-2xl p-4 shadow-md">
+                <div className="flex items-center gap-3">
                   <div className="flex gap-1">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                    <div className="w-2.5 h-2.5 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                    <div className="w-2.5 h-2.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                    <div className="w-2.5 h-2.5 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                   </div>
-                  <span className="text-sm text-gray-500">입력 중...</span>
+                  <span className="text-sm text-slate-500 font-medium">AI가 답변을 준비 중...</span>
                 </div>
               </div>
             </div>
@@ -554,30 +619,31 @@ export default function Chatbot() {
         </div>
 
         {/* 입력창 */}
-        <div className="p-4 border-t border-gray-200 bg-white rounded-b-lg">
+        <div className="p-4 border-t border-gray-100 bg-white">
           <div className="flex gap-2">
             <input
               type="text"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="메시지를 입력하세요..."
+              placeholder="궁금한 매물 정보를 물어보세요..."
               disabled={isLoading}
               className="
-                flex-1 px-4 py-2 border border-gray-300 rounded-lg
-                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                flex-1 px-4 py-3 border border-gray-200 rounded-xl
+                focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent
                 disabled:bg-gray-100 disabled:cursor-not-allowed
-                text-sm
+                text-sm bg-gray-50
               "
             />
             <button
               onClick={handleSendMessage}
               disabled={!inputValue.trim() || isLoading}
               className="
-                px-4 py-2 bg-blue-600 text-white rounded-lg
-                hover:bg-blue-700 transition-colors
-                disabled:bg-gray-300 disabled:cursor-not-allowed
-                font-medium text-sm
+                px-5 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl
+                hover:from-purple-700 hover:to-blue-700 transition-all
+                disabled:from-gray-300 disabled:to-gray-300 disabled:cursor-not-allowed
+                font-semibold text-sm shadow-lg shadow-purple-500/25
+                hover:shadow-purple-500/40
               "
               aria-label="메시지 전송"
             >

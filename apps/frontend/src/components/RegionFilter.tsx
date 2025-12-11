@@ -101,18 +101,18 @@ export default function RegionFilter({
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-      {showTitle && <h3 className="text-lg font-semibold text-gray-900 mb-4">지역 필터</h3>}
+    <div className="bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md rounded-2xl border-2 border-white/40 shadow-lg p-4 mb-6">
+      {showTitle && <h3 className="text-base font-semibold text-slate-800 mb-3">지역 필터</h3>}
 
-      <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 ${showButtons ? 'mb-4' : ''}`}>
+      <div className={`grid grid-cols-1 md:grid-cols-3 gap-3 ${showButtons ? 'mb-3' : ''}`}>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-xs font-medium text-slate-700 mb-1.5">
             자치구
           </label>
           <select
             value={region}
             onChange={(e) => handleRegionChange(e.target.value)}
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-white/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/60 backdrop-blur-sm text-slate-700"
           >
             <option value="">전체</option>
             {Object.keys(SEOUL_DONGS).map((regionName) => (
@@ -124,13 +124,13 @@ export default function RegionFilter({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-xs font-medium text-slate-700 mb-1.5">
             행정동
           </label>
           <select
             value={dong}
             onChange={(e) => handleDongChange(e.target.value)}
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-white/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/60 backdrop-blur-sm text-slate-700 disabled:bg-white/30 disabled:text-slate-400"
             disabled={!region}
           >
             <option value="">전체</option>
@@ -143,7 +143,7 @@ export default function RegionFilter({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-xs font-medium text-slate-700 mb-1.5">
             단지명
           </label>
           <input
@@ -151,7 +151,7 @@ export default function RegionFilter({
             value={complexName}
             onChange={(e) => handleComplexNameChange(e.target.value)}
             placeholder="단지명 입력"
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-white/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/60 backdrop-blur-sm text-slate-700 placeholder-slate-400"
           />
         </div>
       </div>

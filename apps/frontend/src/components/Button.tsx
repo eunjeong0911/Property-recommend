@@ -11,6 +11,8 @@
 
 'use client'
 
+import { useParticleEffect } from '../hooks/useParticleEffect'
+
 interface ButtonProps {
   children: React.ReactNode
   onClick?: (e?: React.MouseEvent<HTMLButtonElement>) => void
@@ -32,20 +34,29 @@ export default function Button({
   type = 'button',
   className = ''
 }: ButtonProps) {
+  const { triggerEffect } = useParticleEffect()
+
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (!disabled) {
+      triggerEffect(e.currentTarget)
+      onClick?.(e)
+    }
+  }
+
   // Variant 스타일
   const variantStyles = {
-    primary: 'bg-blue-500 text-white hover:bg-blue-600 disabled:bg-gray-300',
-    secondary: 'bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:bg-gray-100',
-    danger: 'bg-red-500 text-white hover:bg-red-600 disabled:bg-gray-300',
-    ghost: 'bg-transparent text-gray-700 hover:bg-gray-100 disabled:text-gray-400',
-    outline: 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:bg-gray-100'
+    primary: 'bg-blue-600 border-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.6)] ring-2 ring-blue-300 hover:bg-blue-700 disabled:bg-gray-300 disabled:shadow-none disabled:ring-0 disabled:border-transparent',
+    secondary: 'bg-white/50 border-white/40 text-slate-600 hover:bg-white/80 hover:border-white/80 border-2 backdrop-blur-sm disabled:bg-gray-100 disabled:text-gray-400 disabled:border-transparent',
+    danger: 'bg-red-500 border-red-400 text-white hover:bg-red-600 shadow-[0_0_15px_rgba(239,68,68,0.6)] ring-2 ring-red-300 disabled:bg-gray-300 disabled:shadow-none disabled:ring-0 disabled:border-transparent',
+    ghost: 'bg-transparent text-slate-600 hover:bg-white/30 disabled:text-gray-400',
+    outline: 'bg-transparent border-2 border-slate-300 text-slate-600 hover:border-slate-400 hover:bg-slate-50 disabled:border-gray-200 disabled:text-gray-400'
   }
 
   // Size 스타일
   const sizeStyles = {
-    sm: 'px-3 py-1.5 text-sm',
-    md: 'px-4 py-2 text-base',
-    lg: 'px-6 py-3 text-lg'
+    sm: 'px-2 py-1 text-xs',
+    md: 'px-3 py-1.5 text-sm',
+    lg: 'px-4 py-2 text-base'
   }
 
   // Width 스타일
@@ -54,14 +65,15 @@ export default function Button({
   return (
     <button
       type={type}
-      onClick={onClick}
+      onClick={handleClick}
       disabled={disabled}
       className={`
         ${variantStyles[variant]}
         ${sizeStyles[size]}
         ${widthStyle}
-        rounded-lg font-medium transition-colors
+        rounded-full font-medium transition-all duration-200
         disabled:cursor-not-allowed
+        flex items-center justify-center gap-2
         ${className}
       `}
     >
