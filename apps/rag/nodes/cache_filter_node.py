@@ -309,10 +309,15 @@ def _fetch_sql_details(property_ids: list) -> list:
         cursor = conn.cursor()
         placeholders = ','.join(['%s'] * len(property_ids))
         cursor.execute(f"""
-            SELECT id as land_id, listing_id as land_num, title, address, url, images,
-                   address_info, trade_info, listing_info, additional_options, description,
-                   agent_info, 0 as like_count, 0 as view_count, 'm' as distance_unit
-            FROM listings WHERE listing_id = ANY(%s::text[])
+            SELECT l.land_id, l.land_num, l.building_type, l.address, l.deal_type,
+                   l.deposit, l.monthly_rent, l.jeonse_price, l.sale_price,
+                   l.url, l.trade_info, l.listing_info, l.additional_options, 
+                   l.description, l.agent_info, l.like_count, l.view_count, 'm' as distance_unit,
+                   COALESCE(
+                       (SELECT array_agg(img_url) FROM land_image WHERE land_id = l.land_id),
+                       ARRAY[]::varchar[]
+                   ) as images
+            FROM land l WHERE l.land_num = ANY(%s::text[])
         """, (property_ids,))
         columns = [desc[0] for desc in cursor.description]
         results = [dict(zip(columns, row)) for row in cursor.fetchall()]
