@@ -1,78 +1,43 @@
-# 🏠 부동산 RAG 챗봇 시스템 가이드
+# 🏠 부동산 RAG 챗봇 실행 가이드
 
 ## 📋 목차
 
-1. [사전 요구 사항](#사전-요구-사항)
-2. [프로젝트 시작하기](#프로젝트-시작하기)
-3. [데이터 Import](#데이터-import)
-4. [서비스 시작](#서비스-시작)
-5. [챗봇 사용](#챗봇-사용)
-6. [문제 해결](#문제-해결)
+1. [데이터 Import](#1-데이터-import)
+2. [챗봇 실행 및 테스트](#2-챗봇-실행-및-테스트)
+3. [문제 해결](#3-문제-해결)
 
 ---
 
-## 사전 요구 사항
+## 1. 데이터 Import
 
-- **Docker Desktop** 설치 및 실행
-- **Git** 설치
-- `.env` 파일 설정 (OpenAI API Key 필수)
+### 1-1. 데이터베이스 서비스 시작
 
-```bash
-# .env 파일 필수 항목
-OPENAI_API_KEY=sk-...
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
-POSTGRES_DB=realestate
-NEO4J_AUTH=neo4j/password
-```
-
----
-
-## 프로젝트 시작하기
-
-### 1. 저장소 클론
+> ⚠️ **중요**: 데이터 Import 전에 DB 서비스가 완전히 시작되어야 합니다.
 
 ```bash
-git clone https://github.com/SKNETWORKS-FAMILY-AICAMP/SKN18-FINAL-1TEAM.git
-cd SKN18-FINAL-1TEAM
-```
-
-### 2. 환경 변수 설정
-
-```bash
-# .env.example을 복사하여 .env 파일 생성
-cp .env.example .env
-
-# .env 파일 편집하여 API 키 입력
-```
-
----
-
-## 데이터 Import
-
-### Step 1: 데이터베이스 서비스 시작
-
-```bash
+# PostgreSQL, Neo4j, Redis 시작
 docker-compose up -d postgres neo4j redis
 ```
 
-### Step 2: 데이터베이스 준비 대기 (약 30초)
+### 1-2. DB 준비 상태 확인 (약 30초 대기)
 
 ```bash
-# PostgreSQL 상태 확인
+# PostgreSQL 준비 확인
 docker-compose logs postgres --tail 5
+# "database system is ready to accept connections" 메시지 확인
 
-# Neo4j 상태 확인
+# Neo4j 준비 확인
 docker-compose logs neo4j --tail 5
+# "Started." 메시지 확인
 ```
 
-### Step 3: 데이터 Import 실행
+### 1-3. Import 스크립트 실행
 
 ```bash
 docker-compose --profile scripts run scripts python -m data_import.main
 ```
 
-**Import 결과 (정상 시):**
+### 1-4. Import 성공 확인
 
 ```
 ======================================================================
@@ -85,23 +50,31 @@ docker-compose --profile scripts run scripts python -m data_import.main
 ✓ 모든 데이터 Import가 성공적으로 완료되었습니다!
 ```
 
+### 1-5. 데이터 확인 (선택)
+
+```bash
+# PostgreSQL 매물 수 확인
+docker-compose exec postgres psql -U postgres -d realestate -c "SELECT COUNT(*) FROM land;"
+# 결과: 9914
+```
+
 ---
 
-## 서비스 시작
+## 2. 챗봇 실행 및 테스트
 
-### 전체 서비스 시작
+### 2-1. 전체 서비스 시작
 
 ```bash
 docker-compose up -d
 ```
 
-### 서비스 상태 확인
+### 2-2. 서비스 상태 확인
 
 ```bash
 docker-compose ps
 ```
 
-**정상 상태:**
+**모든 서비스가 `Up` 상태여야 합니다:**
 
 ```
 NAME                        STATUS
@@ -113,47 +86,62 @@ skn18-final-1team-rag       Up
 skn18-final-1team-redis     Up (healthy)
 ```
 
+### 2-3. 웹 브라우저 접속
+
+| 서비스         | URL                   | 설명            |
+| -------------- | --------------------- | --------------- |
+| **프론트엔드** | http://localhost:3000 | 챗봇 UI         |
+| 백엔드 API     | http://localhost:8000 | Django REST API |
+| RAG API        | http://localhost:8001 | 챗봇 엔진       |
+| Neo4j Browser  | http://localhost:7474 | Graph DB 관리   |
+
+### 2-4. 챗봇 테스트 질문
+
+**위치 기반 검색:**
+
+```
+"홍대역 근처 원룸 추천해줘"
+"강남역 도보 10분 거리 오피스텔"
+"서울대학교 근처 자취방"
+```
+
+**가격 조건 검색:**
+
+```
+"보증금 3000만원 이하 월세 50만원 이하"
+"전세 2억 이하 아파트"
+"매매 5억 이하 빌라"
+```
+
+**편의시설 조건:**
+
+```
+"편의점 가까운 원룸"
+"병원 근처 오피스텔"
+"공원 가까운 신축"
+```
+
+**안전 시설 조건:**
+
+```
+"CCTV 많은 동네"
+"경찰서 가까운 안전한 곳"
+```
+
+**복합 조건:**
+
+```
+"홍대역 근처 보증금 5000만원 이하 편의점 가까운 원룸"
+```
+
 ---
 
-## 챗봇 사용
+## 3. 문제 해결
 
-### 1. 웹 브라우저 접속
-
-- **프론트엔드**: http://localhost:3000
-- **백엔드 API**: http://localhost:8000
-- **RAG API**: http://localhost:8001
-
-### 2. 챗봇 질문 예시
-
-```
-"홍대역 근처 보증금 5000만원 이하 원룸 찾아줘"
-"강남역 도보 10분 거리 전세 아파트"
-"편의점 가까운 신축 오피스텔"
-"CCTV 많은 안전한 동네 월세 추천"
-```
-
-### 3. 챗봇 작동 방식
-
-```
-1. 사용자 질문 입력
-   ↓
-2. Neo4j에서 위치 기반 매물 검색
-   ↓
-3. PostgreSQL에서 상세 정보 조회 + 가격 필터링
-   ↓
-4. GPT-4o-mini로 자연어 답변 생성
-   ↓
-5. 매물 추천 결과 표시
-```
-
----
-
-## 문제 해결
-
-### 매물 목록이 로드되지 않는 경우
+### 3-1. 매물 목록이 안 보일 때
 
 ```bash
-# 1. 볼륨 완전 삭제 후 재시작
+# 1. 전체 중지 + 볼륨 삭제
 docker-compose down -v
 
 # 2. DB 서비스 먼저 시작
@@ -166,63 +154,34 @@ docker-compose --profile scripts run scripts python -m data_import.main
 docker-compose up -d
 ```
 
-### 로그 확인
+### 3-2. 특정 서비스 재시작
 
 ```bash
-# 백엔드 로그
-docker-compose logs backend --tail 50
-
-# RAG 로그
-docker-compose logs rag --tail 50
-
-# 전체 로그 (실시간)
-docker-compose logs -f
+docker-compose restart backend   # 백엔드만
+docker-compose restart rag       # RAG만
 ```
 
-### 서비스 재시작
+### 3-3. 로그 확인
 
 ```bash
-# 특정 서비스 재시작
-docker-compose restart backend
-
-# 전체 재시작
-docker-compose restart
+docker-compose logs backend --tail 30   # 백엔드 로그
+docker-compose logs rag --tail 30       # RAG 로그
+docker-compose logs -f                  # 실시간 전체 로그
 ```
 
 ---
 
-## 데이터베이스 스키마
+## 📌 빠른 시작 요약
 
-### PostgreSQL (land 테이블)
+```bash
+# 1. DB 시작
+docker-compose up -d postgres neo4j redis
 
-| 컬럼          | 타입         | 설명          |
-| ------------- | ------------ | ------------- |
-| land_id       | SERIAL       | PK            |
-| land_num      | VARCHAR(20)  | 매물번호      |
-| building_type | VARCHAR(20)  | 건물형태      |
-| address       | VARCHAR(200) | 주소          |
-| deal_type     | VARCHAR(30)  | 거래유형      |
-| deposit       | INT          | 보증금 (만원) |
-| monthly_rent  | INT          | 월세 (만원)   |
-| jeonse_price  | INT          | 전세가 (만원) |
-| sale_price    | INT          | 매매가 (만원) |
+# 2. 30초 대기 후 데이터 Import
+docker-compose --profile scripts run scripts python -m data_import.main
 
-### Neo4j (Graph Database)
+# 3. 전체 서비스 시작
+docker-compose up -d
 
-- **Property**: 매물 노드 (id, 좌표)
-- **SubwayStation**: 지하철역
-- **NEAR_SUBWAY**: 매물-지하철역 관계
-
----
-
-## 포트 정리
-
-| 서비스        | 포트 | 용도        |
-| ------------- | ---- | ----------- |
-| Frontend      | 3000 | 웹 UI       |
-| Backend       | 8000 | Django API  |
-| RAG           | 8001 | 챗봇 API    |
-| PostgreSQL    | 5432 | RDB         |
-| Neo4j Browser | 7474 | Graph DB UI |
-| Neo4j Bolt    | 7687 | Graph DB    |
-| Redis         | 6379 | 캐시        |
+# 4. 브라우저 접속: http://localhost:3000
+```
