@@ -14,7 +14,7 @@ def trust_score(df: pd.DataFrame) -> pd.DataFrame:
     3. LCB (Lower Confidence Bound) 적용 -> 신뢰도점수
     4. 점수 기반 등급화 (0: 하, 1: 중, 2: 상) -> 신뢰등급
     """
-    print("\n[Feature Engineering] Calculating Trust Score...")
+    print("\n[피처 엔지니어링] 신뢰도 점수 계산 중...")
     
     # 1. 기본 통계량
     df["거래완료비율"] = df["거래완료"] / df["총매물수"]
@@ -26,8 +26,8 @@ def trust_score(df: pd.DataFrame) -> pd.DataFrame:
     # m: 보정 임계값 (중위 매물 수)
     m = df["총매물수"].median()
     
-    print(f"   - Global Mean (C): {C:.4f}")
-    print(f"   - Threshold (m): {m:.1f}")
+    print(f"   - 전체 평균 거래율 (C): {C:.4f}")
+    print(f"   - 임계값 (m): {m:.1f}")
     
     # 3. 베이지안 보정 평균 계산
     # formula: (count / (count + m)) * mean + (m / (count + m)) * C
@@ -44,10 +44,10 @@ def trust_score(df: pd.DataFrame) -> pd.DataFrame:
     # qcut을 사용하여 균등 분포로 나눔 (0: 하위 33%, 1: 중위 33%, 2: 상위 33%)
     try:
         df["신뢰등급"] = pd.qcut(df["신뢰도점수"], q=3, labels=[0, 1, 2])
-        print("   - Target generated: '신뢰등급' (3 quantile classes)")
+        print("   - 타겟 생성 완료: '신뢰등급' (3등급 분할)")
         print(df["신뢰등급"].value_counts())
     except Exception as e:
-        print(f"   [Warning] qcut failed, using standard dev binning. Error: {e}")
+        print(f"   [주의] qcut 실패, 표준편차 기반으로 분할합니다. 에러: {e}")
         # fallback: std 기반
         mean_score = df["신뢰도점수"].mean()
         std_score = df["신뢰도점수"].std()
@@ -61,14 +61,12 @@ def preprocess_features(df: pd.DataFrame):
     """
     학습에 사용할 피처 선택 및 전처리
     """
-    print("\n[Feature Engineering] Selecting Features...")
+    print("\n[피처 엔지니어링] 학습 피처 선택 중...")
     
     features = [
         "총매물수", 
         "거래완료", 
         "등록매물",
-        "거래완료비율",      # transaction_ratio
-        "베이지안_보정점수",  # bayesian_score
     ]
     
     # X: Features
@@ -90,17 +88,17 @@ def main(df: pd.DataFrame):
     # 2. 피처 선택
     X, y, feature_names = preprocess_features(df)
     
-    print("\n=== Feature Engineering Complete ===")
-    print(f"- Feature Shape: {X.shape}")
-    print(f"- Target Shape: {y.shape}")
-    print(f"- Feature Names: {feature_names}")
+    print("\n=== 피처 엔지니어링 완료 ===")
+    print(f"- 피처(X) 형태: {X.shape}")
+    print(f"- 타겟(y) 형태: {y.shape}")
+    print(f"- 피처 이름 목록: {feature_names}")
     
     return df, X, y, feature_names
 
 if __name__ == "__main__":
     from _00_load_data import load_processed_office_data
     
-    print("=== Testing Feature Engineering Module ===")
+    print("=== 피처 엔지니어링 모듈 테스트 ===")
     
     # 1. 데이터 로드
     raw_df = load_processed_office_data()
@@ -109,11 +107,11 @@ if __name__ == "__main__":
     df_processed, X, y, features = main(raw_df)
     
     # 3. 결과 검증 출력
-    print("\n[Verification] Generated Columns Sample:")
+    print("\n[검증] 생성된 컬럼 샘플 (거래완료비율, 베이지안, 신뢰도, 등급):")
     print(df_processed[["거래완료비율", "베이지안_보정점수", "신뢰도점수", "신뢰등급"]].head(10))
     
-    print("\n[Verification] Class Distribution:")
+    print("\n[검증] 클래스(등급) 분포:")
     print(y.value_counts().sort_index())
     
-    print("\n[Verification] Feature Matrix Sample:")
+    print("\n[검증] 최종 학습용 피처 매트릭스 샘플:")
     print(X.head())
