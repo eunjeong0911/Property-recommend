@@ -3,7 +3,6 @@ from pathlib import Path
 
 BASE_DIR = Path(r"C:\dev\SKN18-FINAL-1TEAM\apps\reco\models\price_model\data")
 
-
 # -------------------------------
 # 1) 월세 데이터 전처리 함수
 # -------------------------------
@@ -75,7 +74,6 @@ def load_rate_table(path: Path, id_col: str) -> pd.DataFrame:
 
     return rate_pivot
 
-
 # -------------------------------
 # 3) 한국은행 기준금리 로드 함수
 # -------------------------------
@@ -96,7 +94,6 @@ def load_base_rate(path: Path) -> pd.DataFrame:
     base = base.rename(columns={"값": "기준금리"})
     base["기준금리"] = pd.to_numeric(base["기준금리"], errors="coerce")
     return base
-
 
 # -------------------------------
 # 4) 실행 파트
@@ -152,8 +149,7 @@ if __name__ == "__main__":
     # Train/Test Split
     # -------------------------------
     # Train: 2024-01 ~ 2025-08
-    train_months = [f"2024-{m:02d}" for m in range(1, 13)] + \
-                   [f"2025-{m:02d}" for m in range(1, 9)]
+    train_months = [f"2024-{m:02d}" for m in range(1, 13)] + [f"2025-{m:02d}" for m in range(1, 9)]
 
     # Test: 2025-09 ~ 2025-10
     test_months = ["2025-09", "2025-10"]
