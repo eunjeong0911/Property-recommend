@@ -51,27 +51,36 @@ class Config:
     POSTGRES_USER = os.getenv("POSTGRES_USER", "postgres")
     POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "postgres")
     
-    # Kakao API 설정
+    # Kakao API 설정 (선택사항)
+    # 참고: 현재 import 스크립트는 Geocoding을 사용하지 않습니다.
+    # 모든 좌표 데이터는 CSV/JSON 파일에 미리 포함되어 있습니다.
+    # 이 키는 향후 새로운 데이터 추가 시에만 필요합니다.
     KAKAO_API_KEY = os.getenv("KAKAO_API_KEY")
     
     # 경로 설정 (Docker 환경 자동 감지)
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     
-    # Docker 환경에서는 /GraphDB_data, 로컬에서는 상대 경로
-    if os.path.exists("/GraphDB_data"):
-        DATA_DIR = "/GraphDB_data"
-        print("Docker 환경 감지: /GraphDB_data 사용")
+    # Docker 환경에서는 /data/GraphDB_data, 로컬에서는 data/GraphDB_data
+    if os.path.exists("/data/GraphDB_data"):
+        DATA_DIR = "/data/GraphDB_data"
+        print("Docker 환경 감지: /data/GraphDB_data 사용")
     else:
-        DATA_DIR = os.path.join(BASE_DIR, "GraphDB_data")
+        DATA_DIR = os.path.join(BASE_DIR, "data", "GraphDB_data")
         print(f"로컬 환경 감지: {DATA_DIR} 사용")
     
     @classmethod
     def validate_kakao_api_key(cls):
-        """Kakao API 키 검증 (지오코딩 사용 시 필요)"""
+        """
+        Kakao API 키 검증 (선택사항)
+        
+        참고: 현재 import 프로세스에서는 필요하지 않습니다.
+        모든 좌표는 데이터 파일에 미리 포함되어 있습니다.
+        새로운 주소의 좌표를 얻어야 할 때만 필요합니다.
+        """
         if not cls.KAKAO_API_KEY:
-            print("\n⚠ 경고: KAKAO_API_KEY가 설정되지 않았습니다")
-            print("  지오코딩 기능이 작동하지 않습니다")
-            print("  .env 파일에 KAKAO_API_KEY를 추가하세요")
-            print("  Kakao Developers (https://developers.kakao.com)에서 API 키를 발급받을 수 있습니다\n")
+            print("\n⚠ 참고: KAKAO_API_KEY가 설정되지 않았습니다")
+            print("  현재 import에는 영향 없습니다 (좌표는 이미 데이터에 포함됨)")
+            print("  새로운 주소 geocoding이 필요한 경우에만 .env에 추가하세요")
+            print("  Kakao Developers (https://developers.kakao.com)에서 API 키 발급 가능\n")
             return False
         return True

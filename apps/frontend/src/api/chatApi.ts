@@ -1,11 +1,14 @@
-export const sendChatQuestion = async (question: string): Promise<string> => {
+export const sendChatQuestion = async (question: string, sessionId?: string): Promise<string> => {
   try {
     const response = await fetch('http://localhost:8001/query', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ question }),
+      body: JSON.stringify({ 
+        question,
+        session_id: sessionId || undefined  // 세션 ID 전달
+      }),
     });
 
     if (!response.ok) {

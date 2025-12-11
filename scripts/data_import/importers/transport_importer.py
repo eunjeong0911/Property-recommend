@@ -56,7 +56,7 @@ class TransportImporter:
                 session.run(query, batch=batch)
                 
             print("Finished importing Subway Stations.")
-            # self._link_subway(session)
+            self._link_subway_logic(session)
 
     def link_subway(self):
         with self.driver.session() as session:
@@ -71,8 +71,8 @@ class TransportImporter:
             MATCH (s:SubwayStation)
             WHERE point.distance(p.location, s.location) < 1500
             MERGE (p)-[r:NEAR_SUBWAY]->(s)
-            SET r.distance = point.distance(p.location, s.location),
-                r.walking_time = (point.distance(p.location, s.location) * 1.3) / 80
+            SET r.distance = toInteger(round(point.distance(p.location, s.location))),
+                r.walking_time = toInteger(round((point.distance(p.location, s.location) * 1.3) / 80))
         } IN TRANSACTIONS OF 1000 ROWS
         """
         session.run(query)
@@ -123,7 +123,7 @@ class TransportImporter:
                 session.run(query, batch=batch)
                 
             print("Finished importing Bus Stations.")
-            # self._link_bus(session)
+            self._link_bus_logic(session)
 
     def link_bus(self):
         with self.driver.session() as session:
@@ -138,8 +138,8 @@ class TransportImporter:
             MATCH (b:BusStation)
             WHERE point.distance(p.location, b.location) < 200
             MERGE (p)-[r:NEAR_BUS]->(b)
-            SET r.distance = point.distance(p.location, b.location),
-                r.walking_time = (point.distance(p.location, b.location) * 1.3) / 80
+            SET r.distance = toInteger(round(point.distance(p.location, b.location))),
+                r.walking_time = toInteger(round((point.distance(p.location, b.location) * 1.3) / 80))
         } IN TRANSACTIONS OF 1000 ROWS
         """
         session.run(query)

@@ -1,4 +1,5 @@
 from common.state import RAGState
+import json
 
 def generate(state: RAGState) -> RAGState:
     from langchain_openai import ChatOpenAI
@@ -8,142 +9,325 @@ def generate(state: RAGState) -> RAGState:
     question = state["question"]
     graph_results = state.get("graph_results", [])
     sql_results = state.get("sql_results", [])
+    search_context = state.get("search_context")
+    use_cache = state.get("use_cache", False)
     
-    print(f"[Generate] graph_results type: {type(graph_results)}")
-    print(f"[Generate] sql_results count: {len(sql_results) if sql_results else 0}")
+    print(f"\n{'='*60}")
+    print(f"[Generate] 🚀 Starting answer generation...")
+    print(f"[Generate] 📝 Question: {question}")
+    print(f"[Generate] 📊 Graph results count: {len(graph_results) if isinstance(graph_results, list) else 1}")
+    print(f"[Generate] 🗄️  SQL results count: {len(sql_results)}")
+    print(f"{'='*60}\n")
     
-    # graph_results가 딕셔너리이고 'context' 키가 있는 경우 처리
+    # Extract context list if nested
     if isinstance(graph_results, dict) and 'context' in graph_results:
         graph_results = graph_results['context']
-        print(f"[Generate] Extracted context, new length: {len(graph_results)}")
     
-    # PostgreSQL 결과를 매물번호로 인덱싱
+    # Index PostgreSQL results
+    print(f"[Generate] 🔗 Indexing PostgreSQL results...")
     sql_details = {}
     for item in sql_results:
         land_num = item.get('land_num')
         if land_num:
             sql_details[str(land_num)] = item
-            print(f"[Generate] Indexed SQL detail for land_num: {land_num}")
+    print(f"[Generate] ✓ Indexed {len(sql_details)} SQL records")
     
-    # Filter out duplicate property IDs and merge with PostgreSQL details
+    # helper to format detail list
+    def format_details(details_list):
+        if not details_list: return ""
+        
+        # Handle single dict (from head(collect(...)))
+        if isinstance(details_list, dict):
+            details_list = [details_list]
+        
+        # Ensure it's a list
+        if not isinstance(details_list, list):
+            return ""
+        
+        # details_list is list of dicts: {'name': '...', 'dist': 123.0, 'time': 1.5}
+        formatted = []
+        for d in details_list:
+            if not isinstance(d, dict):
+                continue
+            name = d.get('name', 'Facility') or 'Facility'
+            dist = d.get('dist') or 0
+            time = d.get('time') or 0
+            # Format: 'OOO (123m, 2분)'
+            formatted.append(f"{name} ({int(dist)}m, {int(time)}분)")
+        return ", ".join(formatted)
+
+    # Process and Merge Results
     unique_results = []
     seen_ids = set()
     
-    for result in graph_results:
-        # Check if result is a list (from Neo4j search)
-        if isinstance(result, list):
-            for item in result:
-                prop_id = item.get('p.id') or item.get('id')
-                if prop_id and prop_id not in seen_ids:
-                    seen_ids.add(prop_id)
-                    # PostgreSQL 상세 정보 병합
-                    merged = {**item}
-                    if str(prop_id) in sql_details:
-                        merged['postgres_details'] = sql_details[str(prop_id)]
-                        print(f"[Generate] Merged postgres_details for {prop_id}")
-                    unique_results.append(merged)
-                elif not prop_id:
-                    address = item.get('p.address') or item.get('address')
-                    if address and address not in seen_ids:
-                        seen_ids.add(address)
-                        unique_results.append(item)
-        # Check if result is a dict (single item)
-        elif isinstance(result, dict):
-            prop_id = result.get('p.id') or result.get('id')
-            if prop_id and prop_id not in seen_ids:
-                seen_ids.add(prop_id)
-                merged = {**result}
-                if str(prop_id) in sql_details:
-                    merged['postgres_details'] = sql_details[str(prop_id)]
-                    print(f"[Generate] Merged postgres_details for {prop_id}")
-                unique_results.append(merged)
-            elif not prop_id:
-                address = result.get('p.address') or result.get('address')
-                if address and address not in seen_ids:
-                    seen_ids.add(address)
-                    unique_results.append(result)
+    # Flatten if list of lists
+    raw_items = []
+    if isinstance(graph_results, list):
+         for item in graph_results:
+             if isinstance(item, list): raw_items.extend(item)
+             else: raw_items.append(item)
+    else:
+        raw_items = [graph_results]
+
+    for result in raw_items:
+        if not isinstance(result, dict): continue
+        
+        prop_id = result.get('p.id') or result.get('id')
+        
+        unique_key = prop_id
+        if unique_key and unique_key not in seen_ids:
+            seen_ids.add(unique_key)
+            merged = {**result}
+            
+            # Merge SQL details (필수! Neo4j에는 ID만 있고 주소는 PostgreSQL에 있음)
+            if prop_id and str(prop_id) in sql_details:
+                merged['postgres_details'] = sql_details[str(prop_id)]
+            else:
+                # Exclude properties that failed SQL filtering or have no details
+                continue
+
+            # --- PRE-PROCESS DETAILS FOR LLM ---
+            # Extract and format the specific detail lists returned by neo4j_search_node
+            
+            # 1. POI (Train Stations, Key Locations)
+            poi_info = format_details(result.get('poi_details', []))
+            
+            # Helper to deduplicate POI from Infrastructure
+            # If a station is already in "poi_info" (Anchor), exclude it from "trans_details" (Infra)
+            poi_names = {d.get('name') for d in result.get('poi_details', [])}
+            
+            def filter_poi(details_list):
+                 if not details_list: return []
+                 return [d for d in details_list if d.get('name') not in poi_names]
+
+            # 2. General Facilities (Convenience, Hospital, Park, Education, Pharmacy)
+            fac_summary = []
+            if result.get('med_details'): fac_summary.append(f"의료(병원): {format_details(result['med_details'])}")
+            if result.get('pharm_details'): fac_summary.append(f"약국: {format_details(result['pharm_details'])}")
+            if result.get('gen_hosp_details'): fac_summary.append(f"의료(종합/대학병원): {format_details(result['gen_hosp_details'])}")
+            if result.get('conv_details'): fac_summary.append(f"편의: {format_details(result['conv_details'])}")
+            if result.get('park_details'): fac_summary.append(f"공원: {format_details(result['park_details'])}")
+            if result.get('edu_details'): fac_summary.append(f"교육: {format_details(result['edu_details'])}")
+            
+            # [Fix]: Filter out transportation items that match the Anchor (POI) to avoid duplication
+            filtered_trans = filter_poi(result.get('trans_details'))
+            if filtered_trans: fac_summary.append(f"교통: {format_details(filtered_trans)}")
+            
+            merged['formatted_infrastructure'] = " | ".join(fac_summary)
+            
+            # 3. Safety Facilities (Dual Display)
+            # - CCTV/Bell: Count only
+            # - Police/Fire: Distance and time
+            safe_summary = []
+            
+            # Count-based facilities
+            cctv_count = result.get('cctv_count', 0)
+            bell_count = result.get('bell_count', 0)
+            if cctv_count > 0:
+                safe_summary.append(f"CCTV {cctv_count}개")
+            if bell_count > 0:
+                safe_summary.append(f"비상벨 {bell_count}개")
+            
+            # Distance-based facilities
+            police_details = result.get('police_details', [])
+            fire_details = result.get('fire_details', [])
+            if police_details:
+                safe_summary.append(f"경찰서: {format_details(police_details)}")
+            if fire_details:
+                safe_summary.append(f"소방서: {format_details(fire_details)}")
+            
+            merged['formatted_safety'] = " | ".join(safe_summary) if safe_summary else ""
+            
+            # 4. Station Info
+            merged['formatted_poi'] = poi_info
+            
+            # 5. Pre-generate detail link (확실한 링크 생성!)
+            postgres_details = merged.get('postgres_details', {})
+            land_id = postgres_details.get('land_id')
+            if land_id:
+                merged['detail_link'] = f"[📋 상세보기](/landDetail/{land_id})"
+            else:
+                merged['detail_link'] = ""
+
+            unique_results.append(merged)
     
-    # Use unique results for context
-    context = unique_results if unique_results else graph_results
-    print(f"[Generate] Final context count: {len(context)}")
+    context = unique_results
+    print(f"\n[Generate] ✅ Context merging complete!")
+    print(f"[Generate] 📝 Prepared {len(context)} unique properties for answer generation")
+    
+    # Check for zero results - return immediately without LLM call
+    if not context or len(context) == 0:
+        print(f"[Generate] ⚠️ No results found - returning 'no match' message")
+        state["answer"] = "죄송합니다. 해당 조건을 만족하는 매물이 없습니다."
+        state["full_results"] = []
+        return state
+    
+    # Store full results for Redis caching
+    full_results = context
+    
+    # Sort by price if available (Prioritize cheaper options to ensure diversity)
+    # This addresses user feedback where only the most expensive options (e.g. at the limit) were shown.
+    def price_sort_key(item):
+        details = item.get('postgres_details', {})
+        deposit = details.get('parsed_deposit') # 만원 단위
+        rent = details.get('parsed_rent', 0)    # 만원 단위
+        
+        if deposit is not None:
+            return (deposit, rent)
+        return (float('inf'), float('inf'))
+        
+    # Check if we have price data to sort by
+    has_price_data = any(item.get('postgres_details', {}).get('parsed_deposit') is not None for item in context)
+    
+    if has_price_data:
+        print("[Generate] 💰 Sorting results by price (low to high)...")
+        context.sort(key=price_sort_key)
+    
+    # Select top 3 for display
+    context_for_display = context[:3]
+    print(f"[Generate] 📊 Showing top 3 out of {len(full_results)} total results")
+    print(f"[Generate] 🤖 Sending to LLM...\n")
+
+    # 검색 컨텍스트 정보
+    context_info = ""
+    if search_context:
+        context_info = f"""
+📌 이전 검색 조건:
+- 위치: {search_context.get('location', '')}
+- 적용된 필터: {', '.join(search_context.get('criteria', []))}
+
+현재 질문은 위 조건을 기반으로 {'추가 필터링' if use_cache else '새 검색'}입니다.
+"""
 
     # Simple generation using LLM
-    llm = ChatOpenAI(model="gpt-5-mini", temperature=0)
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
     
     prompt = ChatPromptTemplate.from_template(
         """
-        다음 검색 결과를 바탕으로 사용자의 질문에 답변해 주세요.
+        당신은 유용한 부동산 AI 비서입니다. 검색 결과를 바탕으로 사용자의 질문에 친절하게 답변해 주세요.
         
-        검색 결과 (Neo4j 위치 기반 + PostgreSQL 상세 정보):
+        **중요: 예시 생성 금지**
+        검색 결과(Context)에 포함된 매물만 소개하세요. 절대로 임의로 예시를 만들거나 가상의 매물을 생성하지 마세요.
+
+        {context_info}
+
+        검색 결과 (Context):
         {context}
-
-        데이터 구조 설명:
-        - Neo4j 결과: p.id, p.address, p.bldg_type, subway_station_name, subway_station_dist 등 위치/거리 정보
-        - postgres_details: 매물의 상세 정보 (PostgreSQL Land 테이블)
-          - building_type: 건물 유형 (빌라주택, 아파트, 오피스텔, 원투룸)
-          - trade_info: 거래 정보 (거래방식, 관리비, 융자금, 입주가능일 등)
-          - listing_info: 매물 상세 (전용면적, 층수, 방/욕실 개수, 옵션 등)
-          - additional_options: 추가 옵션 (풀옵션, 엘리베이터, 주차가능 등)
-          - description: 상세 설명
-          - agent_info: 중개사 정보
-          - url: 매물 상세 페이지 URL
-
-        핵심 원칙 (Core Principles):
-        1. **PostgreSQL 상세 정보 적극 활용**
-           - postgres_details가 있으면 listing_info의 옵션, 시설, 면적 등을 답변에 포함하세요
-           - trade_info에서 정확한 가격, 관리비, 입주가능일 정보를 추출하세요
-           - additional_options에서 풀옵션, 엘리베이터, 주차 등 편의시설 정보를 표시하세요
-           
-        2. **정확성 최우선 - Hallucination 금지**
-           - 검색 결과에 없는 정보는 절대 만들어내지 마세요
-           - 확실하게 확인된 데이터만 제공하세요
-           
-        3. **CCTV/비상벨은 개수로만 표시**
-           - "반경 내 CCTV [cctv_count]대, 비상벨 [bell_count]개" 형식
-           
-        4. **시설 정보는 거리+시간 필수**
-           - "[시설명] (거리 약 [dist]m / 도보 약 [time]분)"
-
-        지침:
-        1. **검색 결과가 없거나 비어있는 경우**:
-           - "죄송합니다. 요청하신 조건을 만족하는 매물을 찾지 못했습니다."
-           - "조건을 조금 완화하거나 다른 지역으로 검색해 보시겠어요?"
-
-        2. **검색 결과가 있는 경우**:
-           - 상위 3개 매물을 1순위, 2순위, 3순위로 제시
-           - 각 옵션 형식:
-           
-           **1순위 (옵션 A)**
-           - **주소**: [주소]
-           - **타입**: [건물형태] (postgres_details.building_type 활용)
-           - **가격**: [거래방식 + 가격] (postgres_details.trade_info.거래방식 활용)
-           - **관리비**: [관리비 정보] (postgres_details.trade_info.관리비 활용)
-           - **면적/구조**: [전용면적, 방/욕실 개수] (postgres_details.listing_info 활용)
-           - **역 접근성**: [역 이름]까지 도보 약 [time]분 ([dist]m)
-           - **옵션/시설**: [풀옵션, 엘리베이터, 주차 등] (postgres_details.additional_options + listing_info.생활시설 활용)
-           - **입주가능일**: [입주가능일] (postgres_details.trade_info.입주가능일 활용)
-           - **매물 링크**: [url] (postgres_details.url 활용)
-           - **한줄 요약**: [이 매물의 장점]
-
-        3. **데이터 누락 처리**:
-           - postgres_details가 없는 매물은 Neo4j 정보만으로 표시
-           - 없는 항목은 생략
-
-        4. **추천** 섹션 작성:
-           - 종합 추천과 상황별 추천
-
-        5. **추가 제안**: 다른 조건 검색 제안
         
-        6. 톤앤매너: 전문적이면서도 친절하게
+        **중요: 데이터 해석 및 표기**
+        Context에는 이미 포맷팅된 인프라 및 안전 정보가 포함되어 있습니다. 이를 그대로 활용하세요.
         
+        - **formatted_poi**: 주요 위치/지하철역 정보 (예: "홍대입구역 (200m, 3분)")
+        - **formatted_infrastructure**: 주변 편의시설 (병원, 공원, 편의점 등) 상세 정보 (이름, 거리, 시간 포함)
+        - **formatted_safety**: 안전 시설 (CCTV, 경찰서 등) 정보
+        
+        **답변 작성 가이드라인:**
+        1. **형식 유지**: 아래 형식을 정확히 지켜주세요.
+        2. **정확한 정보 전달**:
+           - **'주변 인프라'** 항목 작성 시, `formatted_infrastructure`에 있는 내용을 사용하여 **구체적인 이름과 거리/시간**을 명시하세요.
+           - 예: "세브란스병원 (350m, 5분), 연세내과 (100m, 1분)"
+           - 뭉뚱그려 "병원과 가깝습니다"라고 하지 마세요.
+        3. **'역 접근성'** 항목에는 `formatted_poi` 정보를 사용하세요.
+
+        **답변 포맷 (상위 3개 매물):**
+        
+        **중요: 각 매물마다 상세보기 링크를 반드시 포함하세요**
+        각 매물 데이터에는 `detail_link` 필드가 미리 준비되어 있습니다.
+        **이 값을 그대로 복사해서 사용하세요!** (직접 링크를 만들지 마세요)
+        
+        **데이터 구조 예시**:
+        ```
+        {{
+          "address": "서울 마포구...",
+          "detail_link": "[📋 상세보기](/landDetail/9458)",  ← 이것을 그대로 사용!
+          "postgres_details": {{ ... }},
+          ...
+        }}
+        ```
+        
+        **사용 방법**: 
+        매물 정보 마지막에 `� {{detail_link}}` 형식으로 넣으면 됩니다.
+        
+        ---
+        
+        **답변 작성 시 반드시 지켜야 할 포맷**:
+        
+        **중요**: 각 매물은 반드시 "**N순위 (옵션 X)**" 헤더로 시작해야 합니다!
+        
+        **1순위 (옵션 A)**
+        - **주소**: [주소]
+        - **타입**: [건물형태]
+        - **가격**: [보증금/월세 또는 전세가]
+        - **관리비**: [관리비 정보] (없으면 생략)
+        - **면적/구조**: [전용면적], [방/욕실 개수]
+        - **역 접근성**: [formatted_poi 내용 위주로 작성]
+        - **주변 인프라**: [formatted_infrastructure의 모든 내용을 표시 - 편의점, 병원, 공원 등 이전 검색에서 누적된 모든 시설 정보 포함]
+        - **안전 시설**: [formatted_safety 내용] (정보가 있으면 작성)
+        - **한줄 요약**: [이 매물의 장점 요약]
+        
+        
+        👉 [매물의 detail_link 필드 값 그대로 넣기]
+
+
+        **2순위 (옵션 B)**
+        - **주소**: [주소]
+        - **타입**: [건물형태]
+        - **가격**: [보증금/월세 또는 전세가]
+        - **관리비**: [관리비 정보] (없으면 생략)
+        - **면적/구조**: [전용면적], [방/욕실 개수]
+        - **역 접근성**: [formatted_poi 내용 위주로 작성]
+        - **주변 인프라**: [formatted_infrastructure 내용 중 질문과 관련된 것 위주로 작성]
+        - **안전 시설**: [formatted_safety 내용] (정보가 있으면 작성)
+        - **한줄 요약**: [이 매물의 장점 요약]
+        
+        👉 [매물의 detail_link 필드 값 그대로 넣기]
+
+        **3순위 (옵션 C)**
+        - **주소**: [주소]
+        - **타입**: [건물형태]
+        - **가격**: [보증금/월세 또는 전세가]
+        - **관리비**: [관리비 정보] (없으면 생략)
+        - **면적/구조**: [전용면적], [방/욕실 개수]
+        - **역 접근성**: [formatted_poi 내용 위주로 작성]
+        - **주변 인프라**: [formatted_infrastructure 내용 중 질문과 관련된 것 위주로 작성]
+        - **안전 시설**: [formatted_safety 내용] (정보가 있으면 작성)
+        - **한줄 요약**: [이 매물의 장점 요약]
+        
+        👉 [매물의 detail_link 필드 값 그대로 넣기]
+
+        **후속 질문 생성 (매물 소개 후):**
+        답변 끝에 자연스럽게 2-3개의 후속 질문을 추가하세요.
+        
+        사용 가능한 필터 옵션:
+        - 가격: 보증금, 월세, 전세가, 매매가
+        - 구조: 방/욕실 개수, 전용/공급면적, 층수
+        - 시설: 엘리베이터, 주차, 난방방식
+        - 입주: 입주가능일
+        - 위치 세부: 병원, 편의점, 공원, 안전시설 근접성
+        
+        이미 적용된 조건은 다시 묻지 마세요. 자연스러운 대화 톤으로 물어보세요.
+        
+        **예시**:
+        "... (매물 결과)
+        
+        💬 추가로 도와드릴까요?
+        - 원하시는 가격대가 있으신가요? (예: 보증금 5000만원 이하)
+        - 층수나 방 구조에 선호사항이 있으신가요?"
+
         질문: {question}
         """
     )
     
     chain = prompt | llm | StrOutputParser()
     
-    # context (병합된 결과)를 전달
-    answer = chain.invoke({"question": question, "context": context})
+    print("[Generate] 🤖 Generating final answer with GPT-4o...")
+    answer = chain.invoke({
+        "question": question, 
+        "context": context_for_display,  # Only send top 3 to LLM
+        "context_info": context_info
+    })
+    print(f"[Generate] ✅ Answer generated:\n{answer}")
     
     state["answer"] = answer
+    state["full_results"] = full_results  # Store all results for Redis caching
     return state
