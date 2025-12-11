@@ -69,7 +69,6 @@ services:
       - ./apps/backend:/app
       - ./scripts:/scripts
       - ./data:/data
-      - ./GraphDB_data:/GraphDB_data
     ports:
       - "8000:8000"
     env_file:
@@ -172,7 +171,6 @@ services:
       - ./scripts:/app
       - ./libs:/libs
       - ./data:/data
-      - ./GraphDB_data:/GraphDB_data
     env_file:
       - .env
     environment:
