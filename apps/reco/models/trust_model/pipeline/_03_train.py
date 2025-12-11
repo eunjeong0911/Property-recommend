@@ -1,6 +1,9 @@
 """
 _03_train.py
 중개사 신뢰도 모델 - 학습 단계
+
+여러 모델을 학습하고 하나의 pkl 파일에 저장
+현재는 LogisticRegression만 활성화
 """
 
 import pandas as pd
@@ -15,7 +18,7 @@ from pathlib import Path
 import pickle
 import numpy as np
 
-FEATURE_PATH = "data/office_features.csv"
+FEATURE_PATH = "data/ML/office_features.csv"
 MODEL_TEMP_PATH = "apps/reco/models/trust_model/save_models/temp_trained_models.pkl"
 
 
@@ -54,9 +57,9 @@ def load_data():
         "신규사무소", "중견사무소", "노포사무소"
     ]
     
-    # 5) 개설 시기 패턴
+    # 5) 등록 시기 패턴
     timing_features = [
-        "개설_월", "상반기개설", "하반기개설"
+        "등록_월", "상반기등록", "하반기등록"
     ]
     
     # 6) 실제 거래 규모 (원본 데이터, 비율 아님)
@@ -98,9 +101,9 @@ def load_data():
     # 결측치 처리
     X = X.replace([np.inf, -np.inf], 0).fillna(0)
 
-    print(f"균형잡힌 Feature 수: {len(available_features)}")
-    print(f"제거된 직접 누수 변수: {[col for col in direct_leakage if col in df.columns]}")
-    print(f"포함된 Feature: {available_features[:10]}...")  # 처음 10개만 출력
+    # print(f"균형잡힌 Feature 수: {len(available_features)}")
+    # print(f"제거된 직접 누수 변수: {[col for col in direct_leakage if col in df.columns]}")
+    # print(f"포함된 Feature: {available_features[:10]}...")  # 처음 10개만 출력
 
     return X, y
 
@@ -312,7 +315,7 @@ def train_models(X_train_scaled, y_train):
 
 
 def main():
-    print("=== TRAIN STEP ===")
+    print("🤖 모델 학습 중...")
 
     # 1) 데이터 로드
     X, y = load_data()

@@ -8,10 +8,9 @@ import numpy as np
 from pathlib import Path
 
 
-def load_preprocessed_data(filepath: str = "data/preprocessed_office_data.csv") -> pd.DataFrame:
+def load_preprocessed_data(filepath: str = "data/ML/preprocessed_office_data.csv") -> pd.DataFrame:
     """
     전처리된 CSV 파일을 로드합니다.
-    (00_preprocess.py에서 저장된 파일)
 
     Args:
         filepath (str): 파일 경로
@@ -44,11 +43,12 @@ def create_target(df: pd.DataFrame) -> pd.DataFrame:
         pd.DataFrame: 타겟 컬럼이 추가된 데이터프레임
     """
 
-    print(f"\n🎯 [2단계] 지역평균 / 표준편차 계산 및 Z-score 생성")
+    # print(f"\n🎯 [2단계] 지역평균 / 표준편차 계산 및 Z-score 생성")
 
     # ---------------------------------------
     # 1) 거래성사율 계산
     # ---------------------------------------
+    # _00_load_data.py에서 이미 변환된 거래완료_숫자, 등록매물_숫자 사용
     df["거래성사율"] = np.where(
         df["등록매물_숫자"] > 0,
         df["거래완료_숫자"] / df["등록매물_숫자"],
@@ -69,8 +69,8 @@ def create_target(df: pd.DataFrame) -> pd.DataFrame:
     # ---------------------------------------
     df["Zscore"] = (df["거래성사율"] - df["지역평균"]) / df["지역표준편차"]
 
-    print("   - Z-score 예시:")
-    print(df[["지역명", "거래성사율", "지역평균", "지역표준편차", "Zscore"]].head())
+    # print("   - Z-score 예시:")
+    # print(df[["지역명", "거래성사율", "지역평균", "지역표준편차", "Zscore"]].head())
 
     # ---------------------------------------
     # 4) 분위수 기반 A/B/C 등급 생성
@@ -102,7 +102,7 @@ def create_target(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def save_target(df: pd.DataFrame, filepath: str = "data/office_target.csv"):
+def save_target(df: pd.DataFrame, filepath: str = "data/ML/office_target.csv"):
     """
     타겟 생성 후 CSV 저장
 
@@ -116,12 +116,10 @@ def save_target(df: pd.DataFrame, filepath: str = "data/office_target.csv"):
 
 
 def main():
-    print("=" * 70)
-    print("🎯 01_create_target.py — 중개사 타겟(Z-score & A/B/C) 생성")
-    print("=" * 70)
+    print("🎯 타겟 생성 중...")
 
     # 1) 전처리된 데이터 로드
-    df = load_preprocessed_data("data/preprocessed_office_data.csv")
+    df = load_preprocessed_data("data/ML/preprocessed_office_data.csv")
 
     # 2) 타겟 생성
     df = create_target(df)
@@ -129,8 +127,7 @@ def main():
     # 3) 저장
     save_target(df)
 
-    print("\n✅ 타겟 생성 완료!")
-    print("=" * 70)
+    print("✅ 타겟 생성 완료\n")
 
     return df
 

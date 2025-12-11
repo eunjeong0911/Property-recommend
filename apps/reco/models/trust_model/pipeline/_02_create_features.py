@@ -11,7 +11,7 @@ from pathlib import Path
 # ============================================================
 # 1) 타겟 데이터 로드
 # ============================================================
-def load_target_data(filepath: str = "data/office_target.csv") -> pd.DataFrame:
+def load_target_data(filepath: str = "data/ML/office_target.csv") -> pd.DataFrame:
     file = Path(filepath)
     if not file.exists():
         raise FileNotFoundError(f"[ERROR] 파일이 존재하지 않음: {filepath}")
@@ -50,15 +50,15 @@ def create_features(df: pd.DataFrame):
     df["일반직원_비율"] = df["일반직원수"] / df["총_직원수_safe"]
 
     # ------------------------------------------------------------
-    # 운영 기간 Feature
+    # 운영 기간 Feature (등록일 기준)
     # ------------------------------------------------------------
-    df["개설시작일"] = pd.to_datetime(df["개설시작일"], errors="coerce")
-    df["개설종료일"] = pd.to_datetime(df["개설종료일"], errors="coerce")
-
+    # 등록일 = 실제 중개업소 운영 시작일
+    df["등록일"] = pd.to_datetime(df["등록일"], errors="coerce")
+    
     today = pd.Timestamp.now()
-    df["종료기준일"] = df["개설종료일"].fillna(today)
-
-    df["운영기간_일"] = (df["종료기준일"] - df["개설시작일"]).dt.days.clip(lower=0)
+    
+    # 운영 기간 = 현재 - 등록일
+    df["운영기간_일"] = (today - df["등록일"]).dt.days.clip(lower=0)
     df["운영기간_년"] = df["운영기간_일"] / 365.25
     df["운영기간_일_log"] = np.log1p(df["운영기간_일"]).replace([np.inf, -np.inf], 0)
 
@@ -84,11 +84,11 @@ def create_features(df: pd.DataFrame):
     df["노포사무소"] = (df["운영기간_년"] > 5).astype(int)
 
     # ------------------------------------------------------------
-    # 개설 월 패턴 Feature
+    # 등록 월 패턴 Feature (등록일 기준)
     # ------------------------------------------------------------
-    df["개설_월"] = df["개설시작일"].dt.month.fillna(0).astype(int)
-    df["상반기개설"] = (df["개설_월"] <= 6).astype(int)
-    df["하반기개설"] = (df["개설_월"] > 6).astype(int)
+    df["등록_월"] = df["등록일"].dt.month.fillna(0).astype(int)
+    df["상반기등록"] = (df["등록_월"] <= 6).astype(int)
+    df["하반기등록"] = (df["등록_월"] > 6).astype(int)
 
     # ------------------------------------------------------------
     # 클리핑 (이상치 억제)
@@ -105,7 +105,7 @@ def create_features(df: pd.DataFrame):
         "복수공인중개사", "공인중개사_없음", "직원_자격증비율",
         "대형사무소", "중형사무소", "소형사무소",
         "운영기간_일", "운영기간_년", "운영기간_일_log",
-        "개설_월", "상반기개설", "하반기개설",
+        "등록_월", "상반기등록", "하반기등록",
         "총_직원수_clip", "운영기간_일_clip",
         "신규사무소", "중견사무소", "노포사무소"
     ]
@@ -129,7 +129,7 @@ def create_features(df: pd.DataFrame):
 # ============================================================
 # 3) Feature 저장
 # ============================================================
-def save_features(df, filepath="data/office_features.csv"):
+def save_features(df, filepath="data/ML/office_features.csv"):
     Path(filepath).parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(filepath, index=False, encoding="utf-8-sig")
     print(f"\n💾 [3단계] Feature 포함 파일 저장 완료 → {filepath}")
@@ -139,16 +139,13 @@ def save_features(df, filepath="data/office_features.csv"):
 # main
 # ============================================================
 def main():
-    print("=" * 70)
-    print("🔧 02_create_features.py — Feature 생성 단계")
-    print("=" * 70)
+    print("🔧 Feature 생성 중...")
 
     df = load_target_data()
     df, X, y, feature_cols = create_features(df)
     save_features(df)
 
-    print("\n✅ Feature 생성 완료!")
-    print("=" * 70)
+    print("✅ Feature 생성 완료\n")
 
     return df, X, y, feature_cols
 

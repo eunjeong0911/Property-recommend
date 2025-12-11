@@ -1,5 +1,5 @@
 """
-land_brokers.csv를 기준으로 broker_offices.csv와 seoul_brokers.csv를 매칭하는 모듈
+land_brokers.csv를 기준으로 broker_offices.csv와 brokers.csv를 매칭하는 모듈
 등록번호를 기준으로 세 파일을 병합합니다.
 """
 import csv
@@ -14,7 +14,7 @@ class BrokerMerger:
     def __init__(self):
         self.land_brokers = []
         self.broker_offices = {}
-        self.seoul_brokers = {}
+        self.brokers = {}
         self.merged_brokers = []
     
     def normalize_registration_number(self, reg_num: str) -> str:
@@ -55,13 +55,13 @@ class BrokerMerger:
     
     def load_broker_offices(self, filepath: str) -> Dict[str, List[Dict[str, Any]]]:
         """
-        broker_offices.csv 데이터 로드 (중개사명+대표자를 키로 하는 딕셔너리, 리스트로 저장)
+        broker_offices.csv 데이터 로드 (중개사무소명+대표자를 키로 하는 딕셔너리, 리스트로 저장)
         
         Args:
             filepath: CSV 파일 경로
             
         Returns:
-            중개사명+대표자를 키로 하는 중개사 정보 딕셔너리 (값은 리스트)
+            중개사무소명+대표자를 키로 하는 중개사 정보 딕셔너리 (값은 리스트)
         """
         filepath = Path(filepath)
         
@@ -69,7 +69,7 @@ class BrokerMerger:
             reader = csv.DictReader(f)
             data = list(reader)
         
-        # 중개사명(bsnmCmpnm)+대표자(brkrNm)를 키로 하는 딕셔너리 생성 (리스트로 저장)
+        # 중개사무소명(bsnmCmpnm)+대표자(brkrNm)를 키로 하는 딕셔너리 생성 (리스트로 저장)
         for broker in data:
             office_name = broker.get('bsnmCmpnm', '').strip()  # 중개사무소명
             representative = broker.get('brkrNm', '').strip()  # 대표자명
@@ -81,18 +81,18 @@ class BrokerMerger:
                 self.broker_offices[key].append(broker)
         
         print(f"broker_offices.csv 로드: {len(data)}건")
-        print(f"  - 유효한 중개사명+대표자 조합: {len(self.broker_offices)}건")
+        print(f"  - 유효한 중개사무소명+대표자 조합: {len(self.broker_offices)}건")
         return self.broker_offices
     
-    def load_seoul_brokers(self, filepath: str) -> Dict[str, List[Dict[str, Any]]]:
+    def load_brokers(self, filepath: str) -> Dict[str, List[Dict[str, Any]]]:
         """
-        seoul_brokers.csv 데이터 로드 (등록번호+중개사명을 키로 하는 딕셔너리, 리스트로 저장)
+        brokers.csv 데이터 로드 (등록번호+중개사무소명을 키로 하는 딕셔너리, 리스트로 저장)
         
         Args:
             filepath: CSV 파일 경로
             
         Returns:
-            등록번호+중개사명을 키로 하는 중개사 정보 딕셔너리 (값은 리스트)
+            등록번호+중개사무소명을 키로 하는 중개사 정보 딕셔너리 (값은 리스트)
         """
         filepath = Path(filepath)
         
@@ -100,26 +100,26 @@ class BrokerMerger:
             reader = csv.DictReader(f)
             data = list(reader)
         
-        # 등록번호(jurirno)+중개사명(bsnmCmpnm)을 키로 하는 딕셔너리 생성 (리스트로 저장)
+        # 등록번호(jurirno)+중개사무소명(bsnmCmpnm)을 키로 하는 딕셔너리 생성 (리스트로 저장)
         for broker in data:
             reg_num = self.normalize_registration_number(broker.get('jurirno'))
             office_name = broker.get('bsnmCmpnm', '').strip()
             
             if reg_num and office_name:
                 key = f"{reg_num}_{office_name}"
-                if key not in self.seoul_brokers:
-                    self.seoul_brokers[key] = []
-                self.seoul_brokers[key].append(broker)
+                if key not in self.brokers:
+                    self.brokers[key] = []
+                self.brokers[key].append(broker)
         
-        print(f"seoul_brokers.csv 로드: {len(data)}건")
-        print(f"  - 유효한 등록번호+중개사명 조합: {len(self.seoul_brokers)}건")
-        return self.seoul_brokers
+        print(f"brokers.csv 로드: {len(data)}건")
+        print(f"  - 유효한 등록번호+중개사무소명 조합: {len(self.brokers)}건")
+        return self.brokers
     
     def merge_brokers(self) -> List[Dict[str, Any]]:
         """
-        land_brokers를 기준으로 broker_offices와 seoul_brokers 병합
-        1단계: land + office (중개사명+대표자로 매칭)
-        2단계: 1단계 결과 + seoul (등록번호로 매칭)
+        brokers.csv를 기준으로 broker_offices.csv와 brokers.csv 병합
+        1단계: brokers + broker_offices (중개사무소명+대표자로 매칭)
+        2단계: 1단계 결과 + brokers (등록번호로 매칭)
         
         Returns:
             병합된 중개사 정보 리스트
@@ -127,17 +127,17 @@ class BrokerMerger:
         print("\n=== 중개사 정보 병합 시작 ===\n")
         
         matched_with_offices = 0
-        matched_with_seoul = 0
+        matched_with_brokers = 0
         matched_with_both = 0
         total_office_records = 0
-        total_seoul_records = 0
+        total_brokers_records = 0
         
-        # 1단계: land_brokers + broker_offices (중개사명+대표자로 매칭)
+        # 1단계: land_brokers + broker_offices (중개사무소명+대표자로 매칭)
         land_office_merged = []
         
         for land_broker in self.land_brokers:
             # land_brokers의 중개소명과 대표자로 키 생성
-            broker_name = land_broker.get('중개사명', '').strip()
+            broker_name = land_broker.get('중개사무소명', '').strip()
             representative = land_broker.get('대표자', '').strip()
             
             if broker_name and representative:
@@ -168,30 +168,30 @@ class BrokerMerger:
         print(f"1단계 완료 (land + office): {len(land_office_merged)}건")
         print(f"  - broker_offices와 매칭: {matched_with_offices}건 (총 {total_office_records}개 레코드)")
         
-        # 2단계: 1단계 결과 + seoul_brokers (등록번호+중개사명으로 매칭)
+        # 2단계: 1단계 결과 + brokers (등록번호+중개사무소명으로 매칭)
         for merged_item in land_office_merged:
             land_broker = merged_item['land_broker']
             office_data = merged_item['office_data']
             
-            # 등록번호 + 중개소명으로 seoul 데이터 찾기
+            # 등록번호 + 중개소명으로 brokers 데이터 찾기
             land_reg = self.normalize_registration_number(land_broker.get('등록번호'))
-            broker_name = land_broker.get('중개사명', '').strip()
+            broker_name = land_broker.get('중개사무소명', '').strip()
             
             if land_reg and broker_name:
                 key = f"{land_reg}_{broker_name}"
-                seoul_list = self.seoul_brokers.get(key, [])
+                brokers_list = self.brokers.get(key, [])
             else:
-                seoul_list = []
+                brokers_list = []
             
-            if seoul_list:
-                matched_with_seoul += 1
-                total_seoul_records += len(seoul_list)
+            if brokers_list:
+                matched_with_brokers += 1
+                total_brokers_records += len(brokers_list)
                 
                 if office_data:
                     matched_with_both += 1
                 
-                # seoul 데이터가 있으면 각 직원(공인중개사/중개보조원)마다 행 복제
-                for seoul_data in seoul_list:
+                # brokers 데이터가 있으면 각 직원(공인중개사/중개보조원)마다 행 복제
+                for broker_data in brokers_list:
                     merged_broker = {}
                     
                     # land 데이터 추가
@@ -203,13 +203,13 @@ class BrokerMerger:
                         for key, value in office_data.items():
                             merged_broker[f'office_{key}'] = value
                     
-                    # seoul 데이터 추가 (각 직원 정보)
-                    for key, value in seoul_data.items():
-                        merged_broker[f'seoul_{key}'] = value
+                    # brokers 데이터 추가 (각 직원 정보)
+                    for key, value in broker_data.items():
+                        merged_broker[f'broker_{key}'] = value
                     
                     self.merged_brokers.append(merged_broker)
             else:
-                # seoul 데이터가 없으면 land + office만 저장
+                # brokers 데이터가 없으면 land + office만 저장
                 merged_broker = {}
                 
                 # land 데이터 추가
@@ -223,9 +223,9 @@ class BrokerMerger:
                 
                 self.merged_brokers.append(merged_broker)
         
-        print(f"\n2단계 완료 (+ seoul): {len(self.merged_brokers)}건")
-        print(f"  - seoul_brokers와 매칭: {matched_with_seoul}건 (총 {total_seoul_records}개 레코드)")
-        print(f"  - office와 seoul 둘 다 매칭: {matched_with_both}건")
+        print(f"\n2단계 완료 (+ brokers): {len(self.merged_brokers)}건")
+        print(f"  - brokers와 매칭: {matched_with_brokers}건 (총 {total_brokers_records}개 레코드)")
+        print(f"  - office와 brokers 둘 다 매칭: {matched_with_both}건")
         
         return self.merged_brokers
     
@@ -234,10 +234,10 @@ class BrokerMerger:
         병합 결과 저장
         
         Args:
-            output_filepath: 출력 파일 경로 (기본값: data/merged_brokers.csv)
+            output_filepath: 출력 파일 경로 (기본값: data/brokerInfo/merged_brokers.csv)
         """
         if output_filepath is None:
-            output_filepath = Path("data") / "merged_brokers.csv"
+            output_filepath = Path("data/brokerInfo") / "merged_brokers.csv"
         else:
             output_filepath = Path(output_filepath)
         
@@ -250,11 +250,11 @@ class BrokerMerger:
             for broker in self.merged_brokers:
                 all_keys.update(broker.keys())
             
-            # 헤더 정렬 (land_ -> office_ -> seoul_ 순서)
+            # 헤더 정렬 (land_ -> office_ -> broker_ 순서)
             land_keys = sorted([k for k in all_keys if k.startswith('land_')])
             office_keys = sorted([k for k in all_keys if k.startswith('office_')])
-            seoul_keys = sorted([k for k in all_keys if k.startswith('seoul_')])
-            headers = land_keys + office_keys + seoul_keys
+            broker_keys = sorted([k for k in all_keys if k.startswith('broker_')])
+            headers = land_keys + office_keys + broker_keys
             
             with open(output_filepath, 'w', encoding='utf-8-sig', newline='') as f:
                 writer = csv.DictWriter(f, fieldnames=headers)
@@ -266,7 +266,7 @@ class BrokerMerger:
             print(f"  - 총 컬럼 수: {len(headers)}개")
             print(f"    * land_ 컬럼: {len(land_keys)}개")
             print(f"    * office_ 컬럼: {len(office_keys)}개")
-            print(f"    * seoul_ 컬럼: {len(seoul_keys)}개")
+            print(f"    * broker_ 컬럼: {len(broker_keys)}개")
 
 
 def main():
@@ -275,12 +275,12 @@ def main():
         merger = BrokerMerger()
         
         # 데이터 디렉토리
-        data_dir = Path("data")
+        data_dir = Path("data/brokerInfo")
         
         # 파일 경로 설정
         land_file = data_dir / "land_brokers.csv"
         office_file = data_dir / "broker_offices.csv"
-        seoul_file = data_dir / "seoul_brokers.csv"
+        brokers_file = data_dir / "brokers.csv"
         
         # 파일 존재 확인
         if not land_file.exists():
@@ -291,19 +291,19 @@ def main():
             print(f"오류: {office_file} 파일을 찾을 수 없습니다.")
             return
         
-        if not seoul_file.exists():
-            print(f"오류: {seoul_file} 파일을 찾을 수 없습니다.")
+        if not brokers_file.exists():
+            print(f"오류: {brokers_file} 파일을 찾을 수 없습니다.")
             return
         
         print("=== 중개사 데이터 병합 프로그램 ===\n")
         print(f"land_brokers: {land_file.name}")
         print(f"broker_offices: {office_file.name}")
-        print(f"seoul_brokers: {seoul_file.name}\n")
+        print(f"brokers: {brokers_file.name}\n")
         
         # 데이터 로드
         merger.load_land_brokers(str(land_file))
         merger.load_broker_offices(str(office_file))
-        merger.load_seoul_brokers(str(seoul_file))
+        merger.load_brokers(str(brokers_file))
         
         # 병합 수행
         merged = merger.merge_brokers()

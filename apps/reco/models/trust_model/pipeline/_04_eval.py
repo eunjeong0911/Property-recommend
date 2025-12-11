@@ -88,7 +88,7 @@ def evaluate_model(models, X_train, y_train, X_test, y_test, cv_results=None):
 
 
 def main():
-    print("=== MODEL EVALUATION STEP ===")
+    print("📊 모델 평가 중...")
 
     # 1) temp 모델 로드
     data = load_temp_model()
@@ -107,8 +107,7 @@ def main():
     # eval_path = "apps/reco/models/trust_model/results/model_eval_results.csv"
     # eval_df.to_csv(eval_path, index=False, encoding="utf-8-sig")
 
-    print("\n✓ 모델 평가 완료!")
-    # print("결과 저장됨 →", eval_path)
+    print("✅ 모델 평가 완료\n")
     
     # 4) CV 기준 최고 모델 출력
     if 'cv_mean' in eval_df.columns:

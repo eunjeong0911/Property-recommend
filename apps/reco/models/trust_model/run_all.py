@@ -22,6 +22,7 @@ pipeline_dir = Path(__file__).parent / "pipeline"
 sys.path.insert(0, str(pipeline_dir))
 
 # 개별 단계 import
+from _00_load_data import main as step00_load_data
 from _01_create_target import main as step01_create_target
 from _02_create_features import main as step02_create_features
 from _03_train import main as step03_train
@@ -35,6 +36,13 @@ def main():
     print("====================================")
 
     try:
+        # ---------------------------------------------
+        # 0) 데이터 로드 및 전처리
+        # ---------------------------------------------
+        print("\n\n=== [0단계] 데이터 로드 및 전처리 ===")
+        step00_load_data()
+        print("✅ 0단계 완료")
+
         # ---------------------------------------------
         # 1) 타겟 생성
         # ---------------------------------------------

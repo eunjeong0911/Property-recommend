@@ -6,7 +6,7 @@ import numpy as np
 from pathlib import Path
 
 
-def load_processed_office_data(filepath: str = "data/processed_office_data.csv") -> pd.DataFrame:
+def load_processed_office_data(filepath: str = "data/brokerInfo/grouped_offices.csv") -> pd.DataFrame:
     """
     processed_office_data.csv 파일을 로드하여 DataFrame으로 반환.
 
@@ -62,7 +62,7 @@ def basic_preprocessing(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def save_preprocessed(df: pd.DataFrame, filepath: str = "data/preprocessed_office_data.csv"):
+def save_preprocessed(df: pd.DataFrame, filepath: str = "data/ML/preprocessed_office_data.csv"):
     """
     전처리된 df 저장
 
@@ -79,9 +79,7 @@ def save_preprocessed(df: pd.DataFrame, filepath: str = "data/preprocessed_offic
 
 def main():
     """메인 실행 함수"""
-    print("=" * 70)
-    print("🏠 중개사 신뢰도 모델 - 최소 전처리 모드")
-    print("=" * 70)
+    print("📊 데이터 로드 및 전처리 중...")
 
     # STEP 1: 데이터 로드
     df = load_processed_office_data()
@@ -92,9 +90,7 @@ def main():
     # STEP 3: 저장
     save_preprocessed(df)
 
-    print("\n" + "=" * 70)
-    print("✅ 전처리 완료!")
-    print("=" * 70)
+    print("✅ 전처리 완료\n")
 
     return df
 

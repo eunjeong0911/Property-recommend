@@ -142,7 +142,7 @@ if __name__ == "__main__":
     
     # 결과를 CSV 파일로 저장
     if broker_offices:
-        csv_filename = 'data/broker_offices.csv'
+        csv_filename = 'data/brokerInfo/broker_offices.csv'
         
         # CSV 헤더 추출 (첫 번째 항목의 키 사용)
         if len(broker_offices) > 0:
