@@ -20,8 +20,9 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
-# 데이터 로드 모듈 import
-from _00_load_data import main as load_data
+# 데이터 로드 및 피처 엔지니어링 모듈 import
+from _00_load_data import load_processed_office_data as load_data
+from _01_feature_engineering import main as feature_engineering
 
 
 def split_data(X, y, test_size=0.2, random_state=42):
@@ -444,7 +445,8 @@ def main():
     print("=" * 70)
     
     # 1-5단계: 데이터 로드 및 전처리
-    office_df, X, y, feature_names = load_data()
+    raw_df = load_data()
+    office_df, X, y, feature_names = feature_engineering(raw_df)
     
     # 6단계: 데이터 분리
     X_train, X_test, y_train, y_test = split_data(X, y)
