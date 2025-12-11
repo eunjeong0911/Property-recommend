@@ -292,26 +292,33 @@ def search(state: RAGState) -> RAGState:
         # 거래유형 필터 (매매 의도 시 매매만)
         trade_type_filter = price_conditions.get('trade_type_filter') if price_conditions else None
         
-        # 기본 쿼리 - trade_info에서 거래방식 필드를 추출
+        # 기본 쿼리 - land 테이블에서 직접 조회 (개별 가격 컬럼 사용)
         query = """
             SELECT 
-                id as land_id,
-                listing_id as land_num,
-                title as building_type,
-                address,
-                trade_info->>'거래유형' as deal_type,
-                url,
-                images,
-                trade_info,
-                listing_info,
-                additional_options,
-                description,
-                agent_info,
-                0 as like_count,
-                0 as view_count,
-                'm' as distance_unit
-            FROM listings
-            WHERE listing_id = ANY(%s::text[])
+                l.land_id,
+                l.land_num,
+                l.building_type,
+                l.address,
+                l.deal_type,
+                l.deposit,
+                l.monthly_rent,
+                l.jeonse_price,
+                l.sale_price,
+                l.url,
+                l.trade_info,
+                l.listing_info,
+                l.additional_options,
+                l.description,
+                l.agent_info,
+                l.like_count,
+                l.view_count,
+                'm' as distance_unit,
+                COALESCE(
+                    (SELECT array_agg(img_url) FROM land_image WHERE land_id = l.land_id),
+                    ARRAY[]::varchar[]
+                ) as images
+            FROM land l
+            WHERE l.land_num = ANY(%s::text[])
         """
         
         print(f"[SQL Search] 🔍 Executing PostgreSQL query with {len(land_nums)} IDs")
@@ -324,7 +331,7 @@ def search(state: RAGState) -> RAGState:
         if len(rows) == 0 and land_nums:
             print(f"[SQL Search] ⚠️ No rows returned! Testing first ID...")
             test_cur = conn.cursor()
-            test_cur.execute("SELECT listing_id FROM listings WHERE listing_id = %s", (land_nums[0],))
+            test_cur.execute("SELECT land_num FROM land WHERE land_num = %s", (land_nums[0],))
             test_result = test_cur.fetchone()
             print(f"[SQL Search] Test query for '{land_nums[0]}': {test_result}")
             test_cur.close()
