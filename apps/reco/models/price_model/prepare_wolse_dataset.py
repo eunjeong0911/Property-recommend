@@ -310,7 +310,7 @@ if __name__ == "__main__":
     print("전체 작업 완료!")
     print("=" * 60)
     print("\n생성된 파일:")
-    print(f"1. {BASE_DIR / '(총합)시장금리_및_대출금리(24.8~25.10).csv'}")
+    print(f"1. {BASE_DIR / '(총합)시장금리_및_대출금리(24.8~25.11).csv'}")
     print(f"2. {out}")
     print(f"3. {out_train}")
     print(f"4. {out_test}")
