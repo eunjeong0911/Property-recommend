@@ -54,34 +54,39 @@ class PostgresImporter:
         )
         self.cur = self.conn.cursor()
         
-    def _create_listings_table(self):
-        """Listings 테이블 확인 (init.sql에서 생성됨)"""
+    def _create_land_table(self):
+        """Land 테이블 확인 (init.sql에서 생성됨)"""
         # init.sql에서 이미 생성되어 있으므로 확인만 수행
         check_query = """
         SELECT EXISTS (
             SELECT FROM information_schema.tables 
-            WHERE table_name = 'listings'
+            WHERE table_name = 'land'
         );
         """
         self.cur.execute(check_query)
         exists = self.cur.fetchone()[0]
         
         if not exists:
-            # listings 테이블이 없으면 생성 (init.sql 스키마와 동일)
+            # land 테이블이 없으면 생성 (init.sql 스키마와 동일)
             create_table_query = """
-            CREATE TABLE IF NOT EXISTS listings (
-                id SERIAL PRIMARY KEY,
-                listing_id VARCHAR(50) UNIQUE NOT NULL,
-                title VARCHAR(255),
-                address TEXT,
+            CREATE TABLE IF NOT EXISTS land (
+                land_id SERIAL PRIMARY KEY,
+                land_num VARCHAR(20) UNIQUE NOT NULL,
+                landbroker_id INT,
+                building_type VARCHAR(20) NOT NULL,
+                address VARCHAR(200),
+                deal_type VARCHAR(30),
+                like_count INT DEFAULT 0,
+                view_count INT DEFAULT 0,
+                deposit INT DEFAULT 0,
+                monthly_rent INT DEFAULT 0,
+                jeonse_price INT DEFAULT 0,
+                sale_price INT DEFAULT 0,
                 url TEXT,
                 images JSONB,
-                address_info JSONB,
-                floor_plan_url TEXT[],
                 trade_info JSONB,
                 listing_info JSONB,
                 additional_options TEXT[],
-                nearby_schools TEXT[],
                 description TEXT,
                 agent_info JSONB,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -90,14 +95,14 @@ class PostgresImporter:
             """
             self.cur.execute(create_table_query)
             self.conn.commit()
-            print("✓ Listings 테이블 생성 완료")
+            print("✓ Land 테이블 생성 완료")
         else:
-            print("✓ Listings 테이블 확인 완료")
+            print("✓ Land 테이블 확인 완료")
 
     def import_properties(self):
-        """data/RDB/land 폴더의 JSON 파일들을 Listings 테이블에 적재"""
+        """data/RDB/land 폴더의 JSON 파일들을 Land 테이블에 적재"""
         # 테이블 확인
-        self._create_listings_table()
+        self._create_land_table()
         
         # Docker 환경에서는 /data/RDB/land, 로컬에서는 data/RDB/land
         if os.path.exists("/data/RDB/land"):
@@ -171,68 +176,123 @@ class PostgresImporter:
             return "단기임대"
         return deal_str[:50] if deal_str else None
 
+    def _parse_price_to_int(self, price_str):
+        """한국어 가격 문자열을 만원 단위 정수로 변환
+        예: '3,000만원' → 3000, '1억 2,500만원' → 12500, '5억' → 50000
+        """
+        if not price_str or price_str == '-' or price_str == '0원':
+            return 0
+        
+        import re
+        # 공백, 쉼표 제거
+        s = str(price_str).replace(',', '').replace(' ', '').replace('\xa0', '')
+        
+        eok = 0  # 억
+        man = 0  # 만
+        
+        # 억 단위 추출
+        eok_match = re.search(r'(\d+)억', s)
+        if eok_match:
+            eok = int(eok_match.group(1))
+        
+        # 만원 단위 추출
+        man_match = re.search(r'(\d+)만', s)
+        if man_match:
+            man = int(man_match.group(1))
+        
+        # 만원 단위로 반환 (억 = 10000만)
+        return eok * 10000 + man
+
     def _insert_land(self, item, building_type):
-        """Listings 테이블에 매물 데이터 삽입"""
-        listing_id = item.get("매물번호")
-        if not listing_id:
+        """Land 테이블에 매물 데이터 삽입 (ERD 기반 하이브리드 스키마)"""
+        land_num = item.get("매물번호")
+        if not land_num:
             return None
 
-        # 필드 추출 (listings 테이블 스키마에 맞춤)
+        # 기본 정보 추출
         address = item.get("주소_정보", {}).get("전체주소", "") if item.get("주소_정보") else None
-        address_info = Json(item.get("주소_정보", {}))
-        trade_info = Json(item.get("거래_정보", {}))
         
-        # title은 건물형태 + 주소로 생성
-        title = f"{building_type} - {address}" if address else building_type
+        # 거래 정보 추출
+        trade_info_raw = item.get("거래_정보", {})
+        deal_type = self._extract_deal_type(trade_info_raw)
         
+        # 가격 추출 (만원 단위 INT)
+        deposit = self._parse_price_to_int(trade_info_raw.get("보증금"))
+        monthly_rent = self._parse_price_to_int(trade_info_raw.get("월세"))
+        jeonse_price = self._parse_price_to_int(trade_info_raw.get("보증금")) if deal_type == "전세" else 0
+        sale_price = self._parse_price_to_int(trade_info_raw.get("매매가"))
+        
+        # 전세인 경우 보증금이 전세가
+        if deal_type == "전세":
+            jeonse_price = deposit
+            deposit = 0
+        
+        # 이미지 목록 (별도 테이블에 저장)
+        images_list = item.get("매물_이미지", [])
+        
+        # 기타 JSONB 필드
         url = item.get("매물_URL")
-        images = Json(item.get("매물_이미지", []))
-        floor_plan_url = item.get("평면도_URL", [])
+        trade_info = Json(trade_info_raw)
         listing_info = Json(item.get("매물_정보", {}))
         additional_options = item.get("추가_옵션", [])
-        nearby_schools = item.get("주변_학교", [])
         description = item.get("상세_설명")
         agent_info = Json(item.get("중개사_정보", {}))
 
-        # UPSERT 쿼리 (listings 테이블 스키마)
+        # UPSERT 쿼리 (land 테이블 스키마 - images 제거)
         query = """
-            INSERT INTO listings (
-                listing_id, title, address, url,
-                images, address_info, floor_plan_url,
-                trade_info, listing_info, additional_options,
-                nearby_schools, description, agent_info
+            INSERT INTO land (
+                land_num, building_type, address, deal_type,
+                deposit, monthly_rent, jeonse_price, sale_price,
+                url, trade_info, listing_info,
+                additional_options, description, agent_info
             ) VALUES (
                 %s, %s, %s, %s,
-                %s, %s, %s,
+                %s, %s, %s, %s,
                 %s, %s, %s,
                 %s, %s, %s
             )
-            ON CONFLICT (listing_id) DO UPDATE SET
-                title = EXCLUDED.title,
+            ON CONFLICT (land_num) DO UPDATE SET
+                building_type = EXCLUDED.building_type,
                 address = EXCLUDED.address,
+                deal_type = EXCLUDED.deal_type,
+                deposit = EXCLUDED.deposit,
+                monthly_rent = EXCLUDED.monthly_rent,
+                jeonse_price = EXCLUDED.jeonse_price,
+                sale_price = EXCLUDED.sale_price,
                 url = EXCLUDED.url,
-                images = EXCLUDED.images,
-                address_info = EXCLUDED.address_info,
-                floor_plan_url = EXCLUDED.floor_plan_url,
                 trade_info = EXCLUDED.trade_info,
                 listing_info = EXCLUDED.listing_info,
                 additional_options = EXCLUDED.additional_options,
-                nearby_schools = EXCLUDED.nearby_schools,
                 description = EXCLUDED.description,
                 agent_info = EXCLUDED.agent_info,
                 updated_at = CURRENT_TIMESTAMP
-            RETURNING (xmax = 0) AS inserted;
+            RETURNING land_id, (xmax = 0) AS inserted;
         """
 
         self.cur.execute(query, (
-            listing_id, title, address, url,
-            images, address_info, floor_plan_url,
-            trade_info, listing_info, additional_options,
-            nearby_schools, description, agent_info
+            land_num, building_type, address, deal_type,
+            deposit, monthly_rent, jeonse_price, sale_price,
+            url, trade_info, listing_info,
+            additional_options, description, agent_info
         ))
         
         result = self.cur.fetchone()
-        return "inserted" if result and result[0] else "updated"
+        land_id = result[0] if result else None
+        is_inserted = result[1] if result else False
+        
+        # 이미지를 land_image 테이블에 저장
+        if land_id and images_list:
+            # 기존 이미지 삭제 (업데이트 시)
+            self.cur.execute("DELETE FROM land_image WHERE land_id = %s", (land_id,))
+            # 새 이미지 INSERT
+            for img_url in images_list:
+                if img_url:
+                    self.cur.execute(
+                        "INSERT INTO land_image (land_id, img_url) VALUES (%s, %s)",
+                        (land_id, img_url)
+                    )
+        
+        return "inserted" if is_inserted else "updated"
 
     def close(self):
         self.cur.close()
@@ -244,3 +304,4 @@ if __name__ == "__main__":
         importer.import_properties()
     finally:
         importer.close()
+
