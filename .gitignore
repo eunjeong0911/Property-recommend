@@ -75,10 +75,3 @@ logs/
 data
 
 .kiro
-
-# 전세 ML 모델 실험 결과 로그
-apps/reco/models/jeonse/models/
-apps/reco/models/jeonse/experiments/
-apps/reco/models/jeonse/notebooks/catboost_info/
-apps/reco/models/jeonse/outputs/
-apps/reco/models/jeonse/results/
