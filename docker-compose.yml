@@ -29,7 +29,7 @@ services:
       - neo4j_data:/data
       - ./infra/neo4j/init.cypher:/var/lib/neo4j/import/init.cypher
     healthcheck:
-      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:7474 || exit 1" ]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:7474 || exit 1"]
       interval: 10s
       timeout: 10s
       retries: 5
@@ -69,7 +69,6 @@ services:
       - ./apps/backend:/app
       - ./scripts:/scripts
       - ./data:/data
-      - ./GraphDB_data:/GraphDB_data
     ports:
       - "8000:8000"
     env_file:
@@ -77,6 +76,7 @@ services:
     environment:
       - POSTGRES_HOST=postgres
       - NEO4J_URI=bolt://neo4j:7687
+      - PYTHONUNBUFFERED=1
       - ELASTICSEARCH_HOST=elasticsearch
     depends_on:
       - postgres
@@ -97,9 +97,12 @@ services:
     environment:
       - NEO4J_URI=bolt://neo4j:7687
       - POSTGRES_HOST=postgres
+      - REDIS_HOST=redis
+      - PYTHONUNBUFFERED=1
     depends_on:
       - postgres
       - neo4j
+      - redis
 
   reco:
     build:
@@ -112,6 +115,8 @@ services:
       - "8002:8002"
     env_file:
       - .env
+    environment:
+      - PYTHONUNBUFFERED=1
 
   frontend:
     build:
@@ -166,7 +171,6 @@ services:
       - ./scripts:/app
       - ./libs:/libs
       - ./data:/data
-      - ./GraphDB_data:/GraphDB_data
     env_file:
       - .env
     environment:

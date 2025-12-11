@@ -63,7 +63,7 @@ class AmenityImporter:
                 session.run(query, batch=batch)
                 
         print("Finished importing Hospitals.")
-        # self._link_hospital()
+        self.link_hospital()
 
     def link_hospital(self):
         print("Linking Hospitals...")
@@ -76,8 +76,8 @@ class AmenityImporter:
                 MATCH (h:GeneralHospital)
                 WHERE point.distance(p.location, h.location) < 1000
                 MERGE (p)-[r:NEAR_GENERAL_HOSPITAL]->(h)
-                SET r.distance = point.distance(p.location, h.location),
-                    r.walking_time = (point.distance(p.location, h.location) * 1.3) / 80
+                SET r.distance = toInteger(round(point.distance(p.location, h.location))),
+                    r.walking_time = toInteger(round((point.distance(p.location, h.location) * 1.3) / 80))
             } IN TRANSACTIONS OF 1000 ROWS
             """)
             # Other Hospital (300m)
@@ -88,8 +88,8 @@ class AmenityImporter:
                 MATCH (h:Hospital)
                 WHERE h.category <> '종합병원' AND point.distance(p.location, h.location) < 300
                 MERGE (p)-[r:NEAR_HOSPITAL]->(h)
-                SET r.distance = point.distance(p.location, h.location),
-                    r.walking_time = (point.distance(p.location, h.location) * 1.3) / 80
+                SET r.distance = toInteger(round(point.distance(p.location, h.location))),
+                    r.walking_time = toInteger(round((point.distance(p.location, h.location) * 1.3) / 80))
             } IN TRANSACTIONS OF 1000 ROWS
             """)
 
@@ -131,7 +131,7 @@ class AmenityImporter:
                 session.run(query, batch=batch)
                 
         print("Finished importing Pharmacies.")
-        # self._link_pharmacy()
+        self.link_pharmacy()
 
     def link_pharmacy(self):
         print("Linking Pharmacies (200m)...")
@@ -143,8 +143,8 @@ class AmenityImporter:
                 MATCH (ph:Pharmacy)
                 WHERE point.distance(p.location, ph.location) < 200
                 MERGE (p)-[r:NEAR_PHARMACY]->(ph)
-                SET r.distance = point.distance(p.location, ph.location),
-                    r.walking_time = (point.distance(p.location, ph.location) * 1.3) / 80
+                SET r.distance = toInteger(round(point.distance(p.location, ph.location))),
+                    r.walking_time = toInteger(round((point.distance(p.location, ph.location) * 1.3) / 80))
             } IN TRANSACTIONS OF 1000 ROWS
             """)
 
@@ -192,7 +192,7 @@ class AmenityImporter:
                 session.run(query, batch=batch)
                 
         print("Finished importing Colleges.")
-        # self._link_college()
+        self.link_college()
 
     def link_college(self):
         print("Linking Colleges (2km)...")
@@ -204,8 +204,8 @@ class AmenityImporter:
                 MATCH (c:College)
                 WHERE point.distance(p.location, c.location) < 2000
                 MERGE (p)-[r:NEAR_COLLEGE]->(c)
-                SET r.distance = point.distance(p.location, c.location),
-                    r.walking_time = (point.distance(p.location, c.location) * 1.3) / 80
+                SET r.distance = toInteger(round(point.distance(p.location, c.location))),
+                    r.walking_time = toInteger(round((point.distance(p.location, c.location) * 1.3) / 80))
             } IN TRANSACTIONS OF 1000 ROWS
             """)
 
@@ -266,7 +266,7 @@ class AmenityImporter:
                 session.run(query, batch=batch)
                 
         print("Finished importing Stores.")
-        # self._link_convenience()
+        self.link_convenience()
 
     def link_convenience(self):
         print("Linking Convenience Stores (200m)...")
@@ -278,8 +278,8 @@ class AmenityImporter:
                 MATCH (c:Convenience)
                 WHERE point.distance(p.location, c.location) < 200
                 MERGE (p)-[r:NEAR_CONVENIENCE]->(c)
-                SET r.distance = point.distance(p.location, c.location),
-                    r.walking_time = (point.distance(p.location, c.location) * 1.3) / 80
+                SET r.distance = toInteger(round(point.distance(p.location, c.location))),
+                    r.walking_time = toInteger(round((point.distance(p.location, c.location) * 1.3) / 80))
             } IN TRANSACTIONS OF 1000 ROWS
             """)
 
@@ -332,7 +332,7 @@ class AmenityImporter:
                     session.run(query, batch=batch)
                     
         print("Finished importing Parks.")
-        # self._link_park()
+        self.link_park()
 
     def link_park(self):
         print("Linking Parks (500m)...")
@@ -344,8 +344,8 @@ class AmenityImporter:
                 MATCH (pk:Park)
                 WHERE point.distance(p.location, pk.location) < 500
                 MERGE (p)-[r:NEAR_PARK]->(pk)
-                SET r.distance = point.distance(p.location, pk.location),
-                    r.walking_time = (point.distance(p.location, pk.location) * 1.3) / 80
+                SET r.distance = toInteger(round(point.distance(p.location, pk.location))),
+                    r.walking_time = toInteger(round((point.distance(p.location, pk.location) * 1.3) / 80))
             } IN TRANSACTIONS OF 1000 ROWS
             """)
 
