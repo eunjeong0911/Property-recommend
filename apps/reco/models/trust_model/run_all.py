@@ -1,51 +1,92 @@
 """
-중개사 신뢰도 모델 - 전체 파이프라인 실행
+중개사 신뢰도 모델 - 전체 파이프라인 자동 실행 스크립트
+순서:
+1) 타겟 생성 (_01)
+2) Feature 생성 (_02)
+3) 모델 학습 (_03)
+4) 모델 평가 (_04)
+5) 모델 저장 (_05)
 """
+
 from pathlib import Path
 import sys
+import os
 
-# pipeline 폴더를 sys.path에 추가
+# 프로젝트 루트로 작업 디렉토리 변경 (data/ 폴더 접근을 위해)
+project_root = Path(__file__).parent.parent.parent.parent.parent
+os.chdir(project_root)
+print(f"📁 작업 디렉토리 변경: {project_root}")
+
+# pipeline 폴더 경로 추가
 pipeline_dir = Path(__file__).parent / "pipeline"
 sys.path.insert(0, str(pipeline_dir))
 
-# import
-from _01_train_model import main as train_model
+# 개별 단계 import
+from _00_load_data import main as step00_load_data
+from _01_create_target import main as step01_create_target
+from _02_create_features import main as step02_create_features
+from _03_train import main as step03_train
+from _04_eval import main as step04_eval
+from _05_save_model import main as step05_save_model
 
-# 경로 설정
-RESULTS_DIR = Path(__file__).parent / "results"
-RESULTS_DIR.mkdir(exist_ok=True)
 
+def main():
+    print("\n====================================")
+    print("🚀 중개사 신뢰도 모델 전체 파이프라인 실행 시작")
+    print("====================================")
 
-def run_pipeline():
-    """전체 파이프라인 실행"""
-    print("\n" + "="*70)
-    print("🚀 중개사 신뢰도 모델 - 전체 파이프라인 실행")
-    print("="*70)
-    
-    # 1. 데이터 로드 및 전처리 (이미 main에서 실행됨)
-    print("\n[Step 1/2] 데이터 전처리 및 모델 학습 시작...")
-    
-    # 2. 모델 학습 (데이터 로드 포함)
-    best_model, scaler, feature_names, results = train_model()
-    
-    print("\n" + "="*70)
-    print("✅ 전체 파이프라인 완료!")
-    print("="*70)
-    print("\n📊 최종 결과:")
-    print(f"   - 최고 모델: {max(results, key=lambda x: results[x]['f1_score'])}")
-    print(f"   - 정확도: {max(r['accuracy'] for r in results.values()):.4f}")
-    print(f"   - F1-Score: {max(r['f1_score'] for r in results.values()):.4f}")
-    print(f"   - 피처 수: {len(feature_names)}")
-    print(f"   - 타겟: 하이브리드 (거래완료율 30% + 인력 40% + 경력 20% + 운영 10%)")
-    print("\n💾 저장된 파일:")
-    print(f"   - 모델: apps/reco/models/trust_model/saved_models/trust_model.pkl")
-    print(f"   - 스케일러: apps/reco/models/trust_model/saved_models/scaler.pkl")
-    print(f"   - 피처: apps/reco/models/trust_model/saved_models/feature_names.pkl")
-    print(f"   - 데이터: data/processed_office_data.csv")
-    print("="*70 + "\n")
-    
-    return best_model, scaler, feature_names, results
+    try:
+        # ---------------------------------------------
+        # 0) 데이터 로드 및 전처리
+        # ---------------------------------------------
+        print("\n\n=== [0단계] 데이터 로드 및 전처리 ===")
+        step00_load_data()
+        print("✅ 0단계 완료")
+
+        # ---------------------------------------------
+        # 1) 타겟 생성
+        # ---------------------------------------------
+        print("\n\n=== [1단계] 타겟 생성 ===")
+        step01_create_target()
+        print("✅ 1단계 완료")
+
+        # ---------------------------------------------
+        # 2) Feature 생성
+        # ---------------------------------------------
+        print("\n\n=== [2단계] Feature 생성 ===")
+        step02_create_features()
+        print("✅ 2단계 완료")
+
+        # ---------------------------------------------
+        # 3) 모델 학습
+        # ---------------------------------------------
+        print("\n\n=== [3단계] 모델 학습 ===")
+        step03_train()
+        print("✅ 3단계 완료")
+
+        # ---------------------------------------------
+        # 4) 모델 평가
+        # ---------------------------------------------
+        print("\n\n=== [4단계] 모델 평가 ===")
+        step04_eval()
+        print("✅ 4단계 완료")
+
+        # ---------------------------------------------
+        # 5) 모델 저장
+        # ---------------------------------------------
+        print("\n\n=== [5단계] 모델 저장 ===")
+        step05_save_model()
+        print("✅ 5단계 완료")
+
+        print("\n====================================")
+        print("🎉 전체 파이프라인 실행 완료!")
+        print("====================================\n")
+
+    except Exception as e:
+        print(f"\n❌ 파이프라인 실행 중 오류 발생: {e}")
+        print("파이프라인이 중단되었습니다.")
+        raise
 
 
 if __name__ == "__main__":
-    best_model, scaler, feature_names, results = run_pipeline()
+    main()

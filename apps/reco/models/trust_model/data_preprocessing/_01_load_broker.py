@@ -233,7 +233,7 @@ def collect_seoul_brokers():
     
     if all_brokers:
         # CSV 파일로 저장
-        csv_filepath = "data/seoul_brokers.csv"
+        csv_filepath = "data/brokerInfo/brokers.csv"
         api.save_to_csv(all_brokers, csv_filepath)
         
         print(f"\n서울시 전체 중개업소 정보가 저장되었습니다.")

@@ -11,8 +11,8 @@ def group_by_office():
     """사무소별로 중개사 정보 집계"""
     
     # CSV 파일 읽기
-    input_file = "data/cleaned_brokers.csv"
-    output_file = "data/processed_office_data.csv"
+    input_file = "data/brokerInfo/cleaned_brokers.csv"
+    output_file = "data/brokerInfo/grouped_offices.csv"
     
     print(f"=== {input_file} 파일 로드 중 ===")
     df = pd.read_csv(input_file)
@@ -36,7 +36,7 @@ def group_by_office():
         # 사무소 기본 정보
         office_info = {
             '등록번호': reg_num,
-            '중개사명': first_row.get('land_중개사명'),
+            '중개사무소명': first_row.get('land_중개사무소명'),
             '대표자': first_row.get('land_대표자'),
             '전화번호': first_row.get('land_전화번호'),
             '주소': first_row.get('land_주소'),
@@ -44,30 +44,29 @@ def group_by_office():
             '등록매물': first_row.get('land_등록매물'),
             
             # office 정보
-            '개설시작일': first_row.get('office_estbsBeginDe'),
-            '개설종료일': first_row.get('office_estbsEndDe'),
+            '보증보험시작일': first_row.get('office_estbsBeginDe'),
+            '보증보험종료일': first_row.get('office_estbsEndDe'),
             '등록일': first_row.get('office_registDe'),
             '상태구분코드': first_row.get('office_sttusSeCode'),
             '상태구분명': first_row.get('office_sttusSeCodeNm'),
             '지역코드': first_row.get('office_ldCode'),
             '지역명': first_row.get('office_ldCodeNm'),
-            '도로명주소코드': first_row.get('office_rdnmadrcode'),
             '최종수정일': first_row.get('office_lastUpdtDt'),
         }
         
         # 소속 중개사/중개보조원 정보 집계
         staff_list = []
         for _, row in group.iterrows():
-            staff_name = row.get('seoul_brkrNm')
+            staff_name = row.get('broker_brkrNm')
             if pd.notna(staff_name):
                 staff_info = {
                     '이름': staff_name,
-                    '구분코드': row.get('seoul_brkrAsortCode'),
-                    '구분명': row.get('seoul_brkrAsortCodeNm'),
-                    '자격취득일': row.get('seoul_crqfcAcqdt'),
-                    '자격번호': row.get('seoul_crqfcNo'),
-                    '직위구분코드': row.get('seoul_ofcpsSeCode'),
-                    '직위구분명': row.get('seoul_ofcpsSeCodeNm'),
+                    '구분코드': row.get('broker_brkrAsortCode'),
+                    '구분명': row.get('broker_brkrAsortCodeNm'),
+                    '자격취득일': row.get('broker_crqfcAcqdt'),
+                    '자격번호': row.get('broker_crqfcNo'),
+                    '직위구분코드': row.get('broker_ofcpsSeCode'),
+                    '직위구분명': row.get('broker_ofcpsSeCodeNm'),
                 }
                 staff_list.append(staff_info)
         

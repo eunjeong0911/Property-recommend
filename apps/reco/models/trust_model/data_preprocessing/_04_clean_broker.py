@@ -9,8 +9,8 @@ def clean_merged_brokers():
     """land_ 컬럼만 있고 나머지가 비어있는 행을 제거하고 불필요한 컬럼 삭제"""
     
     # CSV 파일 읽기
-    input_file = "data/merged_brokers.csv"
-    output_file = "data/cleaned_brokers.csv"
+    input_file = "data/brokerInfo/merged_brokers.csv"
+    output_file = "data/brokerInfo/cleaned_brokers.csv"
     
     print(f"=== {input_file} 파일 로드 중 ===")
     df = pd.read_csv(input_file)
@@ -49,29 +49,17 @@ def clean_merged_brokers():
     
     print(f"정제된 데이터: {len(cleaned_df)}행")
     
-    # # 거래완료와 등록매물이 둘 다 비어있는 행 제거
-    # if 'land_거래완료' in cleaned_df.columns and 'land_등록매물' in cleaned_df.columns:
-    #     empty_transaction_rows = cleaned_df[
-    #         cleaned_df['land_거래완료'].isna() & 
-    #         cleaned_df['land_등록매물'].isna()
-    #     ]
-    #     
-    #     print(f"삭제할 행 수 (거래완료·등록매물 둘 다 비어있는 행): {len(empty_transaction_rows)}")
-    #     
-    #     cleaned_df = cleaned_df[~cleaned_df.index.isin(empty_transaction_rows.index)]
-    #     
-    #     print(f"정제된 데이터 (2차): {len(cleaned_df)}행")
-    
     # 삭제할 컬럼 목록
     columns_to_drop = [
         'office_brkrNm',
         'office_bsnmCmpnm',
         'office_jurirno',
         'office_rdnmadr',
-        'seoul_bsnmCmpnm',
-        'seoul_ldCode',
-        'seoul_ofcpsSeCode'
-        'office_mnnmadr'
+        'office_rdnmadrcode',
+        'broker_bsnmCmpnm',
+        'broker_lastUpdtDt',
+        'broker_ldCode',
+        'broker_ldCodeNm'
     ]
     
     # 실제 존재하는 컬럼만 삭제

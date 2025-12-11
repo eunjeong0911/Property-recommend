@@ -26,6 +26,7 @@ langgraph==0.2.61
 langchain==0.3.26
 langchain-openai==0.3.8
 langchain-community==0.3.27
+fastapi>=0.109
 
 # -----------------------------------------------------------------------------
 # API Framework
@@ -41,10 +42,8 @@ torch>=2.1
 scikit-learn==1.7.2
 pandas==2.3.3
 numpy==2.3.5
-xgboost==1.7.6
 shap==0.50.0
-# lightgbm==4.3.0
-
+xgboost>=2.0.0
 
 # -----------------------------------------------------------------------------
 # Data Science & Analytics

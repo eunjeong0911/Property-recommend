@@ -2,6 +2,7 @@
 데이터 로드 모듈
 """
 import pandas as pd
+import numpy as np
 from pathlib import Path
 
 def load_processed_office_data(filepath: str = "data/processed_office_data_nn.csv") -> pd.DataFrame:
@@ -27,10 +28,14 @@ def load_processed_office_data(filepath: str = "data/processed_office_data_nn.cs
     return df
 
 def main():
+    """메인 실행 함수"""
+    print("📊 데이터 로드 및 전처리 중...")
+
+    # STEP 1: 데이터 로드
     df = load_processed_office_data()
     print("\n=== Preview ===")
     print(df.head())
     return df
 
 if __name__ == "__main__":
-    main()
+    df = main()

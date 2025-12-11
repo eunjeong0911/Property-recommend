@@ -1,222 +1,206 @@
 # 중개사 신뢰도 예측 모델
 
+- **중개사 신뢰도를 A/B/C 3등급으로 분류하는 다중분류 ML**
 
-**중개사 신뢰도를 3등급(하/중/상)으로 분류하는 ML**
 
+
+## 📊 원본 데이터
+
+### 입력 데이터
+```
+파일: data/preprocessed_office_data.csv
+- 356개 중개사무소
+- 25개 컬럼 (기본 정보 + 거래 실적)
+```
+
+**주요 컬럼:**
+- **거래 실적**: 거래완료, 등록매물
+- **인력 구성**: 총_직원수, 공인중개사수, 중개보조원수, 대표수, 일반직원수
+- **운영 정보**: 개설시작일, 지역명
+- **기타**: 중개사명, 대표자, 주소, 전화번호 등
+
+---
 
 ## 🎯 타겟 정의
 
-### 종합 신뢰도 점수 (100점 만점)
+### Z-Score 기반 신뢰도 등급
 
+**1단계: 거래성사율 계산**
 ```python
-종합점수 = 거래완료율_점수(70점) + 인력구성_점수(30점)
+거래성사율 = 거래완료 / (등록매물 + 거래완료)
 ```
 
-**1. 거래완료율 점수 (70점)**
+**2단계: 지역별 표준화**
 ```python
-거래완료율 = 거래완료 / 등록매물
-거래완료율_로그 = log(1 + 거래완료율)
-거래완료율_점수 = MinMaxScaler(거래완료율_로그) * 70
+# 지역별 평균과 표준편차 계산
+지역평균 = 지역별 거래성사율 평균
+지역표준편차 = 지역별 거래성사율 표준편차
+
+# Z-score 계산 (지역 내 상대적 성과)
+Z-score = (개별_거래성사율 - 지역평균) / 지역표준편차
 ```
 
-**2. 중개업소 인력구성 점수 (30점)**
+**3단계: 등급 분류 (30/40/30 분포)**
 ```python
-인력구성_점수 = (
-    공인중개사비율 * 15 +            # 자격증 보유, 모든 중개 업무 가능.
-    법인여부 * 8 +                  # 보통 공인중개사를 통칭하거나, 자격 없는 자
-    중개인비율 * 5 +                # 자격증 없음, 현장 안내 및 단순 보조만 가능 
-    (1 - 중개보조원비율) * 2        # 자격증 없음, 현장 안내 및 단순 보조만 가능 (낮을수록 좋음)
-)
+# 분위수 기준
+C등급: Z-score ≤ 30% 분위수  (하위 30%)
+B등급: 30% < Z-score ≤ 70%   (중위 40%) 
+A등급: Z-score > 70% 분위수  (상위 30%)
 ```
 
-**3. 등급 분류**
-- 33%, 67% 분위수로 3등급 분류
-- 하/중/상 등급이 균등하게 분포 (각 33%)
+### 타겟 선택 이유
+1. **지역별 공정성**: 같은 지역 내에서 상대적 성과 평가
+2. **거래성사율 중심**: 중개사의 역량 지표
+3. **균형잡힌 분포**: 30/40/30으로 분류
 
----
-
-## 🔧 데이터 전처리
-
-### 1단계: 데이터 로드
-```
-입력: data/cleaned_brokers.csv
-- 1,819행 (개인별 중개사 데이터)
-- 27개 컬럼
-```
-
-### 2단계: 사무소 단위 집계
-```
-출력: 423개 사무소
-```
-
-**집계 항목:**
-- 거래 성과: 거래완료, 등록매물
-- 인력 구성: 공인중개사수, 중개보조원수, 중개인수, 법인수, 대표수
-- 자격증: 자격증보유자수, 평균/최대 경력
-- 운영: 운영일수, 운영년수
-- 지역: 25개 구
-
-### 3단계: 피처 생성
-
-| 카테고리 | 피처 |
-|---------|------|
-| 거래 성과 | 거래완료, 등록매물 |
-| 인력 구성 | 총_인원수, 공인중개사수, 중개보조원수, 중개인수, 법인수, 대표수, 자격증보유자수 |
-| 경력 | 평균_자격증경력년수, 최대_자격증경력년수 |
-| 운영 | 운영년수 |
-| 상태 | 영업중 |
-| 지역 | 25개 구 (원핫 인코딩) |
-
-**총 피처 수:** 약 40개
-
-### 4단계: 타겟 생성
-```python
-# 1. 비율 계산 (타겟용)
-거래완료율 = 거래완료 / 등록매물
-공인중개사비율 = 공인중개사수 / 총_인원수
-
-# 2. 점수 계산
-종합점수 = 거래완료율_점수(70) + 인력구성_점수(30)
-
-# 3. 등급 분류
-신뢰도등급 = cut(종합점수, bins=[0%, 33%, 67%, 100%])
-```
-
----
 
 ## 🤖 모델 학습
 
 ### 데이터 분할
 ```
-Train: 80% (338개)
-Test: 20% (85개)
+전체: 356개
+Train: 284개 (80%)
+Test: 72개 (20%)
 Stratified Split (클래스 비율 유지)
 ```
 
-### 피처 스케일링
+### 전처리 최적화
+
+**스케일러 자동 선택**
 ```python
-StandardScaler()
-# 평균 0, 표준편차 1로 정규화
+# 3가지 스케일러 CV 테스트
+scalers = {
+    'robust': RobustScaler(),           # 이상치에 강함
+    'quantile': QuantileTransformer(),  # 균등 분포 변환
+    'power': PowerTransformer()         # 정규분포 변환
+}
+# → 최적 스케일러 자동 선택
 ```
 
-### SMOTE 오버샘플링
+### 모델 비교 (5개)
+
+**1. LogisticRegression (하이퍼파라미터 최적화)**
 ```python
-BorderlineSMOTE(
-    sampling_strategy={
-        0: max_count,            # 하등급
-        1: int(max_count * 1.2), # 중등급 1.2배
-        2: max_count             # 상등급
-    },
-    kind='borderline-1'
-)
+# 3단계 GridSearchCV
+1단계: L2 정규화 (기본)
+2단계: L1 정규화 (특성 선택)
+3단계: ElasticNet (L1+L2 조합)
+
+# 최적 파라미터
+penalty='elasticnet', C=1, l1_ratio=0.1, solver='saga'
 ```
 
-**효과:**
-```
-원본: 338개
-리샘플링 후: 364개
-- 하: 114개
-- 중: 136개 (1.2배)
-- 상: 114개
-```
-
-### RandomForest 하이퍼파라미터
-
-**GridSearchCV 최적화 (486가지 조합 테스트):**
-
+**2. RandomForest Enhanced**
 ```python
 RandomForestClassifier(
-    n_estimators=80,            # 트리 개수
-    max_depth=5,                # 최대 깊이
-    min_samples_split=12,       # 분할 최소 샘플
-    min_samples_leaf=8,         # 리프 최소 샘플
-    max_samples=0.9,            # 샘플링 90%
-    max_features='sqrt',        # 피처 샘플링
-    random_state=42,
-    class_weight='balanced'     # 클래스 가중치
+    n_estimators=150,
+    max_depth=10,
+    min_samples_split=3,
+    min_samples_leaf=1,
+    class_weight='balanced'
 )
 ```
 
-**탐색 범위:**
-- `n_estimators`: [80, 100, 120]
-- `max_depth`: [5, 6, 7]
-- `min_samples_split`: [12, 15, 18]
-- `min_samples_leaf`: [6, 8, 10]
-- `max_samples`: [0.7, 0.8, 0.9]
-- `max_features`: ['sqrt', 'log2']
+**3. GradientBoosting Enhanced**
+```python
+GradientBoostingClassifier(
+    n_estimators=100,
+    max_depth=4,
+    learning_rate=0.1,
+    min_samples_split=5,
+    min_samples_leaf=2
+)
+```
 
-**최적 CV 점수:** 78.43%
+**4. SVM**
+```python
+SVC(
+    C=1.0,
+    kernel='rbf',
+    class_weight='balanced',
+    probability=True
+)
+```
+
+**5. Ensemble VotingClassifier**
+```python
+# 4개 모델의 소프트 투표
+VotingClassifier(
+    estimators=[LR, RF, GB, SVM],
+    voting='soft'
+)
+```
 
 ---
 
 ## 📊 모델 성능
 
-### 최종 성능 지표
+### 최종 성능 비교
 
-| 지표 | Train | Test | 차이 |
-|------|-------|------|------|
-| Accuracy | 81.04% | 74.12% | 6.93% ✅ |
-| F1-Score | - | 72.61% | - |
-| CV Score | - | 79.39% | ±5.62% |
+| 모델 | CV Mean | Test Acc | 과적합 |
+|------|---------|----------|--------|
+| **LogisticRegression_Optimized** | **70.09%** | 62.50% | 0.118 |
+| GradientBoosting_Enhanced | 62.32% | 61.11% | 0.361 |
+| RandomForest_Enhanced | 61.28% | 62.50% | 0.269 |
+| SVM | - | - | - |
+| Ensemble_VotingClassifier | - | - | - |
 
+### 최고 성능 모델: LogisticRegression_Optimized
 
-### 클래스별 성능
+**하이퍼파라미터:**
+```python
+penalty='elasticnet'     # L1+L2 조합
+C=1                      # 정규화 강도
+l1_ratio=0.1            # L2 위주 (90%), L1 소량 (10%)
+solver='saga'           # ElasticNet 지원
+max_iter=2000          # 충분한 반복
+```
+
+**성능 지표:**
+- **CV Mean**: 73.26% (±3.96%)
+- **Test Accuracy**: 69.44%
+- **과적합 정도**: 6.96% (매우 낮음)
+
+### 클래스별 성능 (Test 기준)
 
 | 등급 | Precision | Recall | F1-Score | 샘플 수 |
 |------|-----------|--------|----------|---------|
-| 하   | 0.71      | 0.79   | 0.75     | 28      |
-| 중   | 0.68      | 0.62   | 0.65     | 29      |
-| 상   | 0.79      | 0.79   | 0.79     | 28      |
+| A (상) | 0.91 | 0.91 | 0.91 | 22 |
+| B (중) | 0.62 | 0.57 | 0.59 | 28 |
+| C (하) | 0.58 | 0.64 | 0.61 | 22 |
 
-**Macro Avg:** 0.73 / 0.73 / 0.73  
-**Weighted Avg:** 0.73 / 0.74 / 0.73
 
-### Confusion Matrix
-```
-실제 \  예측    하    중    상
-하              22    5    1
-중               6   18    5
-상               1    5   22
-```
-
-**분석:**
-- 하등급: 79% 정확도 (우수)
-- 중등급: 62% 정확도 (개선 필요)
-- 상등급: 79% 정확도 (우수)
-
----
 
 ## 🚀 실행 방법
 
 ### 전체 파이프라인 실행
 ```bash
-python apps/reco/models/trust_model/run_all.py
+cd apps/reco/models/trust_model
+python run_all.py
 ```
-
-**실행 과정:**
-1. 데이터 로드 (cleaned_brokers.csv)
-2. 사무소 단위 집계
-3. 피처 생성
-4. 타겟 생성
-5. 데이터 분할
-6. 피처 스케일링
-7. SMOTE 오버샘플링
-8. RandomForest 학습
-9. 모델 평가
-10. 모델 저장
-
----
 
 ## 📁 출력 파일
 
 ```
-apps/reco/models/trust_model/saved_models/
-├── trust_model.pkl          # RandomForest 모델 (74.12%)
-├── scaler.pkl               # StandardScaler
-└── feature_names.pkl        # 40개 피처 이름
+apps/reco/models/trust_model/save_models/
+├── temp_trained_models.pkl     # 전체 모델 + 결과
+└── final_trust_model.pkl       # 최고 성능 모델만
 
 data/
-└── processed_office_data.csv  # 전처리된 데이터 (423행)
+├── office_target.csv           # 타겟 포함 데이터
+└── office_features.csv         # Feature 포함 데이터
 ```
+
+**final_trust_model.pkl 구성:**
+```python
+{
+    'model': LogisticRegression_Optimized,
+    'scaler': 최적_스케일러,
+    'feature_names': 34개_Feature_이름,
+    'model_name': 'LogisticRegression_Optimized'
+}
+```
+
+
 
 

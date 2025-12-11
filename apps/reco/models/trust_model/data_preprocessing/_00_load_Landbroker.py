@@ -13,7 +13,7 @@ from datetime import datetime
 class LandBrokerExtractor:
     """크롤링된 매물 데이터에서 중개사 정보를 추출하는 클래스"""
     
-    def __init__(self, data_dir: str = "data/landData"):
+    def __init__(self, data_dir: str = "data/landData_enriched"):
         """
         Args:
             data_dir: JSON 파일들이 있는 디렉토리 경로
@@ -129,6 +129,7 @@ class LandBrokerExtractor:
     def save_to_csv(self, brokers: List[Dict[str, Any]], filepath: str) -> None:
         """
         중개사 정보를 CSV 파일로 저장
+        컬럼명 변경: '중개사명' -> '중개사무소명'
         
         Args:
             brokers: 중개사 정보 리스트
@@ -140,18 +141,29 @@ class LandBrokerExtractor:
         
         Path(filepath).parent.mkdir(parents=True, exist_ok=True)
         
+        # 컬럼명 매핑: 중개사명 -> 중개사무소명
+        renamed_brokers = []
+        for broker in brokers:
+            renamed_broker = {}
+            for key, value in broker.items():
+                if key == '중개사명':
+                    renamed_broker['중개사무소명'] = value
+                else:
+                    renamed_broker[key] = value
+            renamed_brokers.append(renamed_broker)
+        
         # 모든 키 수집
         headers = set()
-        for broker in brokers:
+        for broker in renamed_brokers:
             headers.update(broker.keys())
         headers = sorted(headers)
         
         with open(filepath, 'w', encoding='utf-8-sig', newline='') as f:
             writer = csv.DictWriter(f, fieldnames=headers)
             writer.writeheader()
-            writer.writerows(brokers)
+            writer.writerows(renamed_brokers)
         
-        print(f"CSV 파일 저장: {filepath} (총 {len(brokers)}건)")
+        print(f"CSV 파일 저장: {filepath} (총 {len(renamed_brokers)}건)")
     
     def get_statistics(self, brokers: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
@@ -199,7 +211,7 @@ def main():
         unique_brokers = extractor.remove_duplicates(all_brokers)
         
         # 파일 저장
-        csv_filepath = "data/land_brokers.csv"
+        csv_filepath = "data/brokerInfo/land_brokers.csv"
         extractor.save_to_csv(unique_brokers, csv_filepath)
         
         # 통계 출력
