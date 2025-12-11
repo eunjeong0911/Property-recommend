@@ -3,6 +3,12 @@ import urllib.parse
 import json
 import time
 import csv
+import os
+from dotenv import load_dotenv
+
+# .env 파일 로드
+load_dotenv()
+
 
 def fetch_broker_offices(key, domain, ld_code=None, status_code="1", format_type="json"):
     """
@@ -83,9 +89,16 @@ def fetch_broker_offices(key, domain, ld_code=None, status_code="1", format_type
 
 
 if __name__ == "__main__":
-    # 사용 예시
-    API_KEY = "D4A6F88A-81B5-33D6-B0EA-CFD6B5059762"  # 실제 인증키로 변경
-    DOMAIN = "http://localhost"  # 실제 도메인으로 변경
+    # 환경 변수에서 API 키와 도메인 가져오기
+    API_KEY = os.getenv("VWORLD_API_KEY")
+    DOMAIN = os.getenv("VWORLD_DOMAIN")
+    
+    if not API_KEY or not DOMAIN:
+        raise ValueError("환경 변수 VWORLD_API_KEY와 VWORLD_DOMAIN을 .env 파일에 설정해주세요.")
+    
+    print(f"API 키 로드 완료: {API_KEY[:10]}...")
+    print(f"도메인: {DOMAIN}")
+
     
     # 서울특별시 데이터 조회
     # 서울특별시 시군구 코드 목록
