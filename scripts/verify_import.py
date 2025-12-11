@@ -1,185 +1,219 @@
-#!/usr/bin/env python3
 """
 데이터 Import 검증 스크립트
-Neo4j와 PostgreSQL에 데이터가 제대로 들어갔는지 확인합니다.
+
+PostgreSQL과 Neo4j의 데이터를 확인하여 정상적으로 import되었는지 검증합니다.
 """
 
 import os
 import sys
-from neo4j import GraphDatabase
+from pathlib import Path
+
+# Add data_import to path
+sys.path.insert(0, str(Path(__file__).parent / 'data_import'))
+
+from config import Config
+from database import Database
 import psycopg2
-from dotenv import load_dotenv
+from neo4j import GraphDatabase
 
-load_dotenv()
-
-def verify_neo4j():
-    """Neo4j 데이터 검증"""
-    print("\n" + "=" * 70)
-    print("Neo4j 데이터 검증")
-    print("=" * 70)
-    
-    try:
-        driver = GraphDatabase.driver(
-            os.getenv("NEO4J_URI", "bolt://localhost:7687"),
-            auth=(os.getenv("NEO4J_USER", "neo4j"), os.getenv("NEO4J_PASSWORD", "neo4j"))
-        )
-        
-        with driver.session() as session:
-            # 매물 수
-            result = session.run("MATCH (p:Property) RETURN count(p) as count")
-            property_count = result.single()["count"]
-            print(f"✓ 매물 (Property): {property_count:,}개")
-            
-            # 지하철역 수
-            result = session.run("MATCH (s:SubwayStation) RETURN count(s) as count")
-            subway_count = result.single()["count"]
-            print(f"✓ 지하철역 (SubwayStation): {subway_count:,}개")
-            
-            # 버스정류장 수
-            result = session.run("MATCH (b:BusStation) RETURN count(b) as count")
-            bus_count = result.single()["count"]
-            print(f"✓ 버스정류장 (BusStation): {bus_count:,}개")
-            
-            # 편의점 수
-            result = session.run("MATCH (c:ConvenienceStore) RETURN count(c) as count")
-            convenience_count = result.single()["count"]
-            print(f"✓ 편의점 (ConvenienceStore): {convenience_count:,}개")
-            
-            # 공원 수
-            result = session.run("MATCH (p:Park) RETURN count(p) as count")
-            park_count = result.single()["count"]
-            print(f"✓ 공원 (Park): {park_count:,}개")
-            
-            # 병원 수
-            result = session.run("MATCH (h:Hospital) RETURN count(h) as count")
-            hospital_count = result.single()["count"]
-            print(f"✓ 병원 (Hospital): {hospital_count:,}개")
-            
-            # 약국 수
-            result = session.run("MATCH (p:Pharmacy) RETURN count(p) as count")
-            pharmacy_count = result.single()["count"]
-            print(f"✓ 약국 (Pharmacy): {pharmacy_count:,}개")
-            
-            # 대학교 수
-            result = session.run("MATCH (c:College) RETURN count(c) as count")
-            college_count = result.single()["count"]
-            print(f"✓ 대학교 (College): {college_count:,}개")
-            
-            print("\n관계 (Relationships):")
-            
-            # 지하철역 연결
-            result = session.run("MATCH ()-[r:NEAR_SUBWAY]->() RETURN count(r) as count")
-            subway_rel_count = result.single()["count"]
-            print(f"✓ 매물-지하철역 연결: {subway_rel_count:,}개")
-            
-            # 버스정류장 연결
-            result = session.run("MATCH ()-[r:NEAR_BUS]->() RETURN count(r) as count")
-            bus_rel_count = result.single()["count"]
-            print(f"✓ 매물-버스정류장 연결: {bus_rel_count:,}개")
-            
-            # 편의점 연결
-            result = session.run("MATCH ()-[r:NEAR_CONVENIENCE]->() RETURN count(r) as count")
-            convenience_rel_count = result.single()["count"]
-            print(f"✓ 매물-편의점 연결: {convenience_rel_count:,}개")
-            
-            # 샘플 매물 확인
-            print("\n샘플 매물 (처음 3개):")
-            result = session.run("""
-                MATCH (p:Property)
-                RETURN p.id as id, p.name as name, p.address as address
-                LIMIT 3
-            """)
-            for i, record in enumerate(result, 1):
-                print(f"  {i}. {record['name']} ({record['id']})")
-                print(f"     주소: {record['address']}")
-        
-        driver.close()
-        return True
-        
-    except Exception as e:
-        print(f"✗ Neo4j 연결 실패: {e}")
-        return False
-
-
-def verify_postgres():
-    """PostgreSQL 데이터 검증"""
-    print("\n" + "=" * 70)
-    print("PostgreSQL 데이터 검증")
-    print("=" * 70)
+def check_postgres():
+    """PostgreSQL 데이터 확인"""
+    print("\n" + "="*60)
+    print("PostgreSQL 확인")
+    print("="*60)
     
     try:
         conn = psycopg2.connect(
             host=os.getenv("POSTGRES_HOST", "localhost"),
-            port=os.getenv("POSTGRES_PORT", "5432"),
-            database=os.getenv("POSTGRES_DB", "realestate"),
+            dbname=os.getenv("POSTGRES_DB", "realestate"),
             user=os.getenv("POSTGRES_USER", "postgres"),
             password=os.getenv("POSTGRES_PASSWORD", "postgres")
         )
+        cursor = conn.cursor()
         
-        cur = conn.cursor()
+        # 전체 개수
+        cursor.execute("SELECT COUNT(*) FROM land;")
+        total = cursor.fetchone()[0]
+        print(f"  ✓ land 테이블: {total:,}개 레코드")
         
-        # 매물 수
-        cur.execute("SELECT COUNT(*) FROM listings")
-        listing_count = cur.fetchone()[0]
-        print(f"✓ 매물 (listings): {listing_count:,}개")
-        
-        # 샘플 매물 확인
-        print("\n샘플 매물 (처음 3개):")
-        cur.execute("""
-            SELECT listing_id, title, address
-            FROM listings
-            LIMIT 3
+        # 건물형태별 개수
+        cursor.execute("""
+            SELECT building_type, COUNT(*) 
+            FROM land 
+            GROUP BY building_type 
+            ORDER BY COUNT(*) DESC;
         """)
-        for i, row in enumerate(cur.fetchall(), 1):
-            print(f"  {i}. {row[1]} ({row[0]})")
-            print(f"     주소: {row[2]}")
+        print("\n  건물형태별:")
+        for building_type, count in cursor.fetchall():
+            print(f"    - {building_type}: {count:,}개")
         
-        # 지역별 매물 수
-        print("\n지역별 매물 수:")
-        cur.execute("""
-            SELECT 
-                address_info->>'시도' as 시도,
-                COUNT(*) as 매물수
-            FROM listings
-            WHERE address_info->>'시도' IS NOT NULL
-            GROUP BY address_info->>'시도'
-            ORDER BY 매물수 DESC
-            LIMIT 5
+        # 거래유형별 개수
+        cursor.execute("""
+            SELECT deal_type, COUNT(*) 
+            FROM land 
+            WHERE deal_type IS NOT NULL
+            GROUP BY deal_type 
+            ORDER BY COUNT(*) DESC;
         """)
-        for row in cur.fetchall():
-            if row[0]:
-                print(f"  {row[0]}: {row[1]:,}개")
+        print("\n  거래유형별:")
+        for deal_type, count in cursor.fetchall():
+            print(f"    - {deal_type}: {count:,}개")
         
-        cur.close()
+        cursor.close()
         conn.close()
-        return True
+        
+        return total > 0
         
     except Exception as e:
-        print(f"✗ PostgreSQL 연결 실패: {e}")
+        print(f"  ❌ PostgreSQL 오류: {e}")
+        return False
+
+
+def check_neo4j():
+    """Neo4j 데이터 확인"""
+    print("\n" + "="*60)
+    print("Neo4j 확인")
+    print("="*60)
+    
+    try:
+        driver = Database.get_driver()
+        
+        with driver.session() as session:
+            # 노드 개수
+            print("\n  노드 개수:")
+            result = session.run("""
+                MATCH (n)
+                RETURN labels(n)[0] as type, count(n) as count
+                ORDER BY count DESC
+            """)
+            
+            node_counts = {}
+            for record in result:
+                node_type = record["type"]
+                count = record["count"]
+                node_counts[node_type] = count
+                print(f"    ✓ {node_type}: {count:,}개")
+            
+            # Property 노드 구조 확인
+            print("\n  Property 노드 구조 확인:")
+            result = session.run("""
+                MATCH (p:Property)
+                RETURN keys(p) as fields
+                LIMIT 1
+            """)
+            record = result.single()
+            if record:
+                fields = record["fields"]
+                print(f"    필드: {fields}")
+                if "address" in fields:
+                    print("    ⚠️  경고: Property 노드에 address 필드가 있습니다!")
+                    print("    → Neo4j에는 id, latitude, longitude, location만 있어야 합니다.")
+                else:
+                    print("    ✅ 정상: address 필드 없음 (PostgreSQL에서 조회)")
+            
+            # 관계 개수
+            print("\n  관계(Edge) 개수:")
+            result = session.run("""
+                MATCH ()-[r]->()
+                RETURN type(r) as relationship, count(r) as count
+                ORDER BY count DESC
+                LIMIT 15
+            """)
+            
+            for record in result:
+                rel_type = record["relationship"]
+                count = record["count"]
+                print(f"    ✓ {rel_type}: {count:,}개")
+            
+            # 검증
+            property_count = node_counts.get("Property", 0)
+            return property_count > 0
+            
+    except Exception as e:
+        print(f"  ❌ Neo4j 오류: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
+def verify_data_consistency():
+    """PostgreSQL과 Neo4j 데이터 일관성 확인"""
+    print("\n" + "="*60)
+    print("데이터 일관성 확인")
+    print("="*60)
+    
+    try:
+        # PostgreSQL 매물 ID 목록
+        conn = psycopg2.connect(
+            host=os.getenv("POSTGRES_HOST", "localhost"),
+            dbname=os.getenv("POSTGRES_DB", "realestate"),
+            user=os.getenv("POSTGRES_USER", "postgres"),
+            password=os.getenv("POSTGRES_PASSWORD", "postgres")
+        )
+        cursor = conn.cursor()
+        cursor.execute("SELECT land_num FROM land LIMIT 100;")
+        postgres_ids = {str(row[0]) for row in cursor.fetchall()}
+        cursor.close()
+        conn.close()
+        
+        # Neo4j Property ID 목록
+        driver = Database.get_driver()
+        with driver.session() as session:
+            result = session.run("MATCH (p:Property) RETURN p.id as id LIMIT 100;")
+            neo4j_ids = {str(record["id"]) for record in result}
+        
+        # 일치 확인
+        matching = postgres_ids & neo4j_ids
+        print(f"  PostgreSQL 샘플: {len(postgres_ids)}개")
+        print(f"  Neo4j 샘플: {len(neo4j_ids)}개")
+        print(f"  일치하는 ID: {len(matching)}개")
+        
+        if len(matching) > 50:
+            print("  ✅ 데이터 일관성 정상")
+            return True
+        else:
+            print("  ⚠️  경고: 일치하는 ID가 적습니다")
+            return False
+            
+    except Exception as e:
+        print(f"  ❌ 일관성 확인 오류: {e}")
         return False
 
 
 def main():
-    print("\n" + "=" * 70)
-    print(" " * 20 + "데이터 Import 검증")
-    print("=" * 70)
+    print("="*60)
+    print("데이터 Import 검증 시작")
+    print("="*60)
     
-    neo4j_ok = verify_neo4j()
-    postgres_ok = verify_postgres()
+    postgres_ok = check_postgres()
+    neo4j_ok = check_neo4j()
+    consistency_ok = verify_data_consistency()
     
-    print("\n" + "=" * 70)
+    print("\n" + "="*60)
     print("검증 결과")
-    print("=" * 70)
-    print(f"Neo4j: {'✓ 성공' if neo4j_ok else '✗ 실패'}")
-    print(f"PostgreSQL: {'✓ 성공' if postgres_ok else '✗ 실패'}")
-    print("=" * 70 + "\n")
+    print("="*60)
     
-    if neo4j_ok and postgres_ok:
-        print("✓ 모든 데이터가 정상적으로 import되었습니다!")
-        sys.exit(0)
+    if postgres_ok:
+        print("  ✅ PostgreSQL: 정상")
     else:
-        print("✗ 일부 데이터베이스에 문제가 있습니다.")
-        sys.exit(1)
+        print("  ❌ PostgreSQL: 문제 있음")
+    
+    if neo4j_ok:
+        print("  ✅ Neo4j: 정상")
+    else:
+        print("  ❌ Neo4j: 문제 있음")
+    
+    if consistency_ok:
+        print("  ✅ 데이터 일관성: 정상")
+    else:
+        print("  ⚠️  데이터 일관성: 확인 필요")
+    
+    print("="*60)
+    
+    if postgres_ok and neo4j_ok:
+        print("\n🎉 모든 데이터가 정상적으로 import되었습니다!")
+    else:
+        print("\n⚠️  일부 데이터에 문제가 있습니다. 위 내용을 확인하세요.")
 
 
 if __name__ == "__main__":
