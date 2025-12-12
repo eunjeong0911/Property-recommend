@@ -1,33 +1,28 @@
 """
-학습된 모델을 사용한 예측 파이프라인
+학습된 모델을 사용한 예측 파이프라인 (Regression)
+- 타겟: 베이지안_성사율 (연속형)
 """
 import pandas as pd
 import numpy as np
 import pickle
 from pathlib import Path
 
+# 피처 엔지니어링 모듈 import
+from _02_feature_engineering import main as feature_engineering
+
 
 def load_saved_model(model_dir="apps/reco/models/trust_model/saved_models"):
     """
     저장된 모델, 스케일러, 피처 이름 로드
-    
-    Args:
-        model_dir: 모델 저장 디렉토리
-        
-    Returns:
-        model, scaler, feature_names
     """
     model_path = Path(model_dir)
     
-    # 모델 로드
     with open(model_path / "trust_model.pkl", "rb") as f:
         model = pickle.load(f)
     
-    # 스케일러 로드
     with open(model_path / "scaler.pkl", "rb") as f:
         scaler = pickle.load(f)
     
-    # 피처 이름 로드
     with open(model_path / "feature_names.pkl", "rb") as f:
         feature_names = pickle.load(f)
     
@@ -35,38 +30,21 @@ def load_saved_model(model_dir="apps/reco/models/trust_model/saved_models"):
     return model, scaler, feature_names
 
 
-def predict_trust_level(office_data, model, scaler, feature_names):
+def predict_trust_score(X, model, scaler):
     """
-    사무소 신뢰도 등급 예측
+    신뢰도 점수 예측 (Regression)
     
     Args:
-        office_data: 사무소 데이터 (DataFrame 또는 dict)
-        model: 학습된 모델
-        scaler: 스케일러
-        feature_names: 피처 이름 리스트
+        X: 피처 데이터 (DataFrame)
+        model: 학습된 Regressor
+        scaler: StandardScaler
         
     Returns:
-        예측 등급, 예측 확률
+        예측된 신뢰도 점수 (array)
     """
-    # DataFrame으로 변환
-    if isinstance(office_data, dict):
-        office_data = pd.DataFrame([office_data])
-    
-    # 피처 추출
-    X = office_data[feature_names]
-    
-    # 스케일링
     X_scaled = scaler.transform(X)
-    
-    # 예측
-    prediction = model.predict(X_scaled)[0]
-    probabilities = model.predict_proba(X_scaled)[0]
-    
-    # 등급 매핑
-    class_names = ["하", "중", "상"]
-    predicted_class = class_names[prediction]
-    
-    return predicted_class, probabilities
+    predictions = model.predict(X_scaled)
+    return predictions
 
 
 def predict_batch(office_df, model, scaler, feature_names):
@@ -74,7 +52,7 @@ def predict_batch(office_df, model, scaler, feature_names):
     여러 사무소에 대한 일괄 예측
     
     Args:
-        office_df: 사무소 데이터 DataFrame
+        office_df: 사무소 데이터 DataFrame (피처 엔지니어링 완료된 상태)
         model: 학습된 모델
         scaler: 스케일러
         feature_names: 피처 이름 리스트
@@ -82,22 +60,33 @@ def predict_batch(office_df, model, scaler, feature_names):
     Returns:
         예측 결과가 추가된 DataFrame
     """
-    # 피처 추출
-    X = office_df[feature_names]
+    # 피처 추출 (이미 생성된 피처에서 선택)
+    X = office_df[feature_names].copy()
+    X = X.fillna(0).replace([np.inf, -np.inf], 0)
     
-    # 스케일링
+    # 스케일링 및 예측
     X_scaled = scaler.transform(X)
-    
-    # 예측
     predictions = model.predict(X_scaled)
-    probabilities = model.predict_proba(X_scaled)
     
-    # 등급 매핑
-    class_names = ["하", "중", "상"]
-    office_df["예측_신뢰도등급"] = [class_names[p] for p in predictions]
-    office_df["예측_확률_하"] = probabilities[:, 0]
-    office_df["예측_확률_중"] = probabilities[:, 1]
-    office_df["예측_확률_상"] = probabilities[:, 2]
+    # 결과 추가
+    office_df = office_df.copy()
+    office_df["예측_신뢰도점수"] = predictions
+    
+    # 등급 부여 (Mean ± 1 Std 기준)
+    mean_score = predictions.mean()
+    std_score = predictions.std()
+    
+    def assign_grade(score):
+        if score >= mean_score + std_score:
+            return "S"
+        elif score >= mean_score:
+            return "A"
+        elif score >= mean_score - std_score:
+            return "B"
+        else:
+            return "C"
+    
+    office_df["예측_등급"] = office_df["예측_신뢰도점수"].apply(assign_grade)
     
     return office_df
 
@@ -105,46 +94,67 @@ def predict_batch(office_df, model, scaler, feature_names):
 def main():
     """메인 실행 함수 - 예측 예시"""
     print("=" * 70)
-    print("🔮 중개사 신뢰도 예측")
+    print("🔮 중개사 신뢰도 예측 (Regression)")
     print("=" * 70)
     
-    # 모델 로드
+    # 1. 모델 로드
     model, scaler, feature_names = load_saved_model()
     
-    # 전처리된 데이터 로드
+    # 2. 데이터 로드
     current_file = Path(__file__)
-    data_dir = current_file.parent.parent.parent.parent.parent.parent / "data"
-    office_df = pd.read_csv(data_dir / "processed_office_data.csv")
+    project_root = current_file.parent.parent.parent.parent.parent.parent.parent
+    data_dir = project_root / "data"
+    office_df = pd.read_csv(data_dir / "processed_office_data_nn.csv")
     
-    print(f"\n📊 {len(office_df)}개 사무소 예측 중...")
+    print(f"\n📊 {len(office_df)}개 사무소 데이터 로드")
     
-    # 일괄 예측
-    result_df = predict_batch(office_df, model, scaler, feature_names)
+    # 3. 피처 엔지니어링 수행
+    print("\n[피처 엔지니어링 수행 중...]")
+    df_enriched, X, _ = feature_engineering(office_df)
     
-    # 결과 출력
-    print("\n✅ 예측 완료!")
+    # 4. 예측 수행 (X는 이미 올바른 컬럼명을 가지고 있음)
+    print("\n[예측 수행 중...]")
+    X_scaled = scaler.transform(X)
+    predictions = model.predict(X_scaled)
+    
+    # 5. 결과 추가
+    result_df = df_enriched.copy()
+    result_df["예측_신뢰도점수"] = predictions
+    
+    # 등급 부여 (Mean ± 1 Std 기준)
+    mean_score = predictions.mean()
+    std_score = predictions.std()
+    
+    def assign_grade(score):
+        if score >= mean_score + std_score:
+            return "S"
+        elif score >= mean_score:
+            return "A"
+        elif score >= mean_score - std_score:
+            return "B"
+        else:
+            return "C"
+    
+    result_df["예측_등급"] = result_df["예측_신뢰도점수"].apply(assign_grade)
+    
+    # 5. 결과 출력
+    print("\n" + "=" * 70)
+    print("✅ 예측 완료!")
+    print("=" * 70)
+    
     print("\n📈 예측 결과 샘플 (상위 10개):")
-    print(
-        result_df[
-            [
-                "land_중개사명",
-                "거래완료",
-                "등록매물",
-                "신뢰도등급",
-                "예측_신뢰도등급",
-                "예측_확률_상",
-            ]
-        ]
-        .sort_values("예측_확률_상", ascending=False)
-        .head(10)
-    )
+    display_cols = ["ldCodeNm", "총매물수", "거래완료", "예측_신뢰도점수", "예측_등급"]
+    available_cols = [c for c in display_cols if c in result_df.columns]
+    print(result_df[available_cols].head(10).to_string())
     
-    # 예측 정확도
-    if "신뢰도등급_숫자" in result_df.columns:
-        accuracy = (
-            result_df["신뢰도등급"] == result_df["예측_신뢰도등급"]
-        ).mean()
-        print(f"\n🎯 전체 예측 정확도: {accuracy:.4f}")
+    # 등급별 분포
+    print("\n📊 예측 등급 분포:")
+    print(result_df["예측_등급"].value_counts().sort_index())
+    
+    # 결과 저장
+    output_path = data_dir / "predicted_trust_scores.csv"
+    result_df.to_csv(output_path, index=False, encoding="utf-8-sig")
+    print(f"\n💾 예측 결과 저장: {output_path}")
     
     return result_df
 

@@ -60,11 +60,11 @@ def create_features(df: pd.DataFrame) -> pd.DataFrame:
         df["신규"] = (df["운영연수"] <= 1).astype(int)
         # 중견사무소 -> 중견 (1~5년)
         df["중견"] = ((df["운영연수"] > 1) & (df["운영연수"] <= 5)).astype(int)
-        # 노포사무소 -> 노포 (5년 이상)
-        df[""] = (df["운영연수"] > 5).astype(int)
+        # 베테랑사무소 -> 베테랑 (5년 이상)
+        df["베테랑"] = (df["운영연수"] > 5).astype(int)
         
     else:
-        cols = ["운영일수", "운영연수", "운영일수_Log", "신규", "중견", "노포"]
+        cols = ["운영일수", "운영연수", "운영일수_Log", "신규", "중견", "베테랑"]
         for c in cols:
             df[c] = 0
 
@@ -119,7 +119,7 @@ def select_features(df: pd.DataFrame) -> pd.DataFrame:
         "운영일수_Log": "운영로그",
         "신규": "신규",
         "중견": "중견",
-        "노포": "노포"
+        "베테랑": "베테랑"
     }
     
     # 실제 존재하는 컬럼만 선택

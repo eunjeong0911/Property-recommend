@@ -70,6 +70,32 @@ def success_rate(df: pd.DataFrame) -> pd.DataFrame:
         (m + df["총매물수"])
     )
     
+    # ---------------------------------------------------------
+    # [Step 6] 등급 부여 (분류 타겟)
+    # ---------------------------------------------------------
+    # Mean ± 1 Std 기준으로 S/A/B/C 등급 부여
+    mean_score = df["베이지안_성사율"].mean()
+    std_score = df["베이지안_성사율"].std()
+    
+    def assign_grade(score):
+        if score >= mean_score + std_score:
+            return 3  # S등급
+        elif score >= mean_score:
+            return 2  # A등급
+        elif score >= mean_score - std_score:
+            return 1  # B등급
+        else:
+            return 0  # C등급
+    
+    df["신뢰등급"] = df["베이지안_성사율"].apply(assign_grade)
+    
+    print(f"\n   - 등급 기준: Mean={mean_score:.4f}, Std={std_score:.4f}")
+    print(f"   - S등급(3): >= {mean_score + std_score:.4f}")
+    print(f"   - A등급(2): >= {mean_score:.4f}")
+    print(f"   - B등급(1): >= {mean_score - std_score:.4f}")
+    print(f"   - C등급(0): < {mean_score - std_score:.4f}")
+    print(f"   - 등급 분포: {df['신뢰등급'].value_counts().sort_index().to_dict()}")
+    
     return df
 
 def save_distribution_plot(df: pd.DataFrame):
