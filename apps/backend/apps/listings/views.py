@@ -4,8 +4,8 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import Land
 from .serializers import LandSerializer
-import os
-from neo4j import GraphDatabase
+from .utils.price_utils import get_price_display
+from .neo4j_client import Neo4jClient
 
 class LandViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Land.objects.all()
@@ -14,7 +14,8 @@ class LandViewSet(viewsets.ReadOnlyModelViewSet):
     search_fields = ['land_num', 'address']
 
     def get_queryset(self):
-        queryset = super().get_queryset()
+        # with_images()로 이미지 prefetch 적용 (N+1 쿼리 방지)
+        queryset = Land.objects.with_images()
         
         # 지역 필터 (부분 일치)
         address = self.request.query_params.get('address', None)
@@ -58,11 +59,8 @@ class LandViewSet(viewsets.ReadOnlyModelViewSet):
         address_filter = request.query_params.get('address', None)
         deal_type_filter = request.query_params.get('deal_type', None)
         
-        # Neo4j 연결
-        driver = GraphDatabase.driver(
-            os.getenv("NEO4J_URI"),
-            auth=(os.getenv("NEO4J_USER"), os.getenv("NEO4J_PASSWORD"))
-        )
+        # Neo4j 연결 (싱글톤 드라이버 사용)
+        driver = Neo4jClient.get_driver()
         
         try:
             # land_id를 land_num으로 변환 (PostgreSQL의 land_id → land_num)
@@ -108,9 +106,36 @@ class LandViewSet(viewsets.ReadOnlyModelViewSet):
                 """
                 
                 result = session.run(query, params)
-                locations = []
+                neo4j_results = list(result)
                 
-                for record in result:
+                # 모든 land_num을 한 번에 수집
+                land_nums = [record['id'] for record in neo4j_results]
+                
+                # PostgreSQL에서 한 번에 조회 (N+1 문제 해결)
+                lands_queryset = Land.objects.filter(land_num__in=land_nums)
+                
+                # deal_type 필터 적용
+                if deal_type_filter:
+                    if deal_type_filter == '단기임대':
+                        lands_queryset = lands_queryset.filter(deal_type__icontains='단기임대')
+                    elif deal_type_filter == '미분류':
+                        from django.db.models import Q
+                        lands_queryset = lands_queryset.filter(Q(deal_type__isnull=True) | Q(deal_type=''))
+                    else:
+                        lands_queryset = lands_queryset.filter(deal_type=deal_type_filter)
+                
+                # land_num을 키로 하는 딕셔너리 생성
+                lands_dict = {land.land_num: land for land in lands_queryset}
+                
+                locations = []
+                for record in neo4j_results:
+                    land_num_key = record['id']
+                    land = lands_dict.get(land_num_key)
+                    
+                    # deal_type 필터가 있고 해당 매물이 없으면 스킵
+                    if deal_type_filter and not land:
+                        continue
+                    
                     location_data = {
                         'id': record['id'],
                         'latitude': record['latitude'],
@@ -119,40 +144,19 @@ class LandViewSet(viewsets.ReadOnlyModelViewSet):
                         'name': record['name']
                     }
                     
-                    # PostgreSQL에서 추가 정보 가져오기
-                    try:
-                        land = Land.objects.get(land_num=record['id'])
-                        
-                        # deal_type 필터 확인
-                        if deal_type_filter:
-                            if deal_type_filter == '단기임대':
-                                if '단기임대' not in (land.deal_type or ''):
-                                    continue
-                            elif deal_type_filter == '미분류':
-                                if land.deal_type:
-                                    continue
-                            else:
-                                if land.deal_type != deal_type_filter:
-                                    continue
-                        
-                        # 추가 정보 포함
+                    if land:
                         location_data['deal_type'] = land.deal_type or '미분류'
                         location_data['building_type'] = land.building_type
                         
                         # 면적 추출
                         if land.listing_info and isinstance(land.listing_info, dict):
-                            area = land.listing_info.get('전용/공급면적', '-')
-                            location_data['area'] = area
+                            location_data['area'] = land.listing_info.get('전용/공급면적', '-')
                         else:
                             location_data['area'] = '-'
                         
-                        # 가격 정보 (시리얼라이저 로직 재사용)
-                        from .serializers import LandSerializer
-                        serializer = LandSerializer(land)
-                        location_data['price'] = serializer.data.get('price', '-')
-                        
-                    except Land.DoesNotExist:
-                        # PostgreSQL에 없으면 기본값
+                        # 가격 정보 직접 계산 (price_utils 사용)
+                        location_data['price'] = get_price_display(land)
+                    else:
                         location_data['deal_type'] = '정보없음'
                         location_data['building_type'] = '-'
                         location_data['area'] = '-'
@@ -164,5 +168,15 @@ class LandViewSet(viewsets.ReadOnlyModelViewSet):
                     'count': len(locations),
                     'results': locations
                 })
-        finally:
-            driver.close()
+        except Exception as e:
+            # 에러 발생 시에도 드라이버는 종료하지 않음 (싱글톤 재사용)
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Neo4j 쿼리 실행 중 오류: {e}")
+            return Response({
+                'count': 0,
+                'results': [],
+                'error': str(e)
+            }, status=500)
+    
+
