@@ -4,17 +4,7 @@ import json
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from common.state import RAGState
-
-
-def get_postgres_connection():
-    """PostgreSQL 연결 생성"""
-    return psycopg2.connect(
-        dbname=os.getenv("POSTGRES_DB", "postgres"),
-        user=os.getenv("POSTGRES_USER", "postgres"),
-        password=os.getenv("POSTGRES_PASSWORD", "postgres"),
-        host=os.getenv("POSTGRES_HOST", "postgres"),
-        port=os.getenv("POSTGRES_PORT", "5432")
-    )
+from common.db_pool import PostgresPool
 
 
 def extract_price_conditions(question: str) -> dict:
@@ -280,9 +270,10 @@ def search(state: RAGState) -> RAGState:
         state["sql_results"] = []
         return state
     
+    conn = None
     try:
-        print(f"[SQL Search] Connecting to PostgreSQL...")
-        conn = get_postgres_connection()
+        print(f"[SQL Search] Connecting to PostgreSQL via connection pool...")
+        conn = PostgresPool.get_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
         
         # 가격 조건 추출 (사용자 질문에서 직접)
@@ -293,6 +284,7 @@ def search(state: RAGState) -> RAGState:
         trade_type_filter = price_conditions.get('trade_type_filter') if price_conditions else None
         
         # 기본 쿼리 - land 테이블에서 직접 조회 (개별 가격 컬럼 사용)
+        # LEFT JOIN으로 이미지 조회 최적화 (서브쿼리 대신 단일 쿼리로 처리)
         query = """
             SELECT 
                 l.land_id,
@@ -313,12 +305,14 @@ def search(state: RAGState) -> RAGState:
                 l.like_count,
                 l.view_count,
                 'm' as distance_unit,
-                COALESCE(
-                    (SELECT array_agg(img_url) FROM land_image WHERE land_id = l.land_id),
-                    ARRAY[]::varchar[]
-                ) as images
+                COALESCE(array_agg(li.img_url) FILTER (WHERE li.img_url IS NOT NULL), ARRAY[]::varchar[]) as images
             FROM land l
+            LEFT JOIN land_image li ON l.land_id = li.land_id
             WHERE l.land_num = ANY(%s::text[])
+            GROUP BY l.land_id, l.land_num, l.building_type, l.address, l.deal_type,
+                     l.deposit, l.monthly_rent, l.jeonse_price, l.sale_price, l.url,
+                     l.trade_info, l.listing_info, l.additional_options, l.description,
+                     l.agent_info, l.like_count, l.view_count
         """
         
         print(f"[SQL Search] 🔍 Executing PostgreSQL query with {len(land_nums)} IDs")
@@ -467,7 +461,6 @@ def search(state: RAGState) -> RAGState:
             filtered_results.sort(key=lambda x: land_nums_order.get(str(x.get('land_num')), 999))
         
         cur.close()
-        conn.close()
         
         state["sql_results"] = filtered_results
         if price_conditions:
@@ -480,6 +473,11 @@ def search(state: RAGState) -> RAGState:
         import traceback
         traceback.print_exc()
         state["sql_results"] = []
+    finally:
+        # 연결을 풀에 반환
+        if conn is not None:
+            PostgresPool.return_connection(conn)
+            print(f"[SQL Search] Connection returned to pool")
     
     return state
 
