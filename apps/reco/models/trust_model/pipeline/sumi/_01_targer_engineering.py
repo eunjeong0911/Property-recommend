@@ -77,8 +77,9 @@ def save_distribution_plot(df: pd.DataFrame):
     베이지안 성사율 분포를 히스토그램으로 저장
     """
     try:
+        import matplotlib
+        matplotlib.use('Agg')  # 비GUI 백엔드 사용 (tkinter 스레드 에러 방지)
         import matplotlib.pyplot as plt
-        import matplotlib.font_manager as fm
         import platform
 
         # 한글 폰트 설정

@@ -6,10 +6,10 @@
 import pandas as pd
 import numpy as np
 
-def create_derived_features(df: pd.DataFrame) -> pd.DataFrame:
+def create_features(df: pd.DataFrame) -> pd.DataFrame:
     """
     [Feature Creation Logic]
-    변수명을 직관적이고 간단하게 생성합니다.
+    변수명을 직관적이고 간단하게 생성
     """
     print("\n[피처 엔지니어링] 파생 변수(Derived Features) 생성 중...")
 
@@ -20,8 +20,8 @@ def create_derived_features(df: pd.DataFrame) -> pd.DataFrame:
     # 1. 기본 실적 (Basic Performance)
     # ------------------------------------------------------------
     # 단순_거래성사율 -> 성사율
-    df["성사율"] = df["거래완료"] / df["총매물수"]
-    df["성사율"] = df["성사율"].fillna(0)
+    df["거래성사율"] = df["거래완료"] / df["총매물수"]
+    df["거래성사율"] = df["거래성사율"].fillna(0)
 
     # ------------------------------------------------------------
     # 2. 직원 관련 (Staff)
@@ -34,11 +34,11 @@ def create_derived_features(df: pd.DataFrame) -> pd.DataFrame:
         df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
 
     # 분모 안전처리
-    df["직원수_safe"] = df["총_직원수"].replace(0, 1)
+    df["총_직원수"] = df["총_직원수"].replace(0, 1)
 
     # 비율 (Ratio)
-    df["공인중개사비율"] = df["공인중개사수"] / df["직원수_safe"]
-    df["중개보조원비율"] = df["중개보조원수"] / df["직원수_safe"]
+    df["공인중개사비율"] = df["공인중개사수"] / df["총_직원수"]
+    df["중개보조원비율"] = df["중개보조원수"] / df["총_직원수"]
     
     # ------------------------------------------------------------
     # 3. 운영 기간 (History)
@@ -97,23 +97,24 @@ def select_features(df: pd.DataFrame) -> pd.DataFrame:
     # (여기서는 X 생성 시 Rename 수행)
     
     # 1. 사용할 컬럼 정의 (Source Column -> Target Name)
+    # ⚠️ 주의: 타겟(베이지안_성사율) 계산에 사용된 변수는 제외! (Data Leakage 방지)
+    # 제외 대상: 총매물수, 등록매물, 거래완료, 거래성사율
     feature_map = {
-        # Raw Data
-        "총매물수": "매물수",
-        "등록매물": "등록수",
+        # 직원 구조 (Staff Structure)
         "총_직원수": "직원수",
         "공인중개사수": "공인중개사",
         "중개보조원수": "중개보조원",
-        
-        # Created Data
-        "거래성사율": "거래성사율",
         "공인중개사비율": "공인중개사비율",
         "중개보조원비율": "중개보조원비율",
+        
+        # 전문성/규모 (Expertise & Size)
         "복수자격": "복수자격",
         "전원자격": "전원자격",
         "대형": "대형",
         "중형": "중형",
         "소형": "소형",
+        
+        # 연력 (History)
         "운영연수": "운영연수",
         "운영일수_Log": "운영로그",
         "신규": "신규",
@@ -141,7 +142,7 @@ def main(df: pd.DataFrame):
     피처 엔지니어링 메인 파이프라인
     """
     # 1. 파생 변수 생성
-    df_enriched = create_derived_features(df)
+    df_enriched = create_features(df)
     
     # 2. 학습용 피처(X) 선택 및 리네임
     X, feature_names = select_features(df_enriched)
