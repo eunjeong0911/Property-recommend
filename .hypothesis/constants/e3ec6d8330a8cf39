@@ -1,0 +1,4 @@
+# file: E:\SKN family AI bootcamp\파이널 프로젝트\SKN18-FINAL-1TEAM\apps\backend\apps\listings\neo4j_client.py
+# hypothesis_version: 6.148.2
+
+['NEO4J_PASSWORD', 'NEO4J_URI', 'NEO4J_USER', 'Neo4j 드라이버가 생성되었습니다.', 'Neo4j 드라이버가 종료되었습니다.', 'Neo4jClient']

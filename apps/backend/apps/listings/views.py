@@ -4,8 +4,8 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import Land
 from .serializers import LandSerializer
-import os
-from neo4j import GraphDatabase
+from .utils.price_utils import get_price_display
+from .neo4j_client import Neo4jClient
 
 class LandViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Land.objects.all()
@@ -14,7 +14,8 @@ class LandViewSet(viewsets.ReadOnlyModelViewSet):
     search_fields = ['land_num', 'address']
 
     def get_queryset(self):
-        queryset = super().get_queryset()
+        # with_images()로 이미지 prefetch 적용 (N+1 쿼리 방지)
+        queryset = Land.objects.with_images()
         
         # 지역 필터 (부분 일치)
         address = self.request.query_params.get('address', None)
@@ -58,11 +59,8 @@ class LandViewSet(viewsets.ReadOnlyModelViewSet):
         address_filter = request.query_params.get('address', None)
         deal_type_filter = request.query_params.get('deal_type', None)
         
-        # Neo4j 연결
-        driver = GraphDatabase.driver(
-            os.getenv("NEO4J_URI"),
-            auth=(os.getenv("NEO4J_USER"), os.getenv("NEO4J_PASSWORD"))
-        )
+        # Neo4j 연결 (싱글톤 드라이버 사용)
+        driver = Neo4jClient.get_driver()
         
         try:
             # land_id를 land_num으로 변환 (PostgreSQL의 land_id → land_num)
@@ -156,8 +154,8 @@ class LandViewSet(viewsets.ReadOnlyModelViewSet):
                         else:
                             location_data['area'] = '-'
                         
-                        # 가격 정보 직접 계산 (Serializer 인스턴스화 제거)
-                        location_data['price'] = self._get_price_display(land)
+                        # 가격 정보 직접 계산 (price_utils 사용)
+                        location_data['price'] = get_price_display(land)
                     else:
                         location_data['deal_type'] = '정보없음'
                         location_data['building_type'] = '-'
@@ -170,59 +168,15 @@ class LandViewSet(viewsets.ReadOnlyModelViewSet):
                     'count': len(locations),
                     'results': locations
                 })
-        finally:
-            driver.close()
+        except Exception as e:
+            # 에러 발생 시에도 드라이버는 종료하지 않음 (싱글톤 재사용)
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Neo4j 쿼리 실행 중 오류: {e}")
+            return Response({
+                'count': 0,
+                'results': [],
+                'error': str(e)
+            }, status=500)
     
-    def _get_price_display(self, land):
-        """가격 표시 문자열 생성 (Serializer 없이 직접 계산)"""
-        deal_type = land.deal_type or ''
-        
-        if '단기임대' in deal_type:
-            return deal_type
-        
-        trade_info = land.trade_info or {}
-        deal_text = trade_info.get('거래방식', '') if isinstance(trade_info, dict) else ''
-        
-        import re
-        
-        def parse_price(price_str):
-            if not price_str:
-                return 0
-            price_str = price_str.replace(',', '').replace(' ', '')
-            eok_match = re.search(r'(\d+)억', price_str)
-            eok = int(eok_match.group(1)) * 100000000 if eok_match else 0
-            man_match = re.search(r'(\d+)만원', price_str)
-            man = int(man_match.group(1)) * 10000 if man_match else 0
-            return eok + man
-        
-        def format_price(amount):
-            if amount == 0:
-                return "0"
-            manwon = amount // 10000
-            eok = manwon // 10000
-            remaining = manwon % 10000
-            if eok > 0:
-                return f"{eok}억 {remaining:,}만원" if remaining else f"{eok}억"
-            return f"{remaining:,}만원"
-        
-        if deal_type == '매매':
-            match = re.search(r'매매\s+(\d+억\s*\d*,?\d*만원|\d+,?\d*만원|\d+억)', deal_text)
-            if match:
-                return f"매매 {format_price(parse_price(match.group(1)))}"
-            return '매매 (가격 미정)'
-        
-        if deal_type == '전세':
-            match = re.search(r'전세\s+(\d+억\s*\d*,?\d*만원|\d+,?\d*만원|\d+억)', deal_text)
-            if match:
-                return f"전세 {format_price(parse_price(match.group(1)))}"
-            return '전세 (가격 미정)'
-        
-        if deal_type == '월세':
-            match = re.search(r'월세\s+(\d+억\s*\d*,?\d*만원|\d+,?\d*만원)/(\d+,?\d*만원)', deal_text)
-            if match:
-                deposit = format_price(parse_price(match.group(1)))
-                monthly = format_price(parse_price(match.group(2)))
-                return f"월세 {deposit} / {monthly}"
-            return '월세 (가격 미정)'
-        
-        return deal_text if deal_text else '가격 정보 없음'
+

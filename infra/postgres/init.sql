@@ -1,6 +1,9 @@
 -- Enable pgvector extension
 CREATE EXTENSION IF NOT EXISTS vector;
 
+-- Enable pg_trgm extension for text search optimization
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
 -- ============================================================
 -- Land 테이블 (ERD 기반)
 -- ============================================================
@@ -44,6 +47,12 @@ CREATE INDEX IF NOT EXISTS idx_land_sale_price ON land(sale_price);
 CREATE INDEX IF NOT EXISTS idx_land_deal_type ON land(deal_type);
 CREATE INDEX IF NOT EXISTS idx_land_building_type ON land(building_type);
 CREATE INDEX IF NOT EXISTS idx_land_land_num ON land(land_num);
+
+-- 주소 검색을 위한 GIN 인덱스 (pg_trgm 사용)
+CREATE INDEX IF NOT EXISTS idx_land_address_gin ON land USING gin(address gin_trgm_ops);
+
+-- 복합 인덱스 (거래유형 + 건물유형)
+CREATE INDEX IF NOT EXISTS idx_land_deal_building ON land(deal_type, building_type);
 
 -- ============================================================
 -- LandImage 테이블 (ERD 기반 - 부동산 이미지)

@@ -1,0 +1,4 @@
+# file: E:\SKN family AI bootcamp\파이널 프로젝트\SKN18-FINAL-1TEAM\apps\backend\apps\listings\managers.py
+# hypothesis_version: 6.148.2
+
+['LandImage', '_prefetched_images', 'img_url', 'land_id', 'landimage_set', 'listings']
