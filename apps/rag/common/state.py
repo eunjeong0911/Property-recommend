@@ -20,3 +20,6 @@ class RAGState(TypedDict):
     graph_results: Optional[List]
     graph_summary: Optional[str]  # Neo4j 결과의 LLM 요약
     answer: Optional[str]
+    
+    # ES 하이브리드 검색 관련 (Requirements 6.2, 6.3)
+    es_scores: Optional[Dict[str, float]]  # ES 검색 점수 {property_id: score}
