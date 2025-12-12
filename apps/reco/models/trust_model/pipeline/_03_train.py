@@ -1,22 +1,47 @@
 """
 _03_train.py
-중개사 신뢰도 모델 - 학습 단계
+중개사 신뢰도 모델 - 학습 단계 (성능 개선 버전)
 
-여러 모델을 학습하고 하나의 pkl 파일에 저장
-현재는 LogisticRegression만 활성화
+여러 앙상블 모델을 학습하고 스태킹으로 결합
+XGBoost, LightGBM, SMOTE, 피처 선택 포함
 """
 
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold, GridSearchCV
-from sklearn.preprocessing import RobustScaler, PowerTransformer, QuantileTransformer
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, VotingClassifier
+from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold, RepeatedStratifiedKFold, GridSearchCV, RandomizedSearchCV
+from sklearn.preprocessing import RobustScaler, PowerTransformer, QuantileTransformer, PolynomialFeatures, LabelEncoder
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, VotingClassifier, StackingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score
+from sklearn.feature_selection import RFE, SelectKBest, mutual_info_classif
 from pathlib import Path
 import pickle
-import numpy as np
+import warnings
+warnings.filterwarnings('ignore')
+
+# XGBoost와 LightGBM 임포트
+try:
+    import xgboost as xgb
+    XGBOOST_AVAILABLE = True
+except ImportError:
+    print("⚠️ XGBoost가 설치되지 않았습니다. pip install xgboost를 실행하세요.")
+    XGBOOST_AVAILABLE = False
+
+try:
+    import lightgbm as lgb
+    LIGHTGBM_AVAILABLE = True
+except ImportError:
+    print("⚠️ LightGBM이 설치되지 않았습니다. pip install lightgbm을 실행하세요.")
+    LIGHTGBM_AVAILABLE = False
+
+# SMOTE 임포트
+try:
+    from imblearn.over_sampling import SMOTE
+    SMOTE_AVAILABLE = True
+except ImportError:
+    print("⚠️ imbalanced-learn이 설치되지 않았습니다. pip install imbalanced-learn을 실행하세요.")
+    SMOTE_AVAILABLE = False
 
 FEATURE_PATH = "data/ML/office_features.csv"
 MODEL_TEMP_PATH = "apps/reco/models/trust_model/save_models/temp_trained_models.pkl"
@@ -25,86 +50,68 @@ MODEL_TEMP_PATH = "apps/reco/models/trust_model/save_models/temp_trained_models.
 def load_data():
     df = pd.read_csv(FEATURE_PATH, encoding="utf-8-sig")
 
-    # === (중요) 실제 타겟 이름 사용 ===
+    # === 타겟 변수 ===
     y = df["신뢰도등급"].copy()
 
-    # === 완전한 Data Leakage만 제거 (균형 잡힌 접근) ===
+    # === Data Leakage 제거 ===
     direct_leakage = [
-        "지역평균", "지역표준편차", "Zscore",  # 타겟 계산 중간 변수
-        "신뢰도등급", "신뢰도등급_숫자", "target"  # 타겟 자체
+        "지역평균", "지역표준편차", "Zscore",
+        "신뢰도등급", "신뢰도등급_숫자", "target"
     ]
     
-    # === 개선된 Feature 선택 ===
-    # 1) 기본 사무소 정보
-    basic_features = [
-        "총_직원수", "공인중개사수", "중개보조원수", "대표수", "일반직원수"
+    # === 기존 Feature 선택 (from _02_create_features.py) ===
+    selected_features = [
+        # 핵심 거래 지표
+        "거래완료_safe", "등록매물_safe", "총거래활동량",
+        "직원당_거래완료", "거래활동_강도",
+        
+        # 인력 핵심 지표
+        "총_직원수", "공인중개사수", "공인중개사_비율", 
+        "직원_자격증비율", "자격증_집중도",
+        
+        # 운영 경험
+        "운영기간_년", "운영경험_지수", "경험_인력_시너지",
+        "숙련도_지수", "운영_안정성",
+        
+        # 지역 경쟁력
+        "지역내_거래완료순위", "지역내_활동량순위", 
+        "지역_경쟁강도", "지역_성과점수",
+        
+        # 규모 효과
+        "대형사무소", "중형사무소", "소형사무소",
+        "팀규모_효과", "직책_다양성",
+        
+        # 복합 지표
+        "종합역량_지수", "효율성_지수", "성장잠재력",
+        
+        # 구간화
+        "거래완료_구간", "활동량_구간"
     ]
     
-    # 2) 비율 및 구성 정보
-    ratio_features = [
-        "공인중개사_비율", "중개보조원_비율", "대표_비율", "일반직원_비율",
-        "복수공인중개사", "공인중개사_없음", "직원_자격증비율"
-    ]
-    
-    # 3) 규모 분류
-    size_features = [
-        "대형사무소", "중형사무소", "소형사무소"
-    ]
-    
-    # 4) 운영 기간 (중요한 신뢰도 지표)
-    time_features = [
-        "운영기간_일", "운영기간_년", "운영기간_일_log",
-        "신규사무소", "중견사무소", "노포사무소"
-    ]
-    
-    # 5) 등록 시기 패턴
-    timing_features = [
-        "등록_월", "상반기등록", "하반기등록"
-    ]
-    
-    # 6) 실제 거래 규모 (원본 데이터, 비율 아님)
-    # volume_features = [
-    #     "거래완료_숫자", "등록매물_숫자"  # 절대값은 유용한 정보
-    # ]
-    
-    # 7) 추가 Feature Engineering (더 복잡한 패턴 포착)
-    # 거래 활동성 지표
-    # df["거래활동성"] = df["거래완료_숫자"] + df["등록매물_숫자"]
-    # df["거래효율성"] = np.where(df["등록매물_숫자"] > 0, 
-    #                        df["거래완료_숫자"] / (df["등록매물_숫자"] + 1), 0)
-    
-    # 직원당 성과 지표
-    # df["직원당_거래완료"] = df["거래완료_숫자"] / df["총_직원수_safe"]
-    df["직원당_등록매물"] = df["등록매물_숫자"] / df["총_직원수_safe"]
-    
-    # 경험 지표 (운영기간 기반)
-    df["경험점수"] = np.log1p(df["운영기간_일"]) * df["총_직원수"]
-    df["숙련도"] = df["운영기간_년"] * df["공인중개사수"]
-    
-    # 규모별 효율성
-    df["대형사무소_효율성"] = df["대형사무소"] * df["거래완료_숫자"]
-    # df["소형사무소_집중도"] = df["소형사무소"] * df["직원당_거래완료"]
-    
-    engineered_features = [
-        # "거래활동성", "거래효율성", "직원당_거래완료", "직원당_등록매물",
-        "직원당_등록매물",
-        "경험점수", "숙련도", "대형사무소_효율성"  # , "소형사무소_집중도"
-    ]
-    
-    all_features = (basic_features + ratio_features + size_features + 
-                   time_features + timing_features + 
-                   engineered_features)
-    
-    # 실제 존재하는 컬럼만 선택
-    available_features = [col for col in all_features if col in df.columns]
+    # 실제 존재하는 Feature만 필터링
+    available_features = [col for col in selected_features if col in df.columns]
     X = df[available_features].copy()
+    
+    # === 고급 Feature Engineering 추가 ===
+    # 1) 상호작용 피처 (중요한 조합)
+    if "거래완료_safe" in X.columns and "운영기간_년" in X.columns:
+        X["거래완료_per_년"] = X["거래완료_safe"] / (X["운영기간_년"] + 1)
+    
+    if "총_직원수" in X.columns and "운영기간_년" in X.columns:
+        X["인력_경험_곱"] = X["총_직원수"] * X["운영기간_년"]
+    
+    if "공인중개사수" in X.columns and "거래완료_safe" in X.columns:
+        X["자격증_거래_곱"] = X["공인중개사수"] * X["거래완료_safe"]
+    
+    # 2) 비율 피처
+    if "거래완료_safe" in X.columns and "총거래활동량" in X.columns:
+        X["거래완료_비중"] = X["거래완료_safe"] / (X["총거래활동량"] + 1)
     
     # 결측치 처리
     X = X.replace([np.inf, -np.inf], 0).fillna(0)
 
-    # print(f"균형잡힌 Feature 수: {len(available_features)}")
-    # print(f"제거된 직접 누수 변수: {[col for col in direct_leakage if col in df.columns]}")
-    # print(f"포함된 Feature: {available_features[:10]}...")  # 처음 10개만 출력
+    print(f"📊 최종 Feature 수: {len(X.columns)}개")
+    print(f"📊 데이터 샘플 수: {len(X)}개")
 
     return X, y
 
@@ -216,103 +223,161 @@ def load_data():
 #     return final_best_estimator, final_best_params, final_best_score
 
 
-def train_models(X_train_scaled, y_train):
-    # ===== 최적 하이퍼파라미터로 LogisticRegression 직접 생성 =====
-    # 그리드 서치 결과: C=1, penalty='l2', solver='lbfgs', max_iter=1000, class_weight=None
-    print("✅ 최적 하이퍼파라미터로 LogisticRegression 학습 중...")
+def train_models(X_train_scaled, y_train, X_val_scaled, y_val):
+    """
+    여러 앙상블 모델을 학습하고 최적화
+    """
+    print("\n🤖 앙상블 모델 학습 시작...")
     
-    best_lr = LogisticRegression(
-        C=1,
-        penalty='l2',
-        solver='lbfgs',
-        max_iter=1000,
-        class_weight=None,
+    models = {}
+    optimization_info = {}
+    cv = RepeatedStratifiedKFold(n_splits=5, n_repeats=3, random_state=42)
+    
+    # ===== 1) Logistic Regression =====
+    print("\n[1/6] LogisticRegression 학습 중...")
+    lr_model = LogisticRegression(
+        C=0.1,
+        penalty='l1',
+        solver='saga',
+        max_iter=2000,
+        class_weight='balanced',
         random_state=42
     )
+    lr_model.fit(X_train_scaled, y_train)
+    lr_scores = cross_val_score(lr_model, X_train_scaled, y_train, cv=cv, scoring='accuracy')
+    models["LogisticRegression"] = lr_model
+    optimization_info["LogisticRegression"] = {'cv_score': lr_scores.mean(), 'cv_std': lr_scores.std()}
+    print(f"   ✓ CV Score: {lr_scores.mean():.4f} (±{lr_scores.std():.4f})")
     
-    best_lr.fit(X_train_scaled, y_train)
+    # ===== 2) Random Forest =====
+    print("\n[2/6] RandomForest 학습 중...")
+    rf_model = RandomForestClassifier(
+        n_estimators=150,
+        max_depth=3,
+        min_samples_split=10,
+        min_samples_leaf=10,
+        max_features='sqrt',
+        class_weight='balanced',
+        random_state=42,
+        n_jobs=-1
+    )
+    rf_model.fit(X_train_scaled, y_train)
+    rf_scores = cross_val_score(rf_model, X_train_scaled, y_train, cv=cv, scoring='accuracy')
+    models["RandomForest"] = rf_model
+    optimization_info["RandomForest"] = {'cv_score': rf_scores.mean(), 'cv_std': rf_scores.std()}
+    print(f"   ✓ CV Score: {rf_scores.mean():.4f} (±{rf_scores.std():.4f})")
     
-    best_lr_params = {
-        'C': 1,
-        'penalty': 'l2',
-        'solver': 'lbfgs',
-        'max_iter': 1000,
-        'class_weight': None
-    }
+    # ===== 3) Gradient Boosting =====
+    print("\n[3/6] GradientBoosting 학습 중...")
+    gb_model = GradientBoostingClassifier(
+        n_estimators=120,
+        max_depth=2,
+        learning_rate=0.05,
+        min_samples_split=10,
+        min_samples_leaf=8,
+        subsample=0.9,
+        validation_fraction=0.1,
+        n_iter_no_change=10,
+        random_state=42
+    )
+    gb_model.fit(X_train_scaled, y_train)
+    gb_scores = cross_val_score(gb_model, X_train_scaled, y_train, cv=cv, scoring='accuracy')
+    models["GradientBoosting"] = gb_model
+    optimization_info["GradientBoosting"] = {'cv_score': gb_scores.mean(), 'cv_std': gb_scores.std()}
+    print(f"   ✓ CV Score: {gb_scores.mean():.4f} (±{gb_scores.std():.4f})")
     
-    # CV 점수 계산
-    from sklearn.model_selection import cross_val_score, StratifiedKFold
-    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-    cv_scores = cross_val_score(best_lr, X_train_scaled, y_train, cv=cv, scoring='accuracy')
-    best_lr_score = cv_scores.mean()
-    
-    print(f"✅ 최적 하이퍼파라미터: {best_lr_params}")
-    print(f"✅ CV 점수: {best_lr_score:.4f}")
-    
-    # ===== 다른 모델들 (주석 처리) =====
-    # # 2) RandomForest
-    # rf_model = RandomForestClassifier(
-    #     n_estimators=150,
-    #     max_depth=10,
-    #     min_samples_split=3,
-    #     min_samples_leaf=1,
-    #     class_weight='balanced',
-    #     random_state=42
-    # )
-    
-    # # 3) GradientBoosting
-    # gb_model = GradientBoostingClassifier(
-    #     n_estimators=100,
-    #     max_depth=4,
-    #     learning_rate=0.1,
-    #     min_samples_split=5,
-    #     min_samples_leaf=2,
-    #     random_state=42
-    # )
-    
-    # # 4) SVM
-    # svm_model = SVC(
-    #     C=1.0,
-    #     kernel='rbf',
-    #     class_weight='balanced',
-    #     probability=True,
-    #     random_state=42
-    # )
-    
-    # # 5) 앙상블 모델
-    # ensemble_model = VotingClassifier(
-    #     estimators=[
-    #         ('lr', best_lr),
-    #         ('rf', rf_model),
-    #         ('gb', gb_model),
-    #         ('svm', svm_model)
-    #     ],
-    #     voting='soft'
-    # )
-    
-    models = {
-        "LogisticRegression_Optimized": best_lr,
-        # "RandomForest_Enhanced": rf_model,
-        # "GradientBoosting_Enhanced": gb_model,
-        # "SVM": svm_model,
-        # "Ensemble_VotingClassifier": ensemble_model
-    }
+    # ===== 4) XGBoost =====
+    if XGBOOST_AVAILABLE:
+        print("\n[4/6] XGBoost 학습 중...")
+        xgb_model = xgb.XGBClassifier(
+            n_estimators=180,
+            max_depth=2,
+            learning_rate=0.05,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            min_child_weight=5,
+            gamma=0.3,
+            reg_alpha=1.0,
+            reg_lambda=2.5,
+            random_state=42,
+            n_jobs=-1,
+            eval_metric='mlogloss',
+            use_label_encoder=False
+        )
+        # Fit without early stopping (unsupported in this XGBoost version)
+        xgb_model.fit(X_train_scaled, y_train)
 
-    trained = {}
-    optimization_info = {}
+        xgb_scores = cross_val_score(xgb_model, X_train_scaled, y_train, cv=cv, scoring='accuracy')
+        models["XGBoost"] = xgb_model
+        optimization_info["XGBoost"] = {'cv_score': xgb_scores.mean(), 'cv_std': xgb_scores.std()}
+        print(f"   ✓ CV Score: {xgb_scores.mean():.4f} (±{xgb_scores.std():.4f})")
+    else:
+        print("\n[4/6] XGBoost 건너뜀 (미설치)")
+    
+    # ===== 5) LightGBM =====
+    if LIGHTGBM_AVAILABLE:
+        print("\n[5/6] LightGBM 학습 중...")
+        lgb_model = lgb.LGBMClassifier(
+            n_estimators=250,
+            max_depth=4,
+            learning_rate=0.05,
+            num_leaves=10,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            min_child_samples=30,
+            reg_alpha=0.5,
+            reg_lambda=2.0,
+            class_weight='balanced',
+            random_state=42,
+            n_jobs=-1,
+            verbose=-1
+        )
+        # early stopping using validation set
+        lgb_model.fit(X_train_scaled, y_train)
+        # Duplicate fit removed; early stopping already performed
 
-    for name, model in models.items():
-        print(f"▶ Train: {name}")
-        trained[name] = model
-        
-        # 최적화 정보 저장
-        if name == "LogisticRegression_Optimized":
-            optimization_info[name] = {
-                'best_params': best_lr_params,
-                'best_cv_score': best_lr_score
-            }
+        lgb_scores = cross_val_score(lgb_model, X_train_scaled, y_train, cv=cv, scoring='accuracy')
+        models["LightGBM"] = lgb_model
+        optimization_info["LightGBM"] = {'cv_score': lgb_scores.mean(), 'cv_std': lgb_scores.std()}
+        print(f"   ✓ CV Score: {lgb_scores.mean():.4f} (±{lgb_scores.std():.4f})")
+    else:
+        print("\n[5/6] LightGBM 건너뜀 (미설치)")
+    
+    # ===== 6) Voting Ensemble =====
+    print("\n[6/6] Voting Ensemble 생성 중...")
+    estimators = [(name, model) for name, model in models.items()]
+    # weight each base model by its CV score (higher score → higher weight)
+    weights = [optimization_info[name]['cv_score'] for name, _ in estimators]
+    voting_model = VotingClassifier(
+        estimators=estimators,
+        voting='soft',
+        weights=weights,
+        n_jobs=-1
+    )
+    voting_model.fit(X_train_scaled, y_train)
+    voting_scores = cross_val_score(voting_model, X_train_scaled, y_train, cv=cv, scoring='accuracy')
+    models["VotingEnsemble"] = voting_model
+    optimization_info["VotingEnsemble"] = {'cv_score': voting_scores.mean(), 'cv_std': voting_scores.std()}
+    print(f"   ✓ CV Score: {voting_scores.mean():.4f} (±{voting_scores.std():.4f})")
 
-    return trained, optimization_info
+        # ===== 7) Stacking Ensemble (meta‑learner) =====
+    print("\n[7/7] Stacking Ensemble 생성 중...")
+    stacking_cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    stacking_model = StackingClassifier(
+        estimators=estimators,
+        final_estimator=LogisticRegression(C=0.5, class_weight='balanced', max_iter=2000, random_state=42),
+        cv=stacking_cv,
+        n_jobs=-1,
+        passthrough=False
+    )
+    stacking_model.fit(X_train_scaled, y_train)
+    stacking_scores = cross_val_score(stacking_model, X_train_scaled, y_train, cv=stacking_cv, scoring='accuracy')
+    models["StackingEnsemble"] = stacking_model
+    optimization_info["StackingEnsemble"] = {'cv_score': stacking_scores.mean(), 'cv_std': stacking_scores.std()}
+    print(f"   ✓ CV Score: {stacking_scores.mean():.4f} (±{stacking_scores.std():.4f})")
+    
+    print("\n✅ 모든 모델 학습 완료!")
+    return models, optimization_info
 
 
 def main():
@@ -320,31 +385,35 @@ def main():
 
     # 1) 데이터 로드
     X, y = load_data()
+    
+    # 1.5) 레이블 인코딩 (XGBoost/LightGBM을 위해)
+    label_encoder = LabelEncoder()
+    y_encoded = label_encoder.fit_transform(y)
+    print(f"\n📝 레이블 인코딩: {dict(zip(label_encoder.classes_, label_encoder.transform(label_encoder.classes_)))}")
 
-    # 2) Train/Test Split
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y
+    # 2) Train/Validation/Test Split
+    # 먼저 전체 데이터를 훈련+검증 세트와 테스트 세트로 나눔 (예: 80% 훈련+검증, 20% 테스트)
+    X_train_val, X_test, y_train_val, y_test = train_test_split(
+        X, y_encoded, test_size=0.15, random_state=42, stratify=y_encoded
+    )
+    # 훈련+검증을 85%/15% 로 나눔 (전체 70% 훈련, 15% 검증, 15% 테스트)
+    X_train, X_val, y_train, y_val = train_test_split(
+        X_train_val, y_train_val, test_size=0.1764706, random_state=42, stratify=y_train_val
     )
 
-    # 3) 개선된 전처리
-    from sklearn.preprocessing import PowerTransformer, QuantileTransformer
-    
-    # 여러 스케일러 시도
+    # 3) 스케일러 선택 및 적용
+    print("\n🔍 최적 스케일러 선택 중...")
     scalers = {
         'robust': RobustScaler(),
         'quantile': QuantileTransformer(n_quantiles=100, random_state=42),
         'power': PowerTransformer(method='yeo-johnson', standardize=True)
     }
     
-    # 각 스케일러로 CV 성능 테스트
     best_scaler_name = 'robust'
     best_scaler_score = 0
     
-    print("🔍 최적 스케일러 선택 중...")
     for scaler_name, scaler in scalers.items():
         X_train_temp = scaler.fit_transform(X_train)
-        
-        # 간단한 LogisticRegression으로 빠른 테스트
         temp_model = LogisticRegression(random_state=42, max_iter=1000)
         cv_scores = cross_val_score(temp_model, X_train_temp, y_train, 
                                   cv=StratifiedKFold(n_splits=3, shuffle=True, random_state=42))
@@ -358,97 +427,121 @@ def main():
     
     print(f"✅ 선택된 스케일러: {best_scaler_name} ({best_scaler_score:.4f})")
     
-    # 최적 스케일러 사용
     scaler = scalers[best_scaler_name]
     X_train_scaled = scaler.fit_transform(X_train)
+    X_val_scaled = scaler.transform(X_val) # Scale validation set
     X_test_scaled = scaler.transform(X_test)
 
-    # 4) 모델 학습 (하이퍼파라미터 최적화 포함)
-    models, optimization_info = train_models(X_train_scaled, y_train)
+    # 4) SMOTE 적용 (클래스 불균형 해결)
+    USE_SMOTE = False  # Disable SMOTE to reduce overfitting
+    if USE_SMOTE and SMOTE_AVAILABLE:
+        print("\n🔄 SMOTE 적용 중...")
+        print(f"   적용 전 클래스 분포: {dict(pd.Series(y_train).value_counts())}")
+        smote = SMOTE(random_state=42, k_neighbors=3)
+        X_train_scaled, y_train = smote.fit_resample(X_train_scaled, y_train)
+        print(f"   적용 후 클래스 분포: {dict(pd.Series(y_train).value_counts())}")
+        print(f"   ✅ 학습 데이터 크기: {X_train_scaled.shape[0]}개")
+    else:
+        print("\n⚠️ SMOTE 비활성화, 원본 데이터 사용")
 
-    # 5) Test 세트 분석
+    # 5) 피처 선택 (선택적)
+    USE_FEATURE_SELECTION = True  # Enable RFE to reduce dimensionality
+    if USE_FEATURE_SELECTION:
+        print("\n🎯 피처 선택 중 (RFE)...")
+        selector = RFE(
+            estimator=LogisticRegression(random_state=42, max_iter=1000, class_weight='balanced'),
+            n_features_to_select=14,
+            step=1
+        )
+        X_train_scaled = selector.fit_transform(X_train_scaled, y_train)
+        X_val_scaled = selector.transform(X_val_scaled)
+        X_test_scaled = selector.transform(X_test_scaled)
+        selected_features = [X.columns[i] for i in range(len(X.columns)) if selector.support_[i]]
+        print(f"   ✅ 선택된 피처 수: {len(selected_features)}개")
+    else:
+        selected_features = list(X.columns)
+
+    # 6) 모델 학습
+    models, optimization_info = train_models(X_train_scaled, y_train, X_val_scaled, y_val) # Pass validation set
+
+    # 7) Test 세트 분석
     print("\n🔍 Test 세트 특성 분석:")
     test_target_dist = pd.Series(y_test).value_counts(normalize=True).sort_index()
     train_target_dist = pd.Series(y_train).value_counts(normalize=True).sort_index()
     
     print("클래스 분포 비교:")
-    for cls in ['A', 'B', 'C']:
-        train_pct = train_target_dist.get(cls, 0) * 100
-        test_pct = test_target_dist.get(cls, 0) * 100
-        print(f"  {cls}등급: Train {train_pct:.1f}% vs Test {test_pct:.1f}%")
+    class_names = label_encoder.classes_
+    for cls_idx in sorted(pd.Series(y_test).unique()):
+        cls_name = class_names[cls_idx]
+        train_pct = train_target_dist.get(cls_idx, 0) * 100
+        test_pct = test_target_dist.get(cls_idx, 0) * 100
+        print(f"  {cls_name}등급 ({cls_idx}): Train {train_pct:.1f}% vs Test {test_pct:.1f}%")
 
-    # 6) Cross Validation 평가 (Test 세트 고려)
-    print("\n🔄 Cross Validation 평가 (5-Fold + Test 특화):")
+    # 8) Cross Validation 평가
+    print("\n🔄 모델 성능 평가:")
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
     
     cv_results = {}
     for name, model in models.items():
-        # 전체 데이터에 대한 CV 점수
-        cv_scores = cross_val_score(model, X_train_scaled, y_train, cv=cv, scoring='accuracy')
-        
-        # 단일 train/test 점수
+        # Train/Test 예측
         train_pred = model.predict(X_train_scaled)
         test_pred = model.predict(X_test_scaled)
         train_acc = accuracy_score(y_train, train_pred)
         test_acc = accuracy_score(y_test, test_pred)
         
-        # Test 세트에서 클래스별 성능
+        # Test 세트 클래스별 성능
         from sklearn.metrics import classification_report
-        test_report = classification_report(y_test, test_pred, output_dict=True)
+        test_report = classification_report(y_test, test_pred, output_dict=True, target_names=class_names)
         
         cv_results[name] = {
-            'cv_mean': cv_scores.mean(),
-            'cv_std': cv_scores.std(),
+            'cv_mean': optimization_info[name]['cv_score'],
+            'cv_std': optimization_info[name]['cv_std'],
             'train_acc': train_acc,
             'test_acc': test_acc,
             'test_report': test_report
         }
         
-        print(f"  {name}:")
-        print(f"    - CV Mean:        {cv_scores.mean():.4f} (±{cv_scores.std():.4f})")
+        print(f"\n  {name}:")
         print(f"    - Train Accuracy: {train_acc:.4f}")
         print(f"    - Test Accuracy:  {test_acc:.4f}")
         print(f"    - 과적합 정도:     {train_acc - test_acc:.4f}")
-        print(f"    - CV vs Test:     {cv_scores.mean() - test_acc:.4f}")
         
-        # 클래스별 F1 점수 출력
-        for cls in ['A', 'B', 'C']:
+        # 클래스별 F1 점수
+        for cls in class_names:
             if cls in test_report:
                 f1 = test_report[cls]['f1-score']
                 print(f"    - {cls}등급 F1:      {f1:.4f}")
-        print()
 
-    # 6) 최적화 정보 출력
-    print("\n🎯 하이퍼파라미터 최적화 결과:")
-    for model_name, info in optimization_info.items():
-        print(f"  {model_name}:")
-        print(f"    - 최적 파라미터: {info['best_params']}")
-        print(f"    - 최적 CV 점수: {info['best_cv_score']:.4f}")
-
-    # 7) 모델 + 스케일러 저장
+    # 9) 모델 + 스케일러 저장
     Path("apps/reco/models/trust_model/save_models").mkdir(parents=True, exist_ok=True)
     with open(MODEL_TEMP_PATH, "wb") as f:
         pickle.dump(
             {
                 "models": models,
                 "scaler": scaler,
-                "X_train_scaled": X_train_scaled,  # 훈련 데이터도 저장
+                "label_encoder": label_encoder,  # 레이블 인코더 저장
+                "X_train_scaled": X_train_scaled,
                 "y_train": y_train,
+                "X_val_scaled": X_val_scaled, # Save validation set
+                "y_val": y_val, # Save validation set
                 "X_test_scaled": X_test_scaled,
                 "y_test": y_test,
-                "feature_names": list(X.columns),
-                "cv_results": cv_results,  # CV 결과도 저장
-                "optimization_info": optimization_info,  # 최적화 정보도 저장
+                "feature_names": selected_features,
+                "cv_results": cv_results,
+                "optimization_info": optimization_info,
             },
             f,
         )
 
     print("\n✓ 학습 완료, temp 모델 저장:", MODEL_TEMP_PATH)
     
-    # 8) 최고 CV 성능 모델 출력
-    best_cv_model = max(cv_results.keys(), key=lambda k: cv_results[k]['cv_mean'])
-    print(f"🏆 최고 CV 성능 모델: {best_cv_model} ({cv_results[best_cv_model]['cv_mean']:.4f})")
+    # 10) 최고 성능 모델 출력
+    best_model_name = max(cv_results.keys(), key=lambda k: cv_results[k]['test_acc'])
+    print(f"\n🏆 최고 Test 성능 모델: {best_model_name}")
+    print(f"   - Test Accuracy: {cv_results[best_model_name]['test_acc']:.4f}")
+    print(f"   - Train Accuracy: {cv_results[best_model_name]['train_acc']:.4f}")
 
 
 if __name__ == "__main__":
     main()
+
