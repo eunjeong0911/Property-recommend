@@ -154,20 +154,33 @@ export default function LandDetail({ landId }: LandDetailProps) {
                         <div className="space-y-3">
                             <div className="flex items-center gap-2">
                                 <span className="w-20 text-gray-600 text-sm">중개사무소</span>
-                                <p className="font-medium text-slate-800">{land.agent_info?.name || '-'}</p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <span className="w-20 text-gray-600 text-sm">전화번호</span>
-                                <p className="font-medium text-slate-800">{land.agent_info?.phone || '-'}</p>
+                                <p className="font-medium text-slate-800">{land.broker?.office_name || '-'}</p>
                             </div>
                             <div className="flex items-center gap-2">
                                 <span className="w-20 text-gray-600 text-sm">대표자</span>
-                                <p className="font-medium text-slate-800">{land.agent_info?.representative || '-'}</p>
+                                <p className="font-medium text-slate-800">{land.broker?.representative || '-'}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="w-20 text-gray-600 text-sm">전화번호</span>
+                                <p className="font-medium text-slate-800">{land.broker?.phone || '-'}</p>
                             </div>
                             <div className="flex items-center gap-2">
                                 <span className="w-20 text-gray-600 text-sm">주소</span>
-                                <p className="font-medium text-slate-800">{land.agent_info?.address || '-'}</p>
+                                <p className="font-medium text-slate-800">{land.broker?.address || '-'}</p>
                             </div>
+
+                            {/* 신뢰도 등급 */}
+                            {land.broker?.trust_score && (
+                                <div className="flex items-center gap-2 pt-2 border-t border-purple-200">
+                                    <span className="w-20 text-gray-600 text-sm">신뢰도</span>
+                                    <span className={`px-3 py-1 rounded-full text-sm font-bold ${land.broker.trust_score === 'A' ? 'bg-green-500 text-white' :
+                                            land.broker.trust_score === 'B' ? 'bg-blue-500 text-white' :
+                                                'bg-gray-400 text-white'
+                                        }`}>
+                                        {land.broker.trust_score}등급 ({land.broker.trust_grade})
+                                    </span>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
