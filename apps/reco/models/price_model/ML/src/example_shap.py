@@ -40,8 +40,12 @@ def example_shap_analysis():
     print("\n[Step 2] 타깃 생성 및 고급 피처 엔지니어링")
     preprocessor = PriceDataPreprocessor()
 
+    # 타깃 생성 (Train: 자체 통계 사용, Test: Train 통계 사용)
     train_df = preprocessor.create_target(train_df)
-    test_df = preprocessor.create_target(test_df)
+    test_df = preprocessor.create_target(
+        test_df,
+        train_stats={"gu_quantiles": preprocessor.train_gu_quantiles}
+    )
 
     train_df, test_df = preprocessor.advanced_feature_engineering(train_df, test_df)
 
@@ -53,7 +57,7 @@ def example_shap_analysis():
 
     # 테스트용 피처/타깃 분리
     X_test = test_df[preprocessor.candidate_features]
-    y_test = test_df[preprocessor.target_log]
+    y_test = test_df[preprocessor.target_name]
 
     # 4. Tree 모델용 피처 변환 (Label Encoding, No Scaling)
     print("\n[Step 4] Tree 모델용 피처 변환")
@@ -88,7 +92,7 @@ def example_shap_analysis():
         model_name="LightGBM",
         data_type="test",
         max_samples=1000,
-        output_dir="/shap_plots/test",
+        output_dir=str(PLOTS_DIR / "test"), 
         save_plots=True,
     )
 
@@ -98,7 +102,7 @@ def example_shap_analysis():
         model_name="LightGBM",
         data_type="train",
         max_samples=500,
-        output_dir="./shap_plots/train",
+        output_dir=str(PLOTS_DIR / "train"),
         save_plots=True,
     )
 
@@ -182,15 +186,21 @@ def quick_shap_analysis():
     )
 
     preprocessor = PriceDataPreprocessor()
+
+    # 타깃 생성 (Train: 자체 통계 사용, Test: Train 통계 사용)
     train_df = preprocessor.create_target(train_df)
-    test_df = preprocessor.create_target(test_df)
+    test_df = preprocessor.create_target(
+        test_df,
+        train_stats={"gu_quantiles": preprocessor.train_gu_quantiles}
+    )
+
     train_df, test_df = preprocessor.advanced_feature_engineering(train_df, test_df)
 
     X_train, y_train, X_val, y_val = preprocessor.prepare_train_test_split(
         train_df, split_date="2025-06"
     )
     X_test = test_df[preprocessor.candidate_features]
-    y_test = test_df[preprocessor.target_log]
+    y_test = test_df[preprocessor.target_name]
 
     # Tree 모델용 피처 변환
     X_train_t, X_val_t, X_test_t = preprocessor.prepare_tree_features(
@@ -220,7 +230,7 @@ def quick_shap_analysis():
     explainer = trainer.analyze_shap(
         data_type="test",
         max_samples=1000,
-        output_dir="./shap_plots_quick",
+        output_dir=str(ML_ROOT / "shap_plots_quick"),  
         save_plots=True,
     )
 

@@ -198,7 +198,8 @@ class ModelExplainer:
         sample_idx: int = 0,
         max_display: int = 20,
         save_path: Optional[str] = None,
-        show: bool = True
+        show: bool = True,
+        class_idx: Optional[int] = None
     ):
         """
         SHAP Waterfall Plot (단일 샘플 설명)
@@ -209,31 +210,56 @@ class ModelExplainer:
             max_display: 표시할 최대 피처 수
             save_path: 저장 경로
             show: 플롯 표시 여부
+            class_idx: 다중 클래스 모델의 경우 특정 클래스 인덱스 (None이면 예측 클래스)
         """
         if self.shap_values is None:
             raise ValueError("먼저 compute_shap_values()를 호출하세요.")
 
         print(f"\n🌊 SHAP Waterfall Plot 생성 중 (샘플 #{sample_idx})...")
 
-        # TreeExplainer를 사용한 경우
-        if isinstance(self.explainer, shap.TreeExplainer):
-            explanation = shap.Explanation(
-                values=self.shap_values[sample_idx],
-                base_values=self.explainer.expected_value,
-                data=X[sample_idx],
-                feature_names=self.feature_names
-            )
+        # 다중 클래스 분류 모델 체크 (3차원 배열: samples, features, classes)
+        is_multiclass = len(self.shap_values.shape) == 3
+
+        if is_multiclass:
+            # 다중 클래스의 경우 특정 클래스 선택
+            if class_idx is None:
+                # 예측 클래스 찾기 (가장 높은 SHAP 합을 가진 클래스)
+                shap_sums = self.shap_values[sample_idx].sum(axis=0)  # 각 클래스별 SHAP 합
+                class_idx = np.argmax(shap_sums)
+                print(f"   - 예측 클래스 {class_idx} 사용")
+
+            shap_vals = self.shap_values[sample_idx, :, class_idx]
+
+            # TreeExplainer를 사용한 경우
+            if isinstance(self.explainer, shap.TreeExplainer):
+                base_val = self.explainer.expected_value[class_idx]
+            else:
+                base_val = self.explainer.expected_value[class_idx] if hasattr(self.explainer.expected_value, '__len__') else self.explainer.expected_value
         else:
-            explanation = shap.Explanation(
-                values=self.shap_values[sample_idx],
-                base_values=self.explainer.expected_value[0] if hasattr(self.explainer.expected_value, '__len__') else self.explainer.expected_value,
-                data=X[sample_idx],
-                feature_names=self.feature_names
-            )
+            # 이진 분류 또는 회귀
+            shap_vals = self.shap_values[sample_idx]
+
+            if isinstance(self.explainer, shap.TreeExplainer):
+                base_val = self.explainer.expected_value
+            else:
+                base_val = self.explainer.expected_value[0] if hasattr(self.explainer.expected_value, '__len__') else self.explainer.expected_value
+
+        # Explanation 객체 생성
+        explanation = shap.Explanation(
+            values=shap_vals,
+            base_values=base_val,
+            data=X[sample_idx],
+            feature_names=self.feature_names
+        )
 
         plt.figure(figsize=(10, 8))
         shap.waterfall_plot(explanation, max_display=max_display, show=False)
-        plt.title(f"SHAP Waterfall Plot - {self.model_name} (Sample #{sample_idx})", fontsize=14, pad=20)
+
+        title = f"SHAP Waterfall Plot - {self.model_name} (Sample #{sample_idx}"
+        if is_multiclass:
+            title += f", Class {class_idx}"
+        title += ")"
+        plt.title(title, fontsize=14, pad=20)
         plt.tight_layout()
 
         if save_path:
@@ -251,7 +277,8 @@ class ModelExplainer:
         sample_idx: int = 0,
         matplotlib: bool = True,
         save_path: Optional[str] = None,
-        show: bool = True
+        show: bool = True,
+        class_idx: Optional[int] = None
     ):
         """
         SHAP Force Plot (단일 샘플 설명)
@@ -262,29 +289,55 @@ class ModelExplainer:
             matplotlib: matplotlib 사용 여부
             save_path: 저장 경로
             show: 플롯 표시 여부
+            class_idx: 다중 클래스 모델의 경우 특정 클래스 인덱스 (None이면 예측 클래스)
         """
         if self.shap_values is None:
             raise ValueError("먼저 compute_shap_values()를 호출하세요.")
 
         print(f"\n⚡ SHAP Force Plot 생성 중 (샘플 #{sample_idx})...")
 
-        if matplotlib:
-            # TreeExplainer의 expected_value 처리
+        # 다중 클래스 분류 모델 체크
+        is_multiclass = len(self.shap_values.shape) == 3
+
+        if is_multiclass:
+            # 다중 클래스의 경우 특정 클래스 선택
+            if class_idx is None:
+                # 예측 클래스 찾기
+                shap_sums = self.shap_values[sample_idx].sum(axis=0)
+                class_idx = np.argmax(shap_sums)
+                print(f"   - 예측 클래스 {class_idx} 사용")
+
+            shap_vals = self.shap_values[sample_idx, :, class_idx]
+
+            if isinstance(self.explainer, shap.TreeExplainer):
+                base_value = self.explainer.expected_value[class_idx]
+            else:
+                base_value = self.explainer.expected_value[class_idx] if hasattr(self.explainer.expected_value, '__len__') else self.explainer.expected_value
+        else:
+            # 이진 분류 또는 회귀
+            shap_vals = self.shap_values[sample_idx]
+
             if isinstance(self.explainer, shap.TreeExplainer):
                 base_value = self.explainer.expected_value
             else:
                 base_value = self.explainer.expected_value[0] if hasattr(self.explainer.expected_value, '__len__') else self.explainer.expected_value
 
+        if matplotlib:
             plt.figure(figsize=(20, 3))
             shap.force_plot(
                 base_value,
-                self.shap_values[sample_idx],
+                shap_vals,
                 X[sample_idx],
                 feature_names=self.feature_names,
                 matplotlib=True,
                 show=False
             )
-            plt.title(f"SHAP Force Plot - {self.model_name} (Sample #{sample_idx})", fontsize=12, pad=20)
+
+            title = f"SHAP Force Plot - {self.model_name} (Sample #{sample_idx}"
+            if is_multiclass:
+                title += f", Class {class_idx}"
+            title += ")"
+            plt.title(title, fontsize=12, pad=20)
             plt.tight_layout()
 
             if save_path:
@@ -297,14 +350,9 @@ class ModelExplainer:
                 plt.close()
         else:
             # JavaScript 기반 force plot (주피터 노트북에서만 작동)
-            if isinstance(self.explainer, shap.TreeExplainer):
-                base_value = self.explainer.expected_value
-            else:
-                base_value = self.explainer.expected_value[0] if hasattr(self.explainer.expected_value, '__len__') else self.explainer.expected_value
-
             return shap.force_plot(
                 base_value,
-                self.shap_values[sample_idx],
+                shap_vals,
                 X[sample_idx],
                 feature_names=self.feature_names
             )
@@ -324,8 +372,17 @@ class ModelExplainer:
 
         print(f"\n📊 피처 중요도 계산 중...")
 
-        # SHAP 절대값 평균으로 중요도 계산
-        importance = np.abs(self.shap_values).mean(axis=0)
+        # 다중 클래스 분류 모델 체크
+        is_multiclass = len(self.shap_values.shape) == 3
+
+        if is_multiclass:
+            # 다중 클래스: 모든 클래스에 대한 SHAP 절대값 평균
+            # shape: (samples, features, classes) -> (features,)
+            importance = np.abs(self.shap_values).mean(axis=(0, 2))
+        else:
+            # 이진 분류 또는 회귀: SHAP 절대값 평균
+            # shape: (samples, features) -> (features,)
+            importance = np.abs(self.shap_values).mean(axis=0)
 
         # 데이터프레임 생성
         if self.feature_names is not None:

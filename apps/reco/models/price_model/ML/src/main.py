@@ -1,5 +1,5 @@
 """
-월세 실거래가 예측 모델 학습 메인 스크립트
+월세 가격 분류 모델 학습 메인 스크립트 (저렴/적정/비쌈)
 """
 import argparse
 from pathlib import Path
@@ -28,7 +28,7 @@ def main(
         shap_output_dir: SHAP 플롯 저장 디렉토리
     """
     print("\n" + "=" * 60)
-    print("📊 월세 실거래가 예측 모델 학습 시작")
+    print("📊 월세 가격 분류 모델 학습 시작 (저렴/적정/비쌈)")
     print("=" * 60)
 
     # 1. 데이터 로딩
@@ -40,9 +40,12 @@ def main(
     print("\n[Step 2] 전처리 및 피처 엔지니어링")
     preprocessor = PriceDataPreprocessor()
 
-    # 타깃 생성
+    # 타깃 생성 (Train: 자체 통계 사용, Test: Train 통계 사용)
     train_df = preprocessor.create_target(train_df)
-    test_df = preprocessor.create_target(test_df)
+    test_df = preprocessor.create_target(
+        test_df,
+        train_stats={"gu_quantiles": preprocessor.train_gu_quantiles}
+    )
 
     # 고급 피처 엔지니어링 (노트북 기반)
     train_df, test_df = preprocessor.advanced_feature_engineering(train_df, test_df)
@@ -55,7 +58,7 @@ def main(
 
     # 테스트 데이터 준비
     X_test = test_df[preprocessor.candidate_features]
-    y_test = test_df[preprocessor.target_log]
+    y_test = test_df[preprocessor.target_name]
 
     # 4. Tree 모델용 피처 변환 (Label Encoding, No Scaling)
     print("\n[Step 4] Tree 모델용 피처 변환")
@@ -120,7 +123,8 @@ def main(
     print("=" * 60)
     print(f"저장된 모델: {model_path}")
     print(f"최고 성능 모델: {trainer.best_model_name}")
-    print(f"Test R²: {results_df.iloc[0]['R2_test']:.4f}")
+    print(f"Test F1-Macro: {results_df.iloc[0]['f1_macro_test']:.4f}")
+    print(f"Test Accuracy: {results_df.iloc[0]['accuracy_test']:.4f}")
     if run_shap:
         print(f"SHAP 플롯: {shap_output_dir}")
 
@@ -129,7 +133,7 @@ def main(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="월세 실거래가 예측 모델 학습"
+        description="월세 가격 분류 모델 학습 (저렴/적정/비쌈)"
     )
     parser.add_argument(
         "--data_dir",

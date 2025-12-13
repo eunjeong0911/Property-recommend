@@ -1,5 +1,5 @@
 """
-모델 학습 및 평가 모듈
+모델 학습 및 평가 모듈 - 3중 분류
 """
 import warnings
 import numpy as np
@@ -8,12 +8,16 @@ import pickle
 from pathlib import Path
 from typing import Dict, Tuple, Any
 from sklearn.metrics import (
-    mean_absolute_error,
-    mean_squared_error,
-    r2_score,
-    mean_absolute_percentage_error,
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+    roc_auc_score,
+    classification_report,
+    confusion_matrix,
 )
 from lightgbm import early_stopping, log_evaluation
+from xgboost.callback import EarlyStopping
 
 warnings.filterwarnings("ignore")
 
@@ -32,23 +36,40 @@ class ModelTrainer:
         self.feature_names = None
 
     @staticmethod
-    def eval_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Tuple[float, float, float, float]:
+    def eval_metrics(y_true: np.ndarray, y_pred: np.ndarray, y_pred_proba: np.ndarray = None) -> Dict[str, float]:
         """
-        평가 지표 계산
+        분류 평가 지표 계산
 
         Args:
-            y_true: 실제값
-            y_pred: 예측값
+            y_true: 실제 레이블
+            y_pred: 예측 레이블
+            y_pred_proba: 예측 확률 (ROC-AUC 계산용, optional)
 
         Returns:
-            (MAE, RMSE, MAPE, R2)
+            평가 지표 딕셔너리
         """
-        mae = mean_absolute_error(y_true, y_pred)
-        mse = mean_squared_error(y_true, y_pred)
-        rmse = mse ** 0.5
-        mape = mean_absolute_percentage_error(y_true, y_pred)
-        r2 = r2_score(y_true, y_pred)
-        return mae, rmse, mape, r2
+        metrics = {
+            "accuracy": accuracy_score(y_true, y_pred),
+            "precision_macro": precision_score(y_true, y_pred, average="macro", zero_division=0),
+            "recall_macro": recall_score(y_true, y_pred, average="macro", zero_division=0),
+            "f1_macro": f1_score(y_true, y_pred, average="macro", zero_division=0),
+            "precision_weighted": precision_score(y_true, y_pred, average="weighted", zero_division=0),
+            "recall_weighted": recall_score(y_true, y_pred, average="weighted", zero_division=0),
+            "f1_weighted": f1_score(y_true, y_pred, average="weighted", zero_division=0),
+        }
+
+        # ROC-AUC (확률이 제공된 경우)
+        if y_pred_proba is not None:
+            try:
+                metrics["roc_auc_ovr"] = roc_auc_score(
+                    y_true, y_pred_proba,
+                    multi_class="ovr",
+                    average="macro"
+                )
+            except:
+                metrics["roc_auc_ovr"] = 0.0
+
+        return metrics
 
     def train_models(
         self,
@@ -62,16 +83,16 @@ class ModelTrainer:
         feature_names: list = None,
     ) -> pd.DataFrame:
         """
-        모델 학습 및 평가
+        분류 모델 학습 및 평가
 
         Args:
             models: 모델 딕셔너리
             X_train: 학습 데이터 (전처리 완료)
-            y_train: 학습 타깃 (로그 스케일)
+            y_train: 학습 타깃 (클래스 레이블 0, 1, 2)
             X_val: 검증 데이터
-            y_val: 검증 타깃 (로그 스케일)
+            y_val: 검증 타깃 (클래스 레이블)
             X_test: 테스트 데이터
-            y_test: 테스트 타깃 (로그 스케일)
+            y_test: 테스트 타깃 (클래스 레이블)
             feature_names: 피처 이름 리스트 (SHAP 분석용)
 
         Returns:
@@ -84,20 +105,20 @@ class ModelTrainer:
         self.X_test = X_test
         self.feature_names = feature_names
 
-        for name, reg in models.items():
+        for name, clf in models.items():
             print(f"\n{'=' * 60}")
             print(f"🚀 학습 중: {name}")
             print(f"{'=' * 60}")
 
-            # 1) 학습 (TARGET_LOG 기준, early_stopping 사용)
+            # 1) 학습 (early_stopping 사용)
             if name == "XGBoost":
-                reg.fit(
+                clf.fit(
                     X_train, y_train,
                     eval_set=[(X_val, y_val)],
                     verbose=200,
                 )
             else:  # LightGBM
-                reg.fit(
+                clf.fit(
                     X_train, y_train,
                     eval_set=[(X_val, y_val)],
                     callbacks=[
@@ -106,62 +127,76 @@ class ModelTrainer:
                     ],
                 )
 
-            # 2) 로그 스케일 예측값
-            pred_tr_log = reg.predict(X_train)
-            pred_val_log = reg.predict(X_val)
-            pred_test_log = reg.predict(X_test)
 
-            # 3) 로그 역변환
-            y_tr_real = np.expm1(y_train)
-            y_val_real = np.expm1(y_val)
-            y_test_real = np.expm1(y_test)
+            # 2) 예측
+            pred_tr = clf.predict(X_train)
+            pred_val = clf.predict(X_val)
+            pred_test = clf.predict(X_test)
 
-            pred_tr_real = np.expm1(pred_tr_log)
-            pred_val_real = np.expm1(pred_val_log)
-            pred_test_real = np.expm1(pred_test_log)
+            # 예측 확률
+            pred_tr_proba = clf.predict_proba(X_train)
+            pred_val_proba = clf.predict_proba(X_val)
+            pred_test_proba = clf.predict_proba(X_test)
 
-            # 4) 원 스케일에서 지표 계산
-            mae_tr, rmse_tr, mape_tr, r2_tr = self.eval_metrics(y_tr_real, pred_tr_real)
-            mae_val, rmse_val, mape_val, r2_val = self.eval_metrics(y_val_real, pred_val_real)
-            mae_te, rmse_te, mape_te, r2_te = self.eval_metrics(y_test_real, pred_test_real)
+            # 3) 평가 지표 계산
+            metrics_tr = self.eval_metrics(y_train, pred_tr, pred_tr_proba)
+            metrics_val = self.eval_metrics(y_val, pred_val, pred_val_proba)
+            metrics_test = self.eval_metrics(y_test, pred_test, pred_test_proba)
 
-            # 5) 결과 저장
+            # 4) 결과 저장
             self.results.append({
                 "model": name,
-                "R2_train": r2_tr,
-                "MAE_train": mae_tr,
-                "RMSE_train": rmse_tr,
-                "MAPE_train": mape_tr,
-                "R2_val": r2_val,
-                "MAE_val": mae_val,
-                "RMSE_val": rmse_val,
-                "MAPE_val": mape_val,
-                "R2_test": r2_te,
-                "MAE_test": mae_te,
-                "RMSE_test": rmse_te,
-                "MAPE_test": mape_te,
+                "accuracy_train": metrics_tr["accuracy"],
+                "f1_macro_train": metrics_tr["f1_macro"],
+                "f1_weighted_train": metrics_tr["f1_weighted"],
+                "roc_auc_train": metrics_tr.get("roc_auc_ovr", 0.0),
+                "accuracy_val": metrics_val["accuracy"],
+                "f1_macro_val": metrics_val["f1_macro"],
+                "f1_weighted_val": metrics_val["f1_weighted"],
+                "roc_auc_val": metrics_val.get("roc_auc_ovr", 0.0),
+                "accuracy_test": metrics_test["accuracy"],
+                "f1_macro_test": metrics_test["f1_macro"],
+                "f1_weighted_test": metrics_test["f1_weighted"],
+                "roc_auc_test": metrics_test.get("roc_auc_ovr", 0.0),
             })
 
-            # 6) 결과 출력
-            print(f"\n📈 [{name}] 성능 지표 (원 스케일):")
-            print(f"   [Train] R²: {r2_tr:.4f} | MAE: {mae_tr:.3f} | RMSE: {rmse_tr:.3f} | MAPE: {mape_tr * 100:.2f}%")
-            print(f"   [Val]   R²: {r2_val:.4f} | MAE: {mae_val:.3f} | RMSE: {rmse_val:.3f} | MAPE: {mape_val * 100:.2f}%")
-            print(f"   [Test]  R²: {r2_te:.4f} | MAE: {mae_te:.3f} | RMSE: {rmse_te:.3f} | MAPE: {mape_te * 100:.2f}%")
+            # 5) 결과 출력
+            print(f"\n📈 [{name}] 성능 지표:")
+            print(f"   [Train] Acc: {metrics_tr['accuracy']:.4f} | F1(macro): {metrics_tr['f1_macro']:.4f} | F1(weighted): {metrics_tr['f1_weighted']:.4f} | ROC-AUC: {metrics_tr.get('roc_auc_ovr', 0):.4f}")
+            print(f"   [Val]   Acc: {metrics_val['accuracy']:.4f} | F1(macro): {metrics_val['f1_macro']:.4f} | F1(weighted): {metrics_val['f1_weighted']:.4f} | ROC-AUC: {metrics_val.get('roc_auc_ovr', 0):.4f}")
+            print(f"   [Test]  Acc: {metrics_test['accuracy']:.4f} | F1(macro): {metrics_test['f1_macro']:.4f} | F1(weighted): {metrics_test['f1_weighted']:.4f} | ROC-AUC: {metrics_test.get('roc_auc_ovr', 0):.4f}")
+
+            # 6) 혼동 행렬 출력 (Test)
+            print(f"\n📊 [{name}] Test 혼동 행렬:")
+            cm = confusion_matrix(y_test, pred_test)
+            print(f"   실제\\예측  저렴(0)  적정(1)  비쌈(2)")
+            for i, row in enumerate(cm):
+                class_name = ["저렴(0)", "적정(1)", "비쌈(2)"][i]
+                print(f"   {class_name:8s}  {row[0]:6d}  {row[1]:6d}  {row[2]:6d}")
+
+            # 7) 클래스별 성능 출력 (Test)
+            print(f"\n📋 [{name}] Test 클래스별 성능:")
+            report = classification_report(
+                y_test, pred_test,
+                target_names=["저렴(0)", "적정(1)", "비쌈(2)"],
+                digits=4
+            )
+            print(report)
 
         # 결과 정리
         results_df = pd.DataFrame(self.results)
-        results_df = results_df.sort_values("R2_test", ascending=False)
+        results_df = results_df.sort_values("f1_macro_test", ascending=False)
 
         # 최고 성능 모델 저장
         self.best_model_name = results_df.iloc[0]["model"]
         self.best_model = models[self.best_model_name]
-        best_r2 = results_df.iloc[0]["R2_test"]
+        best_f1 = results_df.iloc[0]["f1_macro_test"]
 
         print(f"\n{'=' * 60}")
-        print(f"📊 전체 모델 비교 (Test R² 기준)")
+        print(f"📊 전체 모델 비교 (Test F1-Macro 기준)")
         print(f"{'=' * 60}")
         print(results_df.to_string(index=False))
-        print(f"\n🏆 최고 성능 모델: {self.best_model_name} (Test R² = {best_r2:.4f})")
+        print(f"\n🏆 최고 성능 모델: {self.best_model_name} (Test F1-Macro = {best_f1:.4f})")
 
         return results_df
 

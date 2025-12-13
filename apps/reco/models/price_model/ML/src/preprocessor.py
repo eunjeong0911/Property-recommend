@@ -11,27 +11,39 @@ from typing import Tuple, List, Dict
 class PriceDataPreprocessor:
     """월세 실거래가 데이터 전처리 클래스"""
 
-    def __init__(self, target_name: str = "환산보증금_평당가"):
+    def __init__(self, target_name: str = "가격_클래스"):
         """
         Args:
-            target_name: 타깃 변수명
+            target_name: 타깃 변수명 (분류 클래스)
         """
         self.target_name = target_name
-        self.target_log = f"log_{target_name}"
+        self.price_column = "환산보증금_평당가"  # 가격 계산용 컬럼
         self.label_encoders: Dict[str, LabelEncoder] = {}
         self.preprocessor: ColumnTransformer = None
         self.candidate_features: List[str] = []
 
-    def create_target(self, df: pd.DataFrame) -> pd.DataFrame:
+        # 클래스 레이블 정의
+        self.class_labels = {
+            0: {"label": "UNDERPRICED", "label_kr": "저렴"},
+            1: {"label": "FAIR", "label_kr": "적정"},
+            2: {"label": "OVERPRICED", "label_kr": "비쌈"}
+        }
+
+    def create_target(self, df: pd.DataFrame, train_stats: Dict = None) -> pd.DataFrame:
         """
-        환산보증금 평당가 타깃 생성
+        3중 분류 타깃 생성 (저렴/적정/비쌈)
+
+        행정동×건물용도별 분위수 기준으로 분류 (Train 데이터 기준):
+        - < 33.3%ile: 저렴 (UNDERPRICED, class=0)
+        - 33.3%ile ~ 66.7%ile: 적정 (FAIR, class=1)
+        - > 66.7%ile: 비쌈 (OVERPRICED, class=2)
 
         Args:
             df: 원본 데이터프레임
-
-        Returns:
-            타깃이 추가된 데이터프레임
+            train_stats: 학습 데이터의 통계 (테스트 데이터 처리 시 사용)
+                    {"gu_quantiles": {(법정동명, 건물용도): (q33, q67)}}
         """
+
         df = df.copy()
 
         # 적용 이자율 계산 (안전한 최소 이자율)
@@ -44,9 +56,8 @@ class PriceDataPreprocessor:
         # 평수 계산
         df["전용평수"] = df["임대면적"] / 3.3
 
-        # 평당 환산보증금 (타깃)
-        df[self.target_name] = df["환산보증금(만원)"] / df["전용평수"]
-        df[self.target_log] = np.log1p(df[self.target_name])
+        # 평당 환산보증금 계산
+        df[self.price_column] = df["환산보증금(만원)"] / df["전용평수"]
 
         # 연월에서 연도/월 분리
         df["계약연도"] = df["연월"].str.slice(0, 4).astype(int)
@@ -54,6 +65,56 @@ class PriceDataPreprocessor:
 
         # 건물 연식 계산
         df["건물연식"] = df["계약연도"] - df["건축년도"]
+
+        # 행정동×건물용도별 분위수 계산
+        if train_stats is None:
+            # Train 데이터: 자체 통계 계산
+            group_quantiles: Dict[tuple, tuple] = {}
+            grouped = df.groupby(["법정동명", "건물용도"])
+            for key, g in grouped:
+                values = g[self.price_column].dropna()
+                if len(values) > 0:
+                    q33 = values.quantile(0.333)
+                    q67 = values.quantile(0.667)
+                else:
+                    # 데이터 없으면 전체 분위수 사용
+                    q33 = df[self.price_column].quantile(0.333)
+                    q67 = df[self.price_column].quantile(0.667)
+                group_quantiles[key] = (q33, q67)
+
+            # 기존 인터페이스와 호환성을 위해 이름 유지
+            self.train_gu_quantiles = group_quantiles
+            print(f"\n✅ 행정동×건물용도별 분위수 기준 계산 완료 ({len(group_quantiles)}개 그룹)")
+        else:
+            # Test 데이터: Train의 통계 사용
+            group_quantiles = train_stats.get("gu_quantiles", {})
+
+
+        # 3중 분류 레이블 생성
+        def classify_price_by_quantile(row):
+            key = (row["법정동명"], row["건물용도"])
+            price = row[self.price_column]
+
+            if pd.isna(price):
+                return 1  # 정보 없으면 적정으로 분류
+
+            # 행정동×건물용도 분위수 가져오기
+            if key in group_quantiles:
+                q33, q67 = group_quantiles[key]
+            else:
+                # 해당 그룹 정보 없으면 전체 분위수 사용
+                q33 = df[self.price_column].quantile(0.25)
+                q67 = df[self.price_column].quantile(0.75)
+
+            # 분위수 기준 분류
+            if price < q33:
+                return 0  # 저렴
+            elif price > q67:
+                return 2  # 비쌈
+            else:
+                return 1  # 적정
+
+        df[self.target_name] = df.apply(classify_price_by_quantile, axis=1)
 
         return df
 
@@ -468,6 +529,105 @@ class PriceDataPreprocessor:
                 .transform("mean")
             )
 
+                # 15-1. 동용도_희소도_구간 생성 (동 내 용도별 매물 비율 기준)
+        print("15-1. 동용도_희소도_구간 생성 중...")
+
+        # 동 전체 매물 수, 동×용도 매물 수 (train 기준)
+        dong_total = df_train.groupby("법정동명").size().rename("동_전체매물수")
+        dong_usage = df_train.groupby(["법정동명", "건물용도"]).size().rename("동용도_매물수")
+
+        rarity_df = (
+            dong_usage
+            .reset_index()
+            .merge(dong_total.reset_index(), on="법정동명", how="left")
+        )
+        rarity_df["동용도_비율"] = rarity_df["동용도_매물수"] / rarity_df["동_전체매물수"]
+
+        # 비율 기준 희소도 구간 (앞에서 확인한 thresholds 그대로 사용)
+        def rarity_label(p: float) -> str:
+            if p <= 0.03:
+                return "매우희소"
+            if p <= 0.10:
+                return "희소"
+            if p <= 0.30:
+                return "보통"
+            if p <= 0.60:
+                return "다수"
+            return "과밀"
+
+        rarity_df["동용도_희소도_구간"] = rarity_df["동용도_비율"].apply(rarity_label)
+
+        # 매물 레벨로 매핑 (train/test 모두)
+        rarity_map = rarity_df.set_index(["법정동명", "건물용도"])["동용도_희소도_구간"]
+
+        for df in [df_train, df_test]:
+            keys = list(zip(df["법정동명"], df["건물용도"]))
+            df["동용도_희소도_구간"] = [rarity_map.get(k, "보통") for k in keys]
+
+        # 15-2. 동용도_공급국면 생성 (최근 매물 수 변화율 기준)
+        print("15-2. 동용도_공급국면 생성 중...")
+
+        # Train 기준 동×용도×연월별 매물 수 집계 (연월_dt는 이미 위에서 생성되어 있음)
+        monthly_cnt = (
+            df_train
+            .groupby(["법정동명", "건물용도", "연월", "연월_dt"])
+            .size()
+            .reset_index(name="매물수")
+        )
+
+        def label_supply_phase(g: pd.DataFrame, window: int = 3) -> pd.Series:
+            g = g.sort_values("연월_dt")
+            # 기본값: 안정기
+            labels = ["안정기"] * len(g)
+
+            if len(g) >= window * 2:
+                recent_mean = g["매물수"].iloc[-window:].mean()
+                prev_mean = g["매물수"].iloc[-window*2:-window].mean()
+
+                if prev_mean == 0:
+                    if recent_mean == 0:
+                        phase = "안정기"
+                    elif recent_mean <= 2:
+                        phase = "공급증가 초기"
+                    else:
+                        phase = "공급과잉기"
+                else:
+                    growth = (recent_mean - prev_mean) / prev_mean
+                    if growth <= -0.3:
+                        phase = "공급축소기"
+                    elif growth < 0.3:
+                        phase = "안정기"
+                    elif growth < 1.0:
+                        phase = "공급증가 초기"
+                    else:
+                        phase = "공급과잉기"
+
+                labels = [phase] * len(g)
+
+            return pd.Series(labels, index=g.index)
+
+        monthly_cnt["동용도_공급국면"] = (
+            monthly_cnt
+            .groupby(["법정동명", "건물용도"], group_keys=False)
+            .apply(label_supply_phase)
+        )
+
+        supply_map = monthly_cnt[["법정동명", "건물용도", "연월", "동용도_공급국면"]]
+
+        # 매물 레벨로 매핑 (train/test 모두)
+        for df in [df_train, df_test]:
+            df = df.merge(
+                supply_map,
+                on=["법정동명", "건물용도", "연월"],
+                how="left"
+            )
+            df["동용도_공급국면"] = df["동용도_공급국면"].fillna("안정기")
+            if df is df_train:
+                df_train = df
+            else:
+                df_test = df
+
+
         # 16. Label Encoding 적용
         print("16. Label Encoding 적용 중...")
         cat_cols_for_le = ["자치구명", "법정동명", "자치구_건물용도"]
@@ -484,6 +644,19 @@ class PriceDataPreprocessor:
 
             # LabelEncoder 저장
             self.label_encoders[col] = le
+
+        for df in [df_train, df_test]:
+            # 1. 중요 Feature 간 곱셈 교호작용
+            df["면적_x_건축연차"] = df["임대면적"] * df["건축연차"]
+            df["자치구거래량_x_면적"] = df["자치구_거래량"] * df["임대면적"]
+
+            # 2. 금리와 지역의 교호작용
+            df["자치구_x_금리평균"] = df["자치구명_LE"] * df["금리_평균"]
+
+            # 3. 계절 × 자치구 (계절별 지역 선호도)
+            df["계절_x_자치구"] = (
+                df["계약_계절"].astype(str) + "_" + df["자치구명"].astype(str)
+            )
 
         # 17. 최종 피처 선택
         print("17. 최종 피처 선택 중...")
@@ -521,11 +694,16 @@ class PriceDataPreprocessor:
             # "무담보콜금리",
             # "변동형주택담보대출",
             # "소비자물가",
-            # 새로 추가된 4개 피처
             "기준금리_전월대비_범주",
             "자치구_월별_임대료수준_구간",
             "자치구_용도_월별_임대료_평균",
             "법정동_용도_월별_임대료_평균",
+            # "동용도_희소도_구간",
+            # "동용도_공급국면",
+            # "면적_x_건축연차",
+            # "자치구거래량_x_면적",
+            # "자치구_x_금리평균",
+            # "계절_x_자치구",
         ]
 
         # 실제 존재하는 컬럼만 필터링
@@ -613,7 +791,7 @@ class PriceDataPreprocessor:
             (X_train, y_train, X_val, y_val)
         """
         # 타깃이 없는 행 제거 및 정렬
-        df_train_ml = df_train.dropna(subset=[self.target_log]).copy()
+        df_train_ml = df_train.dropna(subset=[self.target_name]).copy()
         df_train_ml = df_train_ml.sort_values("연월").reset_index(drop=True)
 
         # 날짜 기준 분할
@@ -624,16 +802,29 @@ class PriceDataPreprocessor:
         val_data = df_train_ml[val_mask]
 
         X_train = train_data[self.candidate_features]
-        y_train = train_data[self.target_log]
+        y_train = train_data[self.target_name]
 
         X_val = val_data[self.candidate_features]
-        y_val = val_data[self.target_log]
+        y_val = val_data[self.target_name]
 
         print(f"\n✅ 시계열 기반 Train/Val Split 완료:")
         print(f"   - Train: {len(X_train):,}개 ({len(X_train) / len(df_train_ml) * 100:.1f}%)")
         print(f"   - Val:   {len(X_val):,}개 ({len(X_val) / len(df_train_ml) * 100:.1f}%)")
         print(f"   - Train 기간: {train_data['연월'].min()} ~ {train_data['연월'].max()}")
         print(f"   - Val 기간:   {val_data['연월'].min()} ~ {val_data['연월'].max()}")
+
+        # 클래스 분포 출력
+        print(f"\n📊 클래스 분포:")
+        print(f"   [Train]")
+        for class_id, info in self.class_labels.items():
+            count = (y_train == class_id).sum()
+            pct = count / len(y_train) * 100
+            print(f"      - {info['label_kr']} ({info['label']}): {count:,}개 ({pct:.1f}%)")
+        print(f"   [Val]")
+        for class_id, info in self.class_labels.items():
+            count = (y_val == class_id).sum()
+            pct = count / len(y_val) * 100
+            print(f"      - {info['label_kr']} ({info['label']}): {count:,}개 ({pct:.1f}%)")
 
         return X_train, y_train, X_val, y_val
 
