@@ -20,7 +20,7 @@ class LandQuerySet(models.QuerySet):
         """
         # 순환 import 방지를 위해 apps.get_model 사용
         LandImage = apps.get_model('listings', 'LandImage')
-        return self.prefetch_related(
+        return self.select_related('landbroker').prefetch_related(
             models.Prefetch(
                 'landimage_set',
                 queryset=LandImage.objects.only('img_url', 'land_id'),
