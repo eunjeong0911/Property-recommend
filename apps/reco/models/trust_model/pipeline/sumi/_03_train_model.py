@@ -68,7 +68,7 @@ def run_randomized_search(X_train, y_train, cv):
         
         model = LGBMClassifier(
             objective="multiclass",
-            num_class=4,  # C, B, A, S
+            num_class=3,  # 하/중/상
             class_weight="balanced",
             random_state=42,
             verbose=-1
@@ -112,12 +112,15 @@ def run_optuna_search(X_train, y_train, cv, initial_params):
         # RandomSearch 결과를 기반으로 탐색 범위 설정
         base_leaves = initial_params.get("num_leaves", 31) if initial_params else 31
         base_depth = initial_params.get("max_depth", 7) if initial_params else 7
+        # max_depth가 -1이면 기본값 7로 대체
+        if base_depth == -1:
+            base_depth = 7
         base_lr = initial_params.get("learning_rate", 0.05) if initial_params else 0.05
         
         def objective(trial):
             params = {
                 "num_leaves": trial.suggest_int("num_leaves", max(10, base_leaves-20), min(150, base_leaves+30)),
-                "max_depth": trial.suggest_int("max_depth", max(3, base_depth-2), min(15, base_depth+3)),
+                "max_depth": trial.suggest_int("max_depth", max(3, base_depth-2), max(base_depth+3, 8)),  # 최소 8 보장
                 "learning_rate": trial.suggest_float("learning_rate", max(0.005, base_lr*0.5), min(0.2, base_lr*2)),
                 "n_estimators": trial.suggest_int("n_estimators", 300, 1000),
                 "min_child_samples": trial.suggest_int("min_child_samples", 5, 50),
@@ -127,7 +130,7 @@ def run_optuna_search(X_train, y_train, cv, initial_params):
             
             model = LGBMClassifier(
                 objective="multiclass",
-                num_class=4,
+                num_class=3,  # 하/중/상
                 class_weight="balanced",
                 random_state=42,
                 verbose=-1,
@@ -165,7 +168,7 @@ def train_final_model(X_train, X_test, y_train, y_test, best_params, cv):
     
     model = LGBMClassifier(
         objective="multiclass",
-        num_class=4,
+        num_class=3,  # 하/중/상
         class_weight="balanced",
         random_state=42,
         verbose=-1,
@@ -200,7 +203,7 @@ def train_final_model(X_train, X_test, y_train, y_test, best_params, cv):
         print(f"   ✅ 과적합 없음")
     
     # Classification Report
-    class_names = ["C(Bronze)", "B(Silver)", "A(Gold)", "S(Diamond)"]
+    class_names = ["하위(Bottom)", "중위(Middle)", "상위(Top)"]
     print(f"\n� Classification Report:")
     print(classification_report(y_test, y_test_pred, target_names=class_names))
     

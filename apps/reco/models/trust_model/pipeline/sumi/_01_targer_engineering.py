@@ -71,29 +71,26 @@ def success_rate(df: pd.DataFrame) -> pd.DataFrame:
     )
     
     # ---------------------------------------------------------
-    # [Step 6] 등급 부여 (분류 타겟)
+    # [Step 6] 등급 부여 (분류 타겟) - 3등급 (Quantile 기반)
     # ---------------------------------------------------------
-    # Mean ± 1 Std 기준으로 S/A/B/C 등급 부여
-    mean_score = df["베이지안_성사율"].mean()
-    std_score = df["베이지안_성사율"].std()
+    # 3분위수 기준으로 하/중/상 등급 부여 (균등 분할)
+    q1 = df["베이지안_성사율"].quantile(0.33)  # 하위 33%
+    q2 = df["베이지안_성사율"].quantile(0.66)  # 상위 33%
     
     def assign_grade(score):
-        if score >= mean_score + std_score:
-            return 3  # S등급
-        elif score >= mean_score:
-            return 2  # A등급
-        elif score >= mean_score - std_score:
-            return 1  # B등급
+        if score >= q2:
+            return 2  # 상위 (Top)
+        elif score >= q1:
+            return 1  # 중위 (Middle)
         else:
-            return 0  # C등급
+            return 0  # 하위 (Bottom)
     
     df["신뢰등급"] = df["베이지안_성사율"].apply(assign_grade)
     
-    print(f"\n   - 등급 기준: Mean={mean_score:.4f}, Std={std_score:.4f}")
-    print(f"   - S등급(3): >= {mean_score + std_score:.4f}")
-    print(f"   - A등급(2): >= {mean_score:.4f}")
-    print(f"   - B등급(1): >= {mean_score - std_score:.4f}")
-    print(f"   - C등급(0): < {mean_score - std_score:.4f}")
+    print(f"\n   - 등급 기준 (3분위): Q1={q1:.4f}, Q2={q2:.4f}")
+    print(f"   - 상위(2): >= {q2:.4f}")
+    print(f"   - 중위(1): {q1:.4f} ~ {q2:.4f}")
+    print(f"   - 하위(0): < {q1:.4f}")
     print(f"   - 등급 분포: {df['신뢰등급'].value_counts().sort_index().to_dict()}")
     
     return df
