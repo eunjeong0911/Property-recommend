@@ -185,6 +185,9 @@ def load_and_filter_monthly(path: Path) -> pd.DataFrame:
 
     # 층 처리
     df["층"] = pd.to_numeric(df.get("층", 0), errors="coerce").fillna(0)
+    # 층이 0인 행 제거
+    df = df[df["층"] != 0].copy()
+
 
     # 건축년도 null 제거
     df = df.dropna(subset=["건축년도"])
