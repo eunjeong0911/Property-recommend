@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 
 
+
 def create_features(df: pd.DataFrame) -> pd.DataFrame:
     """피처 생성"""
     print("\n[피처 엔지니어링] 파생 변수 생성 중...")

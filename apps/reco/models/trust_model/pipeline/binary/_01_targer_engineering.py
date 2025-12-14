@@ -6,6 +6,7 @@
 import pandas as pd
 import numpy as np
 
+
 def success_rate(df: pd.DataFrame) -> pd.DataFrame:
     """
     베이지안 보정 성사율 계산 및 이진 등급 부여

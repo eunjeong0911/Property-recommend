@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
+
 def load_processed_office_data(filepath: str = "data/processed_office_data_nn.csv") -> pd.DataFrame:
     """
     processed_office_data_nn.csv 파일을 로드하여 DataFrame으로 반환.

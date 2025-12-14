@@ -17,6 +17,7 @@ project_root = Path(__file__).parent.parent.parent.parent.parent.parent.parent
 os.chdir(project_root)
 print(f"📁 작업 디렉토리: {project_root}")
 
+
 # binary 폴더 경로 추가
 binary_dir = Path(__file__).parent
 sys.path.insert(0, str(binary_dir))

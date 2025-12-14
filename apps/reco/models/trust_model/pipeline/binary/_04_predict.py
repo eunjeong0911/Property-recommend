@@ -10,6 +10,7 @@ from pathlib import Path
 from _02_feature_engineering import main as feature_engineering
 
 
+
 def load_saved_model(model_dir="apps/reco/models/trust_model/saved_models_binary"):
     """저장된 모델 로드"""
     model_path = Path(model_dir)
