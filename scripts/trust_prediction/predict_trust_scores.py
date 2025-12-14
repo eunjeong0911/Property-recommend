@@ -1,11 +1,10 @@
 """
-학습된 모델로 Trust Score 예측
+학습된 모델로 Trust Score 예측 (12개 feature)
 """
 import os
 import sys
 import pickle
 import django
-from datetime import datetime
 
 # Django 설정
 backend_path = '/app/apps/backend' if os.path.exists('/app/apps/backend') else 'apps/backend'
@@ -15,6 +14,7 @@ if backend_path not in sys.path:
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.dev')
 django.setup()
 
+from django.utils import timezone
 from apps.listings.models import LandBroker
 
 
@@ -31,24 +31,71 @@ def load_model():
 
 
 def create_features(broker):
-    """Feature 생성"""
-    properties_count = broker.properties.count()
-    총_직원수 = (broker.brokers_count or 0) + (broker.assistants_count or 0) + (broker.staff_count or 0)
-    총_직원수_safe = max(총_직원수, 1)
+    """
+    Feature 생성 (학습 시와 동일한 12개)
+    """
+    from datetime import datetime
+    import numpy as np
     
+    # 기본 값 추출
     거래완료 = broker.completed_deals or 0
     등록매물 = broker.registered_properties or 0
+    공인중개사수 = broker.brokers_count or 0
+    중개보조원수 = broker.assistants_count or 0
+    일반직원수 = broker.staff_count or 0
+    
+    # 1-3. 거래 지표
+    거래완료_safe = 거래완료
+    등록매물_safe = 등록매물
     총거래활동량 = 거래완료 + 등록매물
     
+    # 4-6. 인력 지표
+    총_직원수 = 공인중개사수 + 중개보조원수 + 일반직원수
+    총_직원수_safe = max(총_직원수, 1)
+    공인중개사_비율 = 공인중개사수 / 총_직원수_safe
+    
+    # 7-10. 운영 경험
+    if broker.registration_date:
+        try:
+            등록일 = broker.registration_date
+            today = datetime.now().date()
+            if isinstance(등록일, str):
+                from dateutil import parser
+                등록일 = parser.parse(등록일).date()
+            영업일수 = (today - 등록일).days
+            운영기간_년 = 영업일수 / 365.25
+        except:
+            운영기간_년 = 0
+    else:
+        운영기간_년 = 0
+    
+    운영경험_지수 = np.exp(운영기간_년 / 10)
+    숙련도_지수 = 운영기간_년 * 공인중개사_비율
+    운영_안정성 = 1 if 운영기간_년 >= 3 else 0
+    
+    # 11-12. 조직 구조
+    대형사무소 = 1 if 총_직원수 >= 3 else 0
+    직책_다양성 = (
+        (1 if 공인중개사수 > 0 else 0) +
+        (1 if 중개보조원수 > 0 else 0) +
+        1 +  # 대표수 (항상 1)
+        (1 if 일반직원수 > 0 else 0)
+    )
+    
+    # 12개 Feature (학습 시와 동일한 순서)
     features = [
-        거래완료,
-        등록매물,
+        거래완료_safe,
+        등록매물_safe,
         총거래활동량,
-        broker.brokers_count or 0,
-        broker.assistants_count or 0,
         총_직원수,
-        총거래활동량 / 총_직원수_safe,
-        properties_count
+        공인중개사수,
+        공인중개사_비율,
+        운영기간_년,
+        운영경험_지수,
+        숙련도_지수,
+        운영_안정성,
+        대형사무소,
+        직책_다양성
     ]
     
     return features
@@ -81,19 +128,27 @@ def predict():
             # Feature 생성
             features = create_features(broker)
             
+            # pandas DataFrame으로 변환
+            import pandas as pd
+            features_df = pd.DataFrame([features], columns=feature_names)
+            
             # 스케일링
-            features_scaled = scaler.transform([features])
+            features_scaled = scaler.transform(features_df)
             
             # 예측
             pred = model.predict(features_scaled)[0]
             
-            # 0, 1, 2 → A, B, C
-            grade_map = {0: 'A', 1: 'B', 2: 'C'}
-            trust_score = grade_map[pred]
+            # 예측값이 문자열인 경우 (A, B, C) 그대로 사용
+            # 예측값이 숫자인 경우 (0, 1, 2) 매핑
+            if isinstance(pred, str):
+                trust_score = pred
+            else:
+                grade_map = {0: 'A', 1: 'B', 2: 'C'}
+                trust_score = grade_map.get(pred, 'C')
             
             # 저장
             broker.trust_score = trust_score
-            broker.trust_score_updated_at = datetime.now()
+            broker.trust_score_updated_at = timezone.now()
             broker.save(update_fields=['trust_score', 'trust_score_updated_at'])
             
             updated += 1
