@@ -18,7 +18,7 @@ class DataLoader:
 
     def load_train_test(
         self,
-        train_filename: str = "월세_train(24.01~25.08).csv",
+        train_filename: str = "월세_train(24.08~25.08).csv",
         test_filename: str = "월세_test(25.09~25.10).csv"
     ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """
