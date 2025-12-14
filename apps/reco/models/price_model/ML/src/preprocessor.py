@@ -627,6 +627,23 @@ class PriceDataPreprocessor:
             else:
                 df_test = df
 
+        # 16. 보증금_지역대비 생성 (구별 평균 대비 비율)
+        print("16. 보증금_지역대비 생성 중...")
+
+        # 1) Train: 자치구별 평균 보증금(만원) 기준으로 비율 계산
+        gu_deposit_mean_train = df_train.groupby("자치구명")["보증금(만원)"].transform("mean")
+        df_train["보증금_지역대비"] = df_train["보증금(만원)"] / gu_deposit_mean_train
+
+        # 2) Test: Train에서 구한 자치구별 평균을 사용
+        gu_deposit_mean = (
+            df_train.groupby("자치구명")["보증금(만원)"]
+            .mean()
+        )
+        df_test["보증금_지역대비"] = df_test["보증금(만원)"] / df_test["자치구명"].map(gu_deposit_mean)
+
+        # 매핑되지 않은 자치구(새로운 구 등)는 기본값 1.0으로 처리
+        df_test["보증금_지역대비"] = df_test["보증금_지역대비"].fillna(1.0)
+
 
         # 16. Label Encoding 적용
         print("16. Label Encoding 적용 중...")
@@ -678,7 +695,7 @@ class PriceDataPreprocessor:
             "자치구_거래량_구간",
             # "보증금_구간",
             # "임대료_구간",
-            # "보증금임대료비율_구간",
+            "보증금임대료비율_구간",
             "기준금리_레벨",
             # "소비자물가_레벨",
             # "KORIBOR_스프레드_구간",
@@ -704,6 +721,7 @@ class PriceDataPreprocessor:
             "자치구거래량_x_면적",
             "자치구_x_금리평균",
             "계절_x_자치구",
+            "보증금_지역대비",
         ]
 
         # 실제 존재하는 컬럼만 필터링

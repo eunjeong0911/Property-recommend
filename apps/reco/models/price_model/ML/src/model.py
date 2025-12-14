@@ -5,7 +5,6 @@ from xgboost import XGBClassifier
 from lightgbm import LGBMClassifier
 from typing import Dict
 
-
 def get_models() -> Dict[str, object]:
     """
     학습에 사용할 분류 모델들을 반환
@@ -15,43 +14,56 @@ def get_models() -> Dict[str, object]:
     """
     models = {
         "XGBoost": XGBClassifier(
-            n_estimators=3000,
-            learning_rate=0.03,  # 0.05 → 0.03 (더 천천히 학습)
-            max_depth=5,  # 6 → 5 (트리 깊이 줄임)
-            min_child_weight=20,  # 10 → 20 (더 보수적)
-            subsample=0.7,  # 0.8 → 0.7
-            colsample_bytree=0.7,  # 0.8 → 0.7
-            reg_alpha=2.0,  # 1.0 → 2.0 (L1 정규화 강화)
-            reg_lambda=10.0,  # 5.0 → 10.0 (L2 정규화 강화)
-            gamma=1.0,  # 0.5 → 1.0
-            objective="multi:softprob",  # 다중 분류 + 확률 출력
-            num_class=3,  # 3개 클래스
-            eval_metric="mlogloss",  # Multi-class log loss
-            early_stopping_rounds=50,      
+            n_estimators=1200,       # 3000 -> 1200 (트리 수 감소)
+            learning_rate=0.03,
+
+            # 트리 복잡도 ↓
+            max_depth=4,            # 5 -> 4
+            min_child_weight=30,    # 20 -> 30
+
+            # 샘플링 ↓
+            subsample=0.6,          # 0.7 -> 0.6
+            colsample_bytree=0.6,   # 0.7 -> 0.6
+
+            # 규제 강화
+            reg_alpha=3.0,          # 2.0 -> 3.0
+            reg_lambda=15.0,        # 10.0 -> 15.0
+            gamma=1.0,
+
+            objective="multi:softprob",
+            num_class=3,
+            eval_metric="mlogloss",
             random_state=42,
             n_jobs=-1,
-            scale_pos_weight=None,
         ),
+
         "LightGBM": LGBMClassifier(
-    n_estimators=1500,        # 3000 → 1500 (조금 줄이기)
-    learning_rate=0.03,
-    max_depth=7,             # -1 → 7 (트리 깊이 제한)
-    num_leaves=63,           # 255 → 63 (리프 개수 줄이기)
-    min_child_samples=80,    # 20 → 80 (리프 최소 샘플 수 증가)
-    subsample=0.7,           # 0.8 → 0.7
-    colsample_bytree=0.7,    # 0.8 → 0.7
-    reg_alpha=0.5,           # 0.05 → 0.5 (L1 규제 강화)
-    reg_lambda=3.0,          # 1.5 → 3.0 (L2 규제 강화)
-    min_split_gain=0.01,     # 0.005 → 0.01
-    objective="multiclass",
-    num_class=3,
-    metric="multi_logloss",
-    random_state=42,
-    n_jobs=-1,
-    verbose=-1,
-    class_weight='balanced',
-    is_unbalance=True,
-)
+            n_estimators=2000,        # 충분히 크게 두고, trainer.py에서 early stopping 사용
+            learning_rate=0.03,
+
+            # 트리 복잡도 ↓
+            max_depth=5,             # 7 -> 5
+            num_leaves=31,           # 63 -> 31
+            min_child_samples=150,   # 80 -> 150 (leaf 당 샘플 수 ↑)
+
+            # 샘플링/피처 서브샘플링 ↑ (랜덤성 ↑ → 과적합 ↓)
+            subsample=0.6,           # 0.7 -> 0.6
+            colsample_bytree=0.6,    # 0.7 -> 0.6
+
+            # 규제 강화
+            reg_alpha=1.0,           # 0.5 -> 1.0 (L1)
+            reg_lambda=5.0,          # 3.0 -> 5.0 (L2)
+            min_split_gain=0.05,     # 0.01 -> 0.05
+
+            objective="multiclass",
+            num_class=3,
+            metric="multi_logloss",
+            random_state=42,
+            n_jobs=-1,
+            class_weight="balanced",
+            is_unbalance=True,
+            verbosity=-1,    
+        ),
     }
 
     return models
