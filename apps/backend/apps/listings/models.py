@@ -1,4 +1,6 @@
 from django.db import models
+from .managers import LandManager
+
 
 class Land(models.Model):
     land_id = models.AutoField(primary_key=True)
@@ -26,6 +28,9 @@ class Land(models.Model):
     created_at = models.DateTimeField(blank=True, null=True)
     updated_at = models.DateTimeField(blank=True, null=True)
 
+    # 커스텀 Manager 적용
+    objects = LandManager()
+
     class Meta:
         managed = False
         db_table = 'land'
@@ -36,7 +41,14 @@ class Land(models.Model):
 
     @property
     def images(self):
-        """land_image 테이블에서 이미지 목록 가져오기"""
+        """
+        land_image 테이블에서 이미지 목록 가져오기
+        prefetch 캐시가 있으면 사용, 없으면 쿼리 실행
+        """
+        # prefetch된 이미지가 있으면 사용 (N+1 방지)
+        if hasattr(self, '_prefetched_images'):
+            return [img.img_url for img in self._prefetched_images]
+        # prefetch가 없으면 기존 방식으로 쿼리
         return list(LandImage.objects.filter(land_id=self.land_id).values_list('img_url', flat=True))
 
 
