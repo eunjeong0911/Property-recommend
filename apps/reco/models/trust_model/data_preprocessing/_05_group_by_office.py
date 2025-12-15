@@ -70,6 +70,16 @@ def group_by_office():
                 }
                 staff_list.append(staff_info)
         
+        # 대표자 구분명 찾기
+        representative_name = office_info.get('대표자')
+        representative_classification = None
+        if representative_name:
+            for staff in staff_list:
+                if staff.get('이름') == representative_name:
+                    representative_classification = staff.get('구분명')
+                    break
+        office_info['대표자구분명'] = representative_classification
+        
         # 직원 수 집계
         office_info['총_직원수'] = len(staff_list)
         office_info['공인중개사수'] = sum(1 for s in staff_list if s.get('구분명') == '공인중개사')
