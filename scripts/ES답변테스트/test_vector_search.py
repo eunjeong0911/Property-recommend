@@ -25,7 +25,7 @@ from pathlib import Path
 import requests
 
 # 프로젝트 루트 경로 추가
-PROJECT_ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 # .env 파일 로드
