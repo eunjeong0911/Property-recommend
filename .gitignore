@@ -75,6 +75,6 @@ logs/
 data
 
 # catboost
-catboost_info/
+catboost_info
 
 .kiro

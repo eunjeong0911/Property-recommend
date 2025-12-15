@@ -16,7 +16,7 @@ matplotlib.rcParams['font.family'] = 'Malgun Gothic'
 matplotlib.rcParams['axes.unicode_minus'] = False
 
 # 시각화 저장 경로
-SAVE_DIR = Path("apps/reco/models/trust_model/analysis_plots")
+SAVE_DIR = Path("apps/reco/models/trust_model/analysisㅈ_plots")
 SAVE_DIR.mkdir(parents=True, exist_ok=True)
 
 
