@@ -14,7 +14,7 @@ import os
 rag_path = os.path.join(os.path.dirname(__file__), '..', '..')
 sys.path.insert(0, os.path.abspath(rag_path))
 
-from nodes.es_search_node import combine_scores, build_hybrid_query
+from nodes.es_search_node import combine_scores, build_hybrid_query, combine_with_neo4j
 
 
 class TestHybridSearchReranking:
@@ -263,3 +263,114 @@ class TestCombineScoresEdgeCases:
         
         assert len(result) == 1
         assert result[0]['id'] == 'id1'
+
+
+# =============================================================================
+# Vector Search 하이브리드 검색 Property 테스트 (Requirements 4.2, 4.4, 4.5)
+# =============================================================================
+
+class TestCombineWithNeo4jProperties:
+    """combine_with_neo4j 함수 Property 테스트"""
+    
+    @given(
+        es_scores=st.dictionaries(
+            st.text(alphabet='abcdefghijklmnopqrstuvwxyz0123456789', min_size=1, max_size=10),
+            st.floats(min_value=0, max_value=10, allow_nan=False, allow_infinity=False),
+            min_size=0,
+            max_size=10
+        ),
+        neo4j_scores=st.dictionaries(
+            st.text(alphabet='abcdefghijklmnopqrstuvwxyz0123456789', min_size=1, max_size=10),
+            st.floats(min_value=0, max_value=1, allow_nan=False, allow_infinity=False),
+            min_size=0,
+            max_size=10
+        )
+    )
+    @settings(max_examples=100)
+    def test_hybrid_score_range(self, es_scores: dict, neo4j_scores: dict):
+        """
+        **Feature: vector-search, Property 8: 하이브리드 점수 범위**
+        **Validates: Requirements 4.2**
+        
+        *For any* 하이브리드 검색 결과에 대해, 정규화된 최종 점수는 0과 1 사이여야 한다.
+        """
+        # ES 하이브리드 결과 생성
+        hybrid_results = [{"land_num": k, "score": v, "search_text": "", "source": "hybrid"} 
+                         for k, v in es_scores.items()]
+        
+        # combine_with_neo4j 실행
+        combined = combine_with_neo4j(hybrid_results, neo4j_scores)
+        
+        # Property 검증: 모든 final_score는 0과 1 사이여야 함
+        for r in combined:
+            assert 0 <= r["final_score"] <= 1, \
+                f"final_score가 0~1 범위를 벗어났습니다: {r['final_score']}"
+    
+    @given(
+        es_ids=st.lists(
+            st.text(alphabet='abcdefghijklmnopqrstuvwxyz0123456789', min_size=1, max_size=10),
+            unique=True,
+            min_size=0,
+            max_size=10
+        ),
+        neo4j_ids=st.lists(
+            st.text(alphabet='abcdefghijklmnopqrstuvwxyz0123456789', min_size=1, max_size=10),
+            unique=True,
+            min_size=0,
+            max_size=10
+        )
+    )
+    @settings(max_examples=100)
+    def test_merge_completeness(self, es_ids: list, neo4j_ids: list):
+        """
+        **Feature: vector-search, Property 9: 결과 병합 완전성**
+        **Validates: Requirements 4.4**
+        
+        *For any* Neo4j와 ES 하이브리드 검색 결과 병합에 대해, 
+        두 소스의 모든 고유 land_num이 최종 결과에 포함되어야 한다.
+        """
+        # ES 하이브리드 결과 생성
+        hybrid_results = [{"land_num": id, "score": 1.0, "search_text": "", "source": "hybrid"} 
+                         for id in es_ids]
+        
+        # Neo4j 점수 생성
+        neo4j_scores = {id: 0.5 for id in neo4j_ids}
+        
+        # combine_with_neo4j 실행
+        combined = combine_with_neo4j(hybrid_results, neo4j_scores)
+        combined_ids = {r["land_num"] for r in combined}
+        
+        # Property 검증: 모든 고유 ID가 결과에 포함되어야 함
+        all_ids = set(es_ids) | set(neo4j_ids)
+        assert combined_ids == all_ids, \
+            f"병합 결과에 누락된 ID가 있습니다. 예상: {all_ids}, 실제: {combined_ids}"
+    
+    @given(
+        es_scores=st.dictionaries(
+            st.text(alphabet='abcdefghijklmnopqrstuvwxyz0123456789', min_size=1, max_size=10),
+            st.floats(min_value=0, max_value=10, allow_nan=False, allow_infinity=False),
+            min_size=1,
+            max_size=10
+        )
+    )
+    @settings(max_examples=100)
+    def test_contribution_fields_present(self, es_scores: dict):
+        """
+        **Feature: vector-search, Property 10: 기여도 필드 포함**
+        **Validates: Requirements 4.5**
+        
+        *For any* 병합된 검색 결과에 대해, 각 결과는 es_contribution과 neo4j_contribution 필드를 포함해야 한다.
+        """
+        # ES 하이브리드 결과 생성
+        hybrid_results = [{"land_num": k, "score": v, "search_text": "", "source": "hybrid"} 
+                         for k, v in es_scores.items()]
+        
+        # combine_with_neo4j 실행 (빈 Neo4j 점수)
+        combined = combine_with_neo4j(hybrid_results, {})
+        
+        # Property 검증: 모든 결과에 기여도 필드가 있어야 함
+        for r in combined:
+            assert "es_contribution" in r, \
+                f"결과에 es_contribution 필드가 없습니다: {r}"
+            assert "neo4j_contribution" in r, \
+                f"결과에 neo4j_contribution 필드가 없습니다: {r}"

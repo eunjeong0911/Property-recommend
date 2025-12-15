@@ -17,6 +17,17 @@
       "land_num": { 
         "type": "keyword" 
       },
+      "embedding": {
+        "type": "dense_vector",
+        "dims": 3072,
+        "index": true,
+        "similarity": "cosine",
+        "index_options": {
+          "type": "hnsw",
+          "m": 16,
+          "ef_construction": 100
+        }
+      },
       "address": { 
         "type": "text", 
         "analyzer": "nori_analyzer",

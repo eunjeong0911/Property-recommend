@@ -7,12 +7,22 @@
 # Requirements:
 # - 6.1: Neo4j로 위치/인프라 기반 후보를 먼저 추출
 # - 6.2: ES로 텍스트 기반 재정렬 수행
+# - 4.1: ES의 kNN 쿼리와 bool 쿼리를 단일 요청으로 결합
+# - 4.2: 키워드 점수와 벡터 점수를 boost 파라미터로 가중치 조합
+# - 4.3: 기본값으로 keyword:0.4, vector:0.6 비율 사용
+# - 4.4: ES 하이브리드 결과와 Neo4j 결과 별도 병합
+# - 4.5: 각 검색 소스별 기여도 함께 제공
 # =============================================================================
 
 import os
+import sys
 import logging
+from pathlib import Path
 from typing import List, Dict, Any, Optional
 from elasticsearch import Elasticsearch
+
+# libs 경로 추가
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from common.state import RAGState
 
@@ -258,6 +268,174 @@ def combine_scores(
     combined_results.sort(key=lambda x: x.get('combined_score', 0), reverse=True)
     
     return combined_results
+
+
+# =============================================================================
+# 벡터 하이브리드 검색 함수 (Requirements 4.1, 4.2, 4.3)
+# =============================================================================
+
+# 모듈 레벨 싱글톤 인스턴스 (임베딩 서비스용)
+_embedding_service = None
+
+
+def get_embedding_service():
+    """EmbeddingService 싱글톤 인스턴스 반환"""
+    global _embedding_service
+    if _embedding_service is None:
+        from libs.clients.embedding_service import EmbeddingService
+        _embedding_service = EmbeddingService.get_instance()
+    return _embedding_service
+
+
+def hybrid_search(
+    query: str,
+    query_embedding: List[float],
+    top_k: int = 20,
+    keyword_boost: float = 0.4,
+    vector_boost: float = 0.6
+) -> List[Dict]:
+    """ES 키워드 + 벡터 하이브리드 검색 (단일 쿼리)
+    
+    Requirements:
+    - 4.1: ES의 kNN 쿼리와 bool 쿼리를 단일 요청으로 결합
+    - 4.2: 키워드 점수와 벡터 점수를 boost 파라미터로 가중치 조합
+    - 4.3: 기본값으로 keyword:0.4, vector:0.6 비율 사용
+    
+    Args:
+        query: 검색 쿼리 텍스트
+        query_embedding: 쿼리의 임베딩 벡터 (3072차원)
+        top_k: 반환할 최대 결과 개수
+        keyword_boost: 키워드 검색 가중치 (기본 0.4)
+        vector_boost: 벡터 검색 가중치 (기본 0.6)
+    
+    Returns:
+        검색 결과 리스트, 각 결과는 land_num, search_text, score, source 포함
+    """
+    if not query or not query.strip():
+        return []
+    
+    if not query_embedding:
+        return []
+    
+    es = get_es_client()
+    
+    try:
+        # ES 하이브리드 검색: kNN + bool 쿼리 단일 요청 (Requirements 4.1)
+        result = es.search(
+            index="listings",
+            query={
+                "bool": {
+                    "should": [
+                        {
+                            "multi_match": {
+                                "query": query,
+                                "fields": ["search_text^2", "주소_정보.전체주소"],
+                                "boost": keyword_boost
+                            }
+                        }
+                    ]
+                }
+            },
+            knn={
+                "field": "embedding",
+                "query_vector": query_embedding,
+                "k": top_k,
+                "num_candidates": top_k * 2,
+                "boost": vector_boost
+            },
+            size=top_k,
+            _source=["search_text", "land_num", "주소_정보"]
+        )
+        
+        # 결과 파싱
+        results = []
+        for hit in result["hits"]["hits"]:
+            source = hit["_source"]
+            results.append({
+                "land_num": source.get("land_num", hit["_id"]),
+                "search_text": source.get("search_text", ""),
+                "score": hit["_score"],
+                "source": "hybrid"
+            })
+        
+        logger.info(f"[Hybrid Search] Found {len(results)} results")
+        return results
+        
+    except Exception as e:
+        logger.error(f"[Hybrid Search] Error: {e}")
+        return []
+
+
+def combine_with_neo4j(
+    hybrid_results: List[Dict],
+    neo4j_scores: Dict[str, float],
+    neo4j_weight: float = 0.3
+) -> List[Dict]:
+    """ES 하이브리드 결과와 Neo4j 점수 병합
+    
+    Requirements:
+    - 4.4: ES 하이브리드 결과와 Neo4j 결과 별도 병합
+    - 4.5: 각 검색 소스별 기여도 함께 제공
+    
+    Args:
+        hybrid_results: ES 하이브리드 검색 결과 리스트
+        neo4j_scores: Neo4j 검색 결과의 land_num별 점수 딕셔너리
+        neo4j_weight: Neo4j 점수 가중치 (기본 0.3)
+    
+    Returns:
+        병합된 결과 리스트, 각 결과는 final_score, es_contribution, neo4j_contribution 포함
+    """
+    # ES 점수 정규화를 위한 최대값 계산
+    max_es_score = max((r["score"] for r in hybrid_results), default=1) if hybrid_results else 1
+    if max_es_score == 0:
+        max_es_score = 1
+    
+    # Neo4j 점수 정규화를 위한 최대값 계산
+    max_neo4j_score = max(neo4j_scores.values(), default=1) if neo4j_scores else 1
+    if max_neo4j_score == 0:
+        max_neo4j_score = 1
+    
+    combined: Dict[str, Dict] = {}
+    
+    # ES 하이브리드 결과 처리
+    for r in hybrid_results:
+        land_num = r["land_num"]
+        es_score_normalized = r["score"] / max_es_score
+        neo4j_score = neo4j_scores.get(land_num, 0)
+        neo4j_score_normalized = neo4j_score / max_neo4j_score if neo4j_score > 0 else 0
+        
+        # 가중치 조합
+        es_contribution = es_score_normalized * (1 - neo4j_weight)
+        neo4j_contribution = neo4j_score_normalized * neo4j_weight
+        final_score = es_contribution + neo4j_contribution
+        
+        combined[land_num] = {
+            **r,
+            "final_score": final_score,
+            "es_contribution": es_contribution,
+            "neo4j_contribution": neo4j_contribution
+        }
+    
+    # Neo4j에만 있는 결과 추가 (Requirements 4.4: 모든 고유 land_num 포함)
+    for land_num, score in neo4j_scores.items():
+        if land_num not in combined:
+            neo4j_score_normalized = score / max_neo4j_score if score > 0 else 0
+            neo4j_contribution = neo4j_score_normalized * neo4j_weight
+            combined[land_num] = {
+                "land_num": land_num,
+                "search_text": "",
+                "score": 0,
+                "source": "neo4j_only",
+                "final_score": neo4j_contribution,
+                "es_contribution": 0,
+                "neo4j_contribution": neo4j_contribution
+            }
+    
+    # final_score로 정렬 (내림차순)
+    sorted_results = sorted(combined.values(), key=lambda x: x["final_score"], reverse=True)
+    
+    logger.info(f"[Combine] Merged {len(sorted_results)} results from ES and Neo4j")
+    return sorted_results
 
 
 def es_rerank(state: RAGState) -> RAGState:

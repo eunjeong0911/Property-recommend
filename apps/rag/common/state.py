@@ -23,3 +23,6 @@ class RAGState(TypedDict):
     
     # ES 하이브리드 검색 관련 (Requirements 6.2, 6.3)
     es_scores: Optional[Dict[str, float]]  # ES 검색 점수 {property_id: score}
+    
+    # 벡터 검색 관련 (Requirements 3.1, 3.2, 3.3, 3.4)
+    vector_scores: Optional[Dict[str, float]]  # 벡터 검색 점수 {property_id: score}
