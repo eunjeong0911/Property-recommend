@@ -29,7 +29,7 @@ services:
       - neo4j_data:/data
       - ./infra/neo4j/init.cypher:/var/lib/neo4j/import/init.cypher
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:7474 || exit 1"]
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:7474 || exit 1" ]
       interval: 10s
       timeout: 10s
       retries: 5
@@ -54,7 +54,7 @@ services:
       - es_data:/usr/share/elasticsearch/data
       - ./infra/elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
     healthcheck:
-      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'"]
+      test: [ "CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'" ]
       interval: 10s
       timeout: 10s
       retries: 5
@@ -67,6 +67,7 @@ services:
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - ./apps/backend:/app
+      - ./apps/reco:/app/apps/reco
       - ./scripts:/scripts
       - ./data:/data
     ports:
