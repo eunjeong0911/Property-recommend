@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS land (
     listing_info JSONB,                          -- 상세정보 (방개수, 층수 등)
     additional_options TEXT[],                   -- 추가옵션
     description TEXT,                            -- 상세설명
-    agent_info JSONB,                            -- 중개사 정보
+    -- agent_info 제거 - landbroker_id FK로 대체 (데이터 정규화)
     
     -- 타임스탬프
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -78,4 +78,34 @@ CREATE TABLE IF NOT EXISTS land_embeddings (
 );
 
 CREATE INDEX ON land_embeddings USING ivfflat (embedding vector_cosine_ops);
+
+
+-- ============================================================
+-- LandBroker 테이블 (ERD 기반 - 중개사 정보)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS landbroker (
+    landbroker_id SERIAL PRIMARY KEY,
+    office_name VARCHAR(200),
+    representative VARCHAR(100),
+    phone VARCHAR(50),
+    address VARCHAR(500),
+    registration_number VARCHAR(100) UNIQUE,
+    completed_deals INT DEFAULT 0,
+    registered_properties INT DEFAULT 0,
+    brokers_count INT DEFAULT 0,
+    assistants_count INT DEFAULT 0,
+    staff_count INT DEFAULT 0,
+    region VARCHAR(100),
+    registration_date DATE,
+    trust_score VARCHAR(1) CHECK (trust_score IN ('A', 'B', 'C')),
+    trust_score_updated_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_landbroker_registration_number ON landbroker(registration_number);
+
+-- Land 테이블의 landbroker_id FK 연결
+ALTER TABLE land DROP CONSTRAINT IF EXISTS fk_land_landbroker;
+ALTER TABLE land ADD CONSTRAINT fk_land_landbroker FOREIGN KEY (landbroker_id) REFERENCES landbroker(landbroker_id) ON DELETE SET NULL;
 

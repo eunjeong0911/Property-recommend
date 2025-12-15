@@ -248,17 +248,6 @@ def main():
         # 서울시 전체 중개업소 정보 수집
         brokers = collect_seoul_brokers()
         
-        # 통계 출력
-        if brokers:
-            print("\n=== 수집 통계 ===")
-            district_stats = {}
-            for broker in brokers:
-                district = broker.get("district_name", "알 수 없음")
-                district_stats[district] = district_stats.get(district, 0) + 1
-            
-            for district, count in sorted(district_stats.items()):
-                print(f"{district}: {count}건")
-        
     except Exception as e:
         print(f"오류 발생: {e}")
 
