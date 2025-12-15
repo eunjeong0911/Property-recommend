@@ -169,7 +169,7 @@ def get_price_display(land) -> str:
     매물 객체에서 가격 표시 문자열을 생성합니다.
     
     Args:
-        land: Land 모델 인스턴스 (deal_type, trade_info 속성 필요)
+        land: Land 모델 인스턴스 (deal_type, deposit, monthly_rent, jeonse_price, sale_price 속성 필요)
     
     Returns:
         str: 가격 표시 문자열 (예: '매매 1억 2,500만원', '월세 2,500만원 / 104만원')
@@ -180,34 +180,35 @@ def get_price_display(land) -> str:
     if '단기임대' in deal_type:
         return deal_type
     
-    # trade_info에서 거래방식 추출
-    trade_info = land.trade_info or {}
-    deal_text = trade_info.get('거래방식', '') if isinstance(trade_info, dict) else ''
+    # 데이터베이스 컬럼에서 직접 가격 가져오기 (만원 단위)
+    deposit = getattr(land, 'deposit', 0) or 0
+    monthly_rent = getattr(land, 'monthly_rent', 0) or 0
+    jeonse_price = getattr(land, 'jeonse_price', 0) or 0
+    sale_price = getattr(land, 'sale_price', 0) or 0
     
     # 매매
     if deal_type == '매매':
-        match = PRICE_PATTERNS['maemae'].search(deal_text)
-        if match:
-            return f"매매 {format_price_in_manwon(parse_korean_price(match.group(1)))}"
+        if sale_price > 0:
+            return f"매매 {format_price_in_manwon(sale_price * 10000)}"
         return '매매 (가격 미정)'
     
     # 전세
     if deal_type == '전세':
-        match = PRICE_PATTERNS['jeonse'].search(deal_text)
-        if match:
-            return f"전세 {format_price_in_manwon(parse_korean_price(match.group(1)))}"
+        if jeonse_price > 0:
+            return f"전세 {format_price_in_manwon(jeonse_price * 10000)}"
         return '전세 (가격 미정)'
     
     # 월세
     if deal_type == '월세':
-        match = PRICE_PATTERNS['wolse'].search(deal_text)
-        if match:
-            deposit = format_price_in_manwon(parse_korean_price(match.group(1)))
-            monthly = format_price_in_manwon(parse_korean_price(match.group(2)))
-            return f"월세 {deposit} / {monthly}"
+        if deposit > 0 or monthly_rent > 0:
+            deposit_str = format_price_in_manwon(deposit * 10000)
+            monthly_str = format_price_in_manwon(monthly_rent * 10000)
+            return f"월세 {deposit_str} / {monthly_str}"
         return '월세 (가격 미정)'
     
-    # 기타 (trade_info에서 직접 가져오기)
+    # 기타 - trade_info에서 시도
+    trade_info = land.trade_info or {}
+    deal_text = trade_info.get('거래방식', '') if isinstance(trade_info, dict) else ''
     if deal_text:
         return deal_text
     

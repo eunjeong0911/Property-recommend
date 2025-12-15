@@ -31,7 +31,11 @@ interface ChatSession {
   updatedAt: Date
 }
 
-export default function Chatbot() {
+interface ChatbotProps {
+  onRecommendLands?: (landIds: number[]) => void;
+}
+
+export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
   const [showHistoryModal, setShowHistoryModal] = useState(false)
   const [sessions, setSessions] = useState<ChatSession[]>([])
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
@@ -166,6 +170,24 @@ export default function Chatbot() {
       }
 
       setMessages(prev => [...prev, aiMessage])
+
+      // AI 응답에서 매물 ID 추출 - 상세보기 링크에서 추출 (/landDetail/{id} 형식)
+      if (onRecommendLands) {
+        const linkMatches = answer.match(/\/landDetail\/(\d+)/g)
+        if (linkMatches) {
+          const ids = linkMatches
+            .map(link => {
+              const match = link.match(/\/landDetail\/(\d+)/)
+              return match ? parseInt(match[1], 10) : null
+            })
+            .filter((id): id is number => id !== null)
+
+          if (ids.length > 0) {
+            console.log('[Chatbot] Extracted land IDs:', ids)
+            onRecommendLands(ids)
+          }
+        }
+      }
     } catch (error) {
       console.error('AI 응답 오류:', error)
       const errorMessage: Message = {

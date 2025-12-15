@@ -20,16 +20,18 @@ import { fetchLands } from '../api/landApi';
 
 interface LandListProps {
     filterParams?: LandFilterParams;
+    recommendedLandIds?: number[];
 }
 
-const ITEMS_PER_PAGE = 6; // 페이지당 6개 표시
+const ITEMS_PER_PAGE = 5; // 페이지당 5개 표시 (화면에 맞춤)
 
-export default function LandList({ filterParams }: LandListProps) {
+export default function LandList({ filterParams, recommendedLandIds }: LandListProps) {
     const router = useRouter();
     const [lands, setLands] = useState<Land[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState<number>(1);
+    const [currentPageGroup, setCurrentPageGroup] = useState<number>(0); // 페이지 그룹 (0 = 1-10, 1 = 11-20, ...)
     const [favorites, setFavorites] = useState<Set<number>>(new Set());
 
     useEffect(() => {
@@ -37,7 +39,15 @@ export default function LandList({ filterParams }: LandListProps) {
             try {
                 setLoading(true);
                 const data = await fetchLands(filterParams);
-                setLands(data);
+
+                // AI 추천 매물 ID가 있으면 필터링
+                if (recommendedLandIds && recommendedLandIds.length > 0) {
+                    const filtered = data.filter(land => recommendedLandIds.includes(land.id));
+                    setLands(filtered);
+                } else {
+                    setLands(data);
+                }
+
                 setError(null);
                 setCurrentPage(1);
             } catch (err) {
@@ -49,7 +59,7 @@ export default function LandList({ filterParams }: LandListProps) {
         };
 
         loadLands();
-    }, [filterParams]);
+    }, [filterParams, recommendedLandIds]);
 
     // 페이지네이션 계산
     const totalPages = Math.ceil(lands.length / ITEMS_PER_PAGE);
@@ -57,8 +67,29 @@ export default function LandList({ filterParams }: LandListProps) {
     const endIndex = startIndex + ITEMS_PER_PAGE;
     const currentLands = lands.slice(startIndex, endIndex);
 
+    // 페이지 그룹 계산 (10개씩)
+    const PAGES_PER_GROUP = 10;
+    const totalPageGroups = Math.ceil(totalPages / PAGES_PER_GROUP);
+    const startPage = currentPageGroup * PAGES_PER_GROUP + 1;
+    const endPage = Math.min(startPage + PAGES_PER_GROUP - 1, totalPages);
+    const visiblePages = Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
+
     const handlePageClick = (page: number) => {
         setCurrentPage(page);
+    };
+
+    const handlePrevGroup = () => {
+        if (currentPageGroup > 0) {
+            setCurrentPageGroup(currentPageGroup - 1);
+            setCurrentPage((currentPageGroup - 1) * PAGES_PER_GROUP + 1);
+        }
+    };
+
+    const handleNextGroup = () => {
+        if (currentPageGroup < totalPageGroups - 1) {
+            setCurrentPageGroup(currentPageGroup + 1);
+            setCurrentPage((currentPageGroup + 1) * PAGES_PER_GROUP + 1);
+        }
     };
 
     const toggleFavorite = (landId: number, e: React.MouseEvent) => {
@@ -151,15 +182,6 @@ export default function LandList({ filterParams }: LandListProps) {
                             {/* 매물 정보 */}
                             <div className="flex-1 flex flex-col justify-between min-w-0">
                                 <div>
-                                    {/* AI 추천 배지 */}
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-[var(--color-accent)] rounded text-xs font-semibold">
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="currentColor" />
-                                            </svg>
-                                            AI 추천
-                                        </span>
-                                    </div>
 
                                     {/* 매물명 또는 주소 */}
                                     <h4 className="text-base font-semibold text-[var(--color-text-primary)] mb-2 truncate">
@@ -212,6 +234,16 @@ export default function LandList({ filterParams }: LandListProps) {
                 {/* 페이지네이션 */}
                 {totalPages > 1 && (
                     <div className="flex justify-center items-center gap-2 mt-8 pt-6 border-t border-[var(--color-border-light)]">
+                        {/* 이전 그룹 버튼 */}
+                        <button
+                            onClick={handlePrevGroup}
+                            disabled={currentPageGroup === 0}
+                            className="px-3 py-2 rounded-lg text-sm font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                            ◀
+                        </button>
+
+                        {/* 이전 페이지 */}
                         <button
                             onClick={() => handlePageClick(Math.max(1, currentPage - 1))}
                             disabled={currentPage === 1}
@@ -220,14 +252,15 @@ export default function LandList({ filterParams }: LandListProps) {
                             이전
                         </button>
 
+                        {/* 페이지 번호 (10개씩) */}
                         <div className="flex gap-1">
-                            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                            {visiblePages.map((page) => (
                                 <button
                                     key={page}
                                     onClick={() => handlePageClick(page)}
                                     className={`w-10 h-10 rounded-lg text-sm font-semibold transition-all ${currentPage === page
-                                            ? 'bg-[var(--color-primary)] text-white shadow-[var(--shadow-md)]'
-                                            : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]'
+                                        ? 'bg-[var(--color-primary)] text-white shadow-[var(--shadow-md)]'
+                                        : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]'
                                         }`}
                                 >
                                     {page}
@@ -235,12 +268,22 @@ export default function LandList({ filterParams }: LandListProps) {
                             ))}
                         </div>
 
+                        {/* 다음 페이지 */}
                         <button
                             onClick={() => handlePageClick(Math.min(totalPages, currentPage + 1))}
                             disabled={currentPage === totalPages}
                             className="px-3 py-2 rounded-lg text-sm font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
                             다음
+                        </button>
+
+                        {/* 다음 그룹 버튼 */}
+                        <button
+                            onClick={handleNextGroup}
+                            disabled={currentPageGroup === totalPageGroups - 1}
+                            className="px-3 py-2 rounded-lg text-sm font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                            ▶
                         </button>
                     </div>
                 )}
