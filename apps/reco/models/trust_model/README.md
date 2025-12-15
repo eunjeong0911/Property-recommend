@@ -1,46 +1,41 @@
 # 중개사 신뢰도 예측 모델
 
-- **중개사 신뢰도를 A/B/C 3등급으로 분류하는 다중분류 ML**
+**중개사 신뢰도를 A/B/C 3등급으로 분류하는 다중분류 ML 모델**
 
 
+## 📊 데이터 전처리
 
-## 📊 원본 데이터
-
-### 입력 데이터
+### 원본 데이터 소스
 ```
-파일: data/preprocessed_office_data.csv
-- 356개 중개사무소
-- 25개 컬럼 (기본 정보 + 거래 실적)
+파일: data/brokerInfo/grouped_offices.csv
+- 중개사무소 정보 (병합된 데이터[매물데이터의 중개소 정보 + vworld 중개소 정보 + vworld 중개사 정보])
 ```
 
 **주요 컬럼:**
 - **거래 실적**: 거래완료, 등록매물
-- **인력 구성**: 총_직원수, 공인중개사수, 중개보조원수, 대표수, 일반직원수
-- **운영 정보**: 개설시작일, 지역명
+- **인력 구성**: 공인중개사수, 중개보조원수, 일반직원수, 대표
+- **운영 정보**: 등록일, 지역명
 - **기타**: 중개사명, 대표자, 주소, 전화번호 등
 
 ---
 
-## 🎯 타겟 정의
+## 🎯 타겟 정의 (Z-Score 기반 신뢰도 등급)
 
-### Z-Score 기반 신뢰도 등급
-
-**1단계: 거래성사율 계산**
-```python
-거래성사율 = 거래완료 / (등록매물 + 거래완료)
-```
-
-**2단계: 지역별 표준화**
+**Target - 지역별 표준화**
 ```python
 # 지역별 평균과 표준편차 계산
 지역평균 = 지역별 거래성사율 평균
 지역표준편차 = 지역별 거래성사율 표준편차
 
 # Z-score 계산 (지역 내 상대적 성과)
-Z-score = (개별_거래성사율 - 지역평균) / 지역표준편차
+Z-score = (개별 거래성사율 - 지역평균) / 지역표준편차
 ```
 
-**3단계: 등급 분류 (30/40/30 분포)**
+
+**Target - 등급 분류 (30/40/30 분포)**  
+ - C등급: 109개 (30.6%)
+ - B등급: 140개 (39.3%)
+ - A등급: 107개 (30.1%)   
 ```python
 # 분위수 기준
 C등급: Z-score ≤ 30% 분위수  (하위 30%)
@@ -48,86 +43,41 @@ B등급: 30% < Z-score ≤ 70%   (중위 40%)
 A등급: Z-score > 70% 분위수  (상위 30%)
 ```
 
-### 타겟 선택 이유
-1. **지역별 공정성**: 같은 지역 내에서 상대적 성과 평가
-2. **거래성사율 중심**: 중개사의 역량 지표
-3. **균형잡힌 분포**: 30/40/30으로 분류
+---
 
-
-## 🤖 모델 학습
+## 🤖 모델 학습 파이프라인
 
 ### 데이터 분할
 ```
-전체: 356개
-Train: 284개 (80%)
-Test: 72개 (20%)
-Stratified Split (클래스 비율 유지)
+Train: 80% (Stratified)
+Test: 20% (Stratified)
+클래스 비율 유지
 ```
 
 ### 전처리 최적화
 
 **스케일러 자동 선택**
 ```python
-# 3가지 스케일러 CV 테스트
+# 3가지 스케일러 테스트
 scalers = {
-    'robust': RobustScaler(),           # 이상치에 강함
-    'quantile': QuantileTransformer(),  # 균등 분포 변환
-    'power': PowerTransformer()         # 정규분포 변환
+    'robust': RobustScaler(),                    # 중앙값과 IQR 사용 (이상치에 강함)
+    'quantile': QuantileTransformer(),           # 균등 분포 변환 (분위수 기반으로 균등분포 변환)
+    'power': PowerTransformer()                  # 정규분포 변환 (비대칭 분포를 대칭으로)
 }
-# → 최적 스케일러 자동 선택
 ```
 
-### 모델 비교 (5개)
+### 학습 모델
 
-**1. LogisticRegression (하이퍼파라미터 최적화)**
+**현재 활성화: LogisticRegression (GridSearchCV 최적화)**
+
 ```python
-# 3단계 GridSearchCV
-1단계: L2 정규화 (기본)
-2단계: L1 정규화 (특성 선택)
-3단계: ElasticNet (L1+L2 조합)
-
-# 최적 파라미터
-penalty='elasticnet', C=1, l1_ratio=0.1, solver='saga'
-```
-
-**2. RandomForest Enhanced**
-```python
-RandomForestClassifier(
-    n_estimators=150,
-    max_depth=10,
-    min_samples_split=3,
-    min_samples_leaf=1,
-    class_weight='balanced'
-)
-```
-
-**3. GradientBoosting Enhanced**
-```python
-GradientBoostingClassifier(
-    n_estimators=100,
-    max_depth=4,
-    learning_rate=0.1,
-    min_samples_split=5,
-    min_samples_leaf=2
-)
-```
-
-**4. SVM**
-```python
-SVC(
-    C=1.0,
-    kernel='rbf',
-    class_weight='balanced',
-    probability=True
-)
-```
-
-**5. Ensemble VotingClassifier**
-```python
-# 4개 모델의 소프트 투표
-VotingClassifier(
-    estimators=[LR, RF, GB, SVM],
-    voting='soft'
+LogisticRegression(
+    C=1,
+    penalty='l2',
+    solver='lbfgs',
+    max_iter=1000,
+    class_weight=None,
+    random_state=42
 )
 ```
 
@@ -135,41 +85,21 @@ VotingClassifier(
 
 ## 📊 모델 성능
 
-### 최종 성능 비교
+### 평가 지표
 
-| 모델 | CV Mean | Test Acc | 과적합 |
-|------|---------|----------|--------|
-| **LogisticRegression_Optimized** | **70.09%** | 62.50% | 0.118 |
-| GradientBoosting_Enhanced | 62.32% | 61.11% | 0.361 |
-| RandomForest_Enhanced | 61.28% | 62.50% | 0.269 |
-| SVM | - | - | - |
-| Ensemble_VotingClassifier | - | - | - |
+**Cross Validation (5-Fold Stratified)**
+- CV Mean Accuracy
+- CV Standard Deviation
 
-### 최고 성능 모델: LogisticRegression_Optimized
+**Train/Test 성능**
+- Train Accuracy
+- Test Accuracy
+- 과적합 정도 (Train - Test)
 
-**하이퍼파라미터:**
-```python
-penalty='elasticnet'     # L1+L2 조합
-C=1                      # 정규화 강도
-l1_ratio=0.1            # L2 위주 (90%), L1 소량 (10%)
-solver='saga'           # ElasticNet 지원
-max_iter=2000          # 충분한 반복
-```
-
-**성능 지표:**
-- **CV Mean**: 73.26% (±3.96%)
-- **Test Accuracy**: 69.44%
-- **과적합 정도**: 6.96% (매우 낮음)
-
-### 클래스별 성능 (Test 기준)
-
-| 등급 | Precision | Recall | F1-Score | 샘플 수 |
-|------|-----------|--------|----------|---------|
-| A (상) | 0.91 | 0.91 | 0.91 | 22 |
-| B (중) | 0.62 | 0.57 | 0.59 | 28 |
-| C (하) | 0.58 | 0.64 | 0.61 | 22 |
-
-
+**클래스별 성능**
+- Precision, Recall, F1-Score (A/B/C 등급별)
+- Confusion Matrix
+---
 
 ## 🚀 실행 방법
 
@@ -179,28 +109,80 @@ cd apps/reco/models/trust_model
 python run_all.py
 ```
 
-## 📁 출력 파일
+---
 
+## 📁 파일 구조 및 출력
+
+### 디렉토리 구조
+```
+trust_model/
+├── data_preprocessing/          # 원본 데이터 전처리 스크립트
+│   ├── _00_load_Landbroker.py
+│   ├── _01_load_broker.py
+│   ├── _02_load_brokerOffice.py
+│   ├── _03_merge_all_brokers.py
+│   ├── _04_clean_broker.py
+│   └── _05_group_by_office.py
+│
+├── pipeline/                    # ML 파이프라인
+│   ├── _00_load_data.py        # 데이터 로드
+│   ├── _01_create_target.py    # 타겟 생성
+│   ├── _02_create_features.py  # Feature 생성
+│   ├── _03_train.py            # 모델 학습
+│   ├── _04_eval.py             # 모델 평가
+│   └── _05_save_model.py       # 최종 모델 저장
+│
+├── save_models/                 # 저장된 모델
+│   ├── temp_trained_models.pkl
+│   └── final_trust_model.pkl
+│
+├── results/                     # 평가 결과 (선택사항)
+│
+├── run_all.py                   # 전체 파이프라인 실행
+├── analyze_shap.py              # SHAP 분석
+└── README.md
+```
+
+### 출력 파일
+
+**1. 중간 데이터**
+```
+data/ML/
+├── preprocessed_office_data.csv    # 전처리된 원본 데이터
+├── office_target.csv               # 타겟 포함 데이터
+└── office_features.csv             # Feature 포함 데이터
+```
+
+**2. 학습된 모델**
 ```
 apps/reco/models/trust_model/save_models/
-├── temp_trained_models.pkl     # 전체 모델 + 결과
-└── final_trust_model.pkl       # 최고 성능 모델만
+├── temp_trained_models.pkl         # 전체 학습 결과
+└── final_trust_model.pkl           # 최종 선택 모델
+```
 
-data/
-├── office_target.csv           # 타겟 포함 데이터
-└── office_features.csv         # Feature 포함 데이터
+**temp_trained_models.pkl 구성:**
+```python
+{
+    'models': {모델명: 학습된_모델},
+    'scaler': 최적_스케일러,
+    'X_train_scaled': 스케일된_훈련_데이터,
+    'y_train': 훈련_타겟,
+    'X_test_scaled': 스케일된_테스트_데이터,
+    'y_test': 테스트_타겟,
+    'feature_names': Feature_이름_리스트,
+    'cv_results': CV_평가_결과,
+    'optimization_info': 하이퍼파라미터_최적화_정보
+}
 ```
 
 **final_trust_model.pkl 구성:**
 ```python
 {
-    'model': LogisticRegression_Optimized,
+    'model': 최고_성능_모델,
     'scaler': 최적_스케일러,
-    'feature_names': 34개_Feature_이름,
-    'model_name': 'LogisticRegression_Optimized'
+    'feature_names': Feature_이름_리스트,
+    'model_name': 모델명
 }
 ```
-
-
 
 
