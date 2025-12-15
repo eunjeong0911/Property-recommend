@@ -1,6 +1,14 @@
 # 월세 가격 분류 모델 (ML 기반)
 
 
+## 실행방법
+```
+prepare_wolse_dataset.py # 전처리 코드
+main.py                  # 모델 생성 코드
+apply_model_to_json.py   # 피터팬 매물에 모델 적용 코드
+```
+
+
 ## 1. 문제 정의
 
 ### 1.1 목표

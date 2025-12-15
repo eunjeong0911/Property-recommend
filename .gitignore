@@ -76,5 +76,6 @@ data
 
 .kiro
 
-shap_plots_quick/
+.hypothesis
+
 shap_plots/
