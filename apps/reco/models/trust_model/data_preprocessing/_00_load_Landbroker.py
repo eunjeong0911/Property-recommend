@@ -13,7 +13,7 @@ from datetime import datetime
 class LandBrokerExtractor:
     """크롤링된 매물 데이터에서 중개사 정보를 추출하는 클래스"""
     
-    def __init__(self, data_dir: str = "data/landData_enriched"):
+    def __init__(self, data_dir: str = "data/RDB/land"):
         """
         Args:
             data_dir: JSON 파일들이 있는 디렉토리 경로

@@ -1,13 +1,74 @@
 {
-  "_comment": "=============================================================================",
-  "_description": "매물(listings) 인덱스 매핑 정의",
-  "_comment2": "=============================================================================",
-  "_role": "Elasticsearch 인덱스 스키마 정의",
-  "_contents": [
-    "- 매물 ID, 주소, 가격 등 기본 필드",
-    "- 위치 정보 (geo_point 타입)",
-    "- 한글 형태소 분석기 설정 (nori)",
-    "- 자동완성용 필드 (completion suggester)",
-    "- 필터링용 keyword 필드"
-  ]
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "analysis": {
+      "analyzer": {
+        "nori_analyzer": {
+          "type": "custom",
+          "tokenizer": "nori_tokenizer",
+          "filter": ["lowercase", "nori_readingform"]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "land_num": { 
+        "type": "keyword" 
+      },
+      "embedding": {
+        "type": "dense_vector",
+        "dims": 3072,
+        "index": true,
+        "similarity": "cosine",
+        "index_options": {
+          "type": "hnsw",
+          "m": 16,
+          "ef_construction": 100
+        }
+      },
+      "address": { 
+        "type": "text", 
+        "analyzer": "nori_analyzer",
+        "fields": { 
+          "keyword": { 
+            "type": "keyword" 
+          } 
+        }
+      },
+      "search_text": { 
+        "type": "text", 
+        "analyzer": "nori_analyzer" 
+      },
+      "style_tags": { 
+        "type": "keyword" 
+      },
+      "building_type": { 
+        "type": "keyword" 
+      },
+      "deal_type": { 
+        "type": "keyword" 
+      },
+      "deposit": { 
+        "type": "integer" 
+      },
+      "monthly_rent": { 
+        "type": "integer" 
+      },
+      "jeonse_price": { 
+        "type": "integer" 
+      },
+      "sale_price": { 
+        "type": "integer" 
+      },
+      "location": { 
+        "type": "geo_point" 
+      },
+      "url": { 
+        "type": "keyword", 
+        "index": false 
+      }
+    }
+  }
 }

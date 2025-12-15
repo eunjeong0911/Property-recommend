@@ -23,11 +23,18 @@ export interface Land {
     heating_method?: string;
     elevator?: string;
     description?: string;
-    agent_info?: {
-        name?: string;
-        phone?: string;
+
+    // 중개업소 정보 (agent_info 대신 broker 사용)
+    broker?: {
+        id: number;
+        office_name?: string;
         representative?: string;
+        phone?: string;
         address?: string;
+        registration_number?: string;
+        trust_score?: 'A' | 'B' | 'C' | null;
+        trust_grade?: string;
+        trust_score_updated_at?: string | null;
     };
 }
 

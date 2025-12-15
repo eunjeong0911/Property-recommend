@@ -29,7 +29,7 @@ services:
       - neo4j_data:/data
       - ./infra/neo4j/init.cypher:/var/lib/neo4j/import/init.cypher
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:7474 || exit 1"]
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:7474 || exit 1" ]
       interval: 10s
       timeout: 10s
       retries: 5
@@ -54,11 +54,27 @@ services:
       - es_data:/usr/share/elasticsearch/data
       - ./infra/elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
     healthcheck:
-      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'"]
+      test: [ "CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'" ]
       interval: 10s
       timeout: 10s
       retries: 5
       start_period: 30s
+
+  kibana:
+    image: kibana:8.11.0
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:5601/api/status | grep -q '\"overall\":{\"level\":\"available\"}'"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
   backend:
     build:
@@ -67,6 +83,7 @@ services:
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - ./apps/backend:/app
+      - ./apps/reco:/app/apps/reco
       - ./scripts:/scripts
       - ./data:/data
     ports:
