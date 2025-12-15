@@ -8,6 +8,7 @@ import numpy as np
 def success_rate(df: pd.DataFrame) -> pd.DataFrame:
     """
     [타겟 변수 생성 로직]
+    0. 이상치 지역 제거 (노원구 + 총매물수 500건 미만)
     1. 지역별 매물분포율 계산
     2. 지역별 거래성사율 계산
     3. 성사율에 분포율 가중치 적용 (Adjusted Prior)
@@ -25,6 +26,37 @@ def success_rate(df: pd.DataFrame) -> pd.DataFrame:
             df["ldCodeNm"] = df["주소"].str.split().str[1]
         else:
             df["ldCodeNm"] = "Unknown"
+
+    # ---------------------------------------------------------
+    # [Step 0] 이상치 지역 제거
+    # ---------------------------------------------------------
+    original_count = len(df)
+    
+    # 지역별 총매물수 계산
+    region_listings = df.groupby("ldCodeNm")["총매물수"].sum()
+    
+    # 필터 1: 노원구 제거
+    if "노원구" in df["ldCodeNm"].values:
+        nowon_count = len(df[df["ldCodeNm"] == "노원구"])
+        df = df[df["ldCodeNm"] != "노원구"]
+        print(f"   - [필터1] 노원구 제거: {nowon_count}개 사무소 제외")
+    
+    # 필터 2: 총매물수 500개 미만 지역 제거
+    low_listing_regions = region_listings[region_listings < 500].index.tolist()
+    if "노원구" in low_listing_regions:
+        low_listing_regions.remove("노원구")  # 이미 제거됨
+    
+    if low_listing_regions:
+        removed_count = len(df[df["ldCodeNm"].isin(low_listing_regions)])
+        df = df[~df["ldCodeNm"].isin(low_listing_regions)]
+        print(f"   - [필터2] 총매물 500건 미만 지역 제거: {low_listing_regions}")
+        print(f"            {removed_count}개 사무소 제외")
+    
+    removed_total = original_count - len(df)
+    print(f"   - 이상치 제거 완료: {original_count} → {len(df)}개 ({removed_total}개 제거)")
+    
+    # DataFrame index 재설정
+    df = df.reset_index(drop=True)
 
     # ---------------------------------------------------------
     # [Step 1] 지역별 매물 분포율 계산
