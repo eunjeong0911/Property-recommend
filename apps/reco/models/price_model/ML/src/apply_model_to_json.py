@@ -20,8 +20,6 @@ from config import (
     CLASS_LABELS
 )
 
-
-
 class PriceClassifier:
     
     """가격 분류 파이프라인"""
@@ -96,13 +94,53 @@ class PriceClassifier:
     def prepare_data(self, df: pd.DataFrame) -> pd.DataFrame:
         print("\n[Step] 데이터 전처리 시작")
 
+        # === (1) JSON 원본 컬럼 상태 점검 ===
+        print("\n[DEBUG] 원본 JSON 컬럼 목록")
+        print(df.columns.tolist())
+
+        # create_target에서 price_column을 계산할 때 사용하는 핵심 컬럼들
+        key_cols = [
+            self.preprocessor.price_column,  # 평당 환산보증금(나중에 만들어질 컬럼)
+            "보증금(만원)",
+            "임대료(만원)",
+            "임대면적",   
+            "기준금리"                    # INTEREST_RATE와 merge 후 들어가는 컬럼
+        ]
+
+        existing = [c for c in key_cols if c in df.columns]
+
+        print("\n[DEBUG] 핵심 컬럼 존재 여부")
+        print("  필요:", key_cols)
+        print("  실제 존재:", existing)
+
+        if existing:
+            print("\n[DEBUG] 핵심 컬럼 null 비율")
+            print(df[existing].isna().mean())
+
+            print("\n[DEBUG] 핵심 컬럼 상위 5개 예시")
+            print(df[existing].head())
+        else:
+            print("\n[DEBUG] 핵심 컬럼이 하나도 없습니다. JSON 스키마를 먼저 확인하세요.")
+
         # 0. 학습에 사용했던 train_df 다시 로드 (main.py와 동일)
         loader = DataLoader(base_dir=str(INTEREST_RATE_PATH.parent))
         train_df_raw, _ = loader.load_train_test()
 
         # 1. (총합)시장금리_및_대출금리 CSV 로드
         macro = pd.read_csv(INTEREST_RATE_PATH, encoding="utf-8-sig")
-        # 현재 형태: 행 = 구분(CD/KORIBOR/기업대출/...), 열 = 2024.08, 2024.09 ...
+        
+        # 최신 기준금리 한 값을 가져와서 JSON 전체에 공통으로 사용
+        rate_dict, latest_month = self.load_interest_rate()
+        # rate_dict: {"CD": ..., "KORIBOR": ..., "기준금리": ..., ...} 이런 형태일 가능성이 큼
+        if "기준금리" in rate_dict:
+            base_rate = rate_dict["기준금리"]
+        else:
+            # 키 이름이 다를 수 있으므로, 첫 값 하나를 fallback으로 사용
+            base_rate = list(rate_dict.values())[0]
+
+        # JSON df 에 기준금리 / 적용이자율 채우기
+        df["기준금리"] = base_rate
+        df["적용이자율"] = (df["기준금리"] + 2.0) / 100.0
 
         # wide → long → 다시 pivot 해서
         # 연월별 한 줄 + 금리 컬럼들 형태로 만들기
@@ -117,23 +155,63 @@ class PriceClassifier:
         # macro_pivot.columns:
         # ['연월', 'CD', 'KORIBOR', '기업대출', '전세자금대출', '변동형주택담보대출',
         #  '무담보콜금리', '기준금리', '소비자물가']
+        month_col = macro_pivot.columns[0] 
+        # 2-1. JSON df 에 월 컬럼 만들기
+        latest_month = macro_pivot[month_col].max()   # 예: '2025.10'
+        df[month_col] = latest_month                  # 형식을 그대로 맞춰서 사용
 
-        # 2. JSON df 에 연월 컬럼 만들기
-        #    (JSON에는 계약 연월 정보가 없으므로, 일단 최신 연월로 통일)
-        latest_month = macro_pivot["연월"].max()   # 예: '2025.10'
-        df["연월"] = latest_month.replace(".", "-")  # 학습 CSV는 '2025-10' 형식
+        # 3. 월 기준으로 금리 컬럼 조인
+        df = df.merge(macro_pivot, on=month_col, how="left")
 
-        # 3. 연월 기준으로 금리 컬럼 조인
-        df = df.merge(macro_pivot, on="연월", how="left")
-
-        # 4. 이후는 기존 로직 그대로: 타깃 생성 + 고급 FE
+        df["기준금리"] = 2.5
+        # 4. 후처리 + 기존 로직 그대로 사용
+                # 4. 글로벌 기준 가격_클래스 생성 (이미 있던 코드)
         train_df_raw = self.preprocessor.create_target(train_df_raw)
         df = self.preprocessor.create_target(
             df,
             train_stats={"gu_quantiles": self.preprocessor.train_gu_quantiles}
         )
+        print("   - 가격_클래스(글로벌 기준) 생성 완료")
 
-        print("   - 타깃/가격지표 생성 완료")
+        # 4-1. JSON 내부 분포만 가지고 로컬 룰 기반 타깃 생성
+        df_local = self.preprocessor.create_target(df.copy(), train_stats=None)
+
+        # 디버그 코드 추가 
+        print("\n[DEBUG] 로컬 타깃 원시 분포 (가격_클래스)")
+        print(df_local[self.preprocessor.target_name].value_counts(dropna=False))
+
+        print("\n[DEBUG] 로컬 타깃 price_column NaN 비율")
+        print(df_local[self.preprocessor.price_column].isna().mean())
+
+        # ===== 여기부터 추가 디버그 코드 =====
+        # 환산보증금_평당가를 계산할 때 직접 쓰는 컬럼들 점검
+        check_cols = [
+            "보증금(만원)",
+            "임대료(만원)",
+            "적용이자율",         # (기준금리 + 2) / 100 으로 만들어지는 컬럼
+            "환산보증금(만원)",   # 보증금 + 월세 환산
+            "전용평수",           # 임대면적/전용면적에서 파생
+            self.preprocessor.price_column,  # "환산보증금_평당가"
+        ]
+        existing = [c for c in check_cols if c in df_local.columns]
+
+        print("\n[DEBUG] 로컬 타깃 - 가격 관련 컬럼 존재 여부")
+        print("  필요:", check_cols)
+        print("  실제 존재:", existing)
+
+        if existing:
+            print("\n[DEBUG] 로컬 타깃 - 가격 관련 컬럼 NaN 비율")
+            print(df_local[existing].isna().mean())
+
+            print("\n[DEBUG] 로컬 타깃 - 가격 관련 컬럼 상위 5개 예시")
+            print(df_local[existing].head())
+        else:
+            print("\n[DEBUG] 로컬 타깃에 가격 관련 컬럼이 하나도 없습니다.")
+
+        local_classes = df_local[self.preprocessor.target_name].to_numpy()
+        local_label_en = [CLASS_LABELS[c]["label"] for c in local_classes]
+        local_label_kr = [CLASS_LABELS[c]["label_kr"] for c in local_classes]
+
 
         train_fe, df_fe = self.preprocessor.advanced_feature_engineering(
             train_df_raw,
@@ -141,7 +219,15 @@ class PriceClassifier:
         )
 
         print(f"   - 고급 피처 생성 완료: {len(self.preprocessor.candidate_features)}개")
+
+        # 4-2. 로컬 룰 기반 레이블을 최종 DF에 붙이기 (모델 입력에는 사용하지 않음)
+        df_fe["local_price_class"] = local_classes
+        df_fe["local_price_label"] = local_label_en
+        df_fe["local_price_label_kr"] = local_label_kr
+
         return df_fe
+
+
     
     def predict(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -184,10 +270,10 @@ class PriceClassifier:
         # 기본 예측: 가장 확률이 큰 클래스
         y_pred = np.argmax(y_pred_proba, axis=1)
 
-        # (후처리) 확률이 애매하면 적정(1)으로 강제
+        # 애매한 확률이 있으면 적정(1)으로
         max_proba = np.max(y_pred_proba, axis=1)
-        threshold = 0.55
-
+        threshold = 0.6
+        
         uncertain = max_proba < threshold
         y_pred[uncertain] = 1
 
@@ -195,11 +281,10 @@ class PriceClassifier:
         n_uncertain = uncertain.sum()
         print(f"[DEBUG] uncertain 개수: {n_uncertain} / {n_total} ({n_uncertain / n_total:.1%})")
 
-
         # 4) 결과 컬럼 추가
         df['예측_클래스'] = y_pred
-        df['예측_영문'] = [CLASS_LABELS[c]['label'] for c in y_pred]
-        df['예측_한글'] = [CLASS_LABELS[c]['label_kr'] for c in y_pred]
+        df['예측_레이블'] = [CLASS_LABELS[c]['label'] for c in y_pred]
+        df['예측_레이블_한글'] = [CLASS_LABELS[c]['label_kr'] for c in y_pred]
         
         # 확률 추가
         df['저렴_확률'] = y_pred_proba[:, 0]
@@ -210,7 +295,7 @@ class PriceClassifier:
         
         # 예측 결과 요약
         print("\n📊 예측 결과 요약:")
-        class_counts = df['예측_한글'].value_counts()
+        class_counts = df['예측_클래스'].value_counts()
         for label, count in class_counts.items():
             percentage = (count / len(df)) * 100
             print(f"   - {label}: {count}개 ({percentage:.1f}%)")
@@ -247,9 +332,25 @@ class PriceClassifier:
         # 3. 데이터 전처리
         df_processed = self.prepare_data(df)
         
-        # 4. 예측
+                # 4. 예측
         df_result = self.predict(df_processed)
-        
+
+        # 4-1. 예측 vs 로컬 룰 분포 / 교차표 디버그
+        if "local_price_label_kr" in df_result.columns and "예측_레이블_한글" in df_result.columns:
+            print("\n[DEBUG] 로컬 룰 기준 클래스 분포")
+            print(df_result["local_price_label_kr"].value_counts(normalize=True))
+
+            print("\n[DEBUG] 모델 예측 기준 클래스 분포")
+            print(df_result["예측_레이블_한글"].value_counts(normalize=True))
+
+            print("\n[DEBUG] 로컬 룰 vs 모델 예측 교차표 (행 기준 정규화)")
+            cross = pd.crosstab(
+                df_result["local_price_label_kr"],
+                df_result["예측_레이블_한글"],
+                normalize="index"
+            )
+            print(cross)
+
         # 5. DB 저장
         if save_to_db:
             print("\n💾 데이터베이스 저장 중...")
