@@ -158,7 +158,7 @@ if __name__ == "__main__":
     df_test = df_model[df_model["연월"].isin(test_months)].copy()
 
     # 저장
-    out_train = BASE_DIR / "월세_train(24.01~25.08).csv"
+    out_train = BASE_DIR / "월세_train(24.08~25.08).csv"
     out_test = BASE_DIR / "월세_test(25.09~25.10).csv"
 
     df_train.to_csv(out_train, index=False, encoding="utf-8-sig")

@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>부동산 AI 상담 - PropTech</title>
+    <meta name="description" content="AI 기반 부동산 상담 및 맞춤 매물 추천 서비스">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-container">
+            <div class="logo">
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="32" height="32" rx="6" fill="#1E3A5F"/>
+                    <path d="M16 8L8 14V24H12V18H20V24H24V14L16 8Z" fill="white"/>
+                </svg>
+                <span class="logo-text">PropTech AI</span>
+            </div>
+            <nav class="nav">
+                <a href="#" class="nav-link active">AI 상담</a>
+                <a href="#" class="nav-link">매물 검색</a>
+                <a href="#" class="nav-link">찜한 매물</a>
+                <a href="#" class="nav-link">마이페이지</a>
+            </nav>
+            <div class="header-actions">
+                <button class="btn-secondary">로그인</button>
+                <button class="btn-primary">회원가입</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-container">
+        <!-- Left Column: Chatbot -->
+        <section class="chatbot-section">
+            <div class="chatbot-card">
+                <div class="chatbot-header">
+                    <h2 class="section-title">부동산 AI 상담</h2>
+                    <button class="btn-history" id="historyBtn">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M10 6V10L13 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        과거 대화 보기
+                    </button>
+                </div>
+
+                <div class="chat-messages" id="chatMessages">
+                    <!-- Welcome Message -->
+                    <div class="message ai-message">
+                        <div class="message-avatar">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <rect width="24" height="24" rx="12" fill="#1E3A5F"/>
+                                <path d="M12 7L7 10.5V16H9.5V12.5H14.5V16H17V10.5L12 7Z" fill="white"/>
+                            </svg>
+                        </div>
+                        <div class="message-content">
+                            <div class="message-bubble">
+                                안녕하세요! 부동산 AI 상담사입니다.<br>
+                                원하시는 지역, 예산, 거주 형태 등을 말씀해주시면 맞춤 매물을 추천해드리겠습니다.
+                            </div>
+                            <div class="message-time">오후 2:42</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chat-input-container">
+                    <div class="chat-input-wrapper">
+                        <input 
+                            type="text" 
+                            class="chat-input" 
+                            id="chatInput"
+                            placeholder="부동산 관련 질문을 입력하세요…"
+                            autocomplete="off"
+                        >
+                        <button class="btn-send" id="sendBtn">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M18 2L9 11M18 2L12 18L9 11M18 2L2 8L9 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Right Column: Filter & Property List -->
+        <section class="property-section">
+            <!-- Filter Panel -->
+            <div class="filter-card">
+                <div class="filter-header">
+                    <h3 class="filter-title">매물 필터</h3>
+                    <button class="btn-reset" id="resetBtn">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M14 8C14 11.3137 11.3137 14 8 14C4.68629 14 2 11.3137 2 8C2 4.68629 4.68629 2 8 2C11.3137 2 14 4.68629 14 8Z" stroke="currentColor" stroke-width="1.5"/>
+                            <path d="M10 6L6 10M6 6L10 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        </svg>
+                        초기화
+                    </button>
+                </div>
+
+                <div class="filter-group">
+                    <label class="filter-label">자치구</label>
+                    <select class="filter-select" id="districtSelect">
+                        <option value="">전체</option>
+                        <option value="강남구">강남구</option>
+                        <option value="강동구">강동구</option>
+                        <option value="강북구">강북구</option>
+                        <option value="강서구">강서구</option>
+                        <option value="관악구">관악구</option>
+                        <option value="광진구">광진구</option>
+                        <option value="구로구">구로구</option>
+                        <option value="금천구">금천구</option>
+                        <option value="노원구">노원구</option>
+                        <option value="도봉구">도봉구</option>
+                        <option value="동대문구">동대문구</option>
+                        <option value="동작구">동작구</option>
+                        <option value="마포구">마포구</option>
+                        <option value="서대문구">서대문구</option>
+                        <option value="서초구">서초구</option>
+                        <option value="성동구">성동구</option>
+                        <option value="성북구">성북구</option>
+                        <option value="송파구">송파구</option>
+                        <option value="양천구">양천구</option>
+                        <option value="영등포구">영등포구</option>
+                        <option value="용산구">용산구</option>
+                        <option value="은평구">은평구</option>
+                        <option value="종로구">종로구</option>
+                        <option value="중구">중구</option>
+                        <option value="중랑구">중랑구</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label class="filter-label">행정동</label>
+                    <select class="filter-select" id="dongSelect" disabled>
+                        <option value="">자치구를 먼저 선택하세요</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label class="filter-label">거주형태</label>
+                    <div class="filter-chips">
+                        <button class="chip" data-filter="residence" data-value="월세">월세</button>
+                        <button class="chip" data-filter="residence" data-value="전세">전세</button>
+                        <button class="chip" data-filter="residence" data-value="매매">매매</button>
+                        <button class="chip" data-filter="residence" data-value="단기임대">단기임대</button>
+                    </div>
+                </div>
+
+                <div class="filter-group">
+                    <label class="filter-label">건물용도</label>
+                    <div class="filter-chips">
+                        <button class="chip" data-filter="building" data-value="아파트">아파트</button>
+                        <button class="chip" data-filter="building" data-value="원투룸">원투룸</button>
+                        <button class="chip" data-filter="building" data-value="오피스텔">오피스텔</button>
+                        <button class="chip" data-filter="building" data-value="빌라·주택">빌라·주택</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Property List -->
+            <div class="property-list-card">
+                <div class="property-list-header">
+                    <h3 class="section-title">추천 매물</h3>
+                    <span class="property-count" id="propertyCount">0개</span>
+                </div>
+
+                <div class="property-list" id="propertyList">
+                    <!-- Property cards will be dynamically inserted here -->
+                    <div class="empty-state">
+                        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="32" cy="32" r="32" fill="#F5F7FA"/>
+                            <path d="M32 20L20 28V44H26V34H38V44H44V28L32 20Z" fill="#C5CDD8"/>
+                        </svg>
+                        <p class="empty-text">AI 상담을 통해 매물을 추천받아보세요</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-section">
+                <h4 class="footer-title">PropTech AI</h4>
+                <p class="footer-text">AI 기반 부동산 상담 및 매물 추천 서비스</p>
+            </div>
+            <div class="footer-section">
+                <h4 class="footer-title">서비스</h4>
+                <a href="#" class="footer-link">AI 상담</a>
+                <a href="#" class="footer-link">매물 검색</a>
+                <a href="#" class="footer-link">시세 조회</a>
+            </div>
+            <div class="footer-section">
+                <h4 class="footer-title">고객지원</h4>
+                <a href="#" class="footer-link">공지사항</a>
+                <a href="#" class="footer-link">FAQ</a>
+                <a href="#" class="footer-link">1:1 문의</a>
+            </div>
+            <div class="footer-section">
+                <h4 class="footer-title">약관 및 정책</h4>
+                <a href="#" class="footer-link">이용약관</a>
+                <a href="#" class="footer-link">개인정보처리방침</a>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p class="footer-copyright">© 2024 PropTech AI. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- History Modal -->
+    <div class="modal" id="historyModal">
+        <div class="modal-overlay" id="modalOverlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">과거 대화 내역</h3>
+                <button class="modal-close" id="modalClose">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="history-list" id="historyList">
+                    <!-- History items will be inserted here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

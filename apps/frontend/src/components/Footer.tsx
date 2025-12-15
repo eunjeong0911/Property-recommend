@@ -72,7 +72,7 @@ const Footer: React.FC = () => {
                 target="_blank"
                 className="hover:text-cyan-400 transition-colors"
               >
-                @ONDO-BANGO
+                @ONDO-HOUSE
               </Link>
             </div>
           </div>
