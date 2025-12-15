@@ -11,7 +11,7 @@ import psycopg2
 # Database connection
 def get_db_connection():
     return psycopg2.connect(
-        host=os.getenv('POSTGRES_HOST', 'postgres'),
+        host=os.getenv('POSTGRES_HOST', 'localhost'),
         port=os.getenv('POSTGRES_PORT', '5432'),
         database=os.getenv('POSTGRES_DB', 'realestate'),
         user=os.getenv('POSTGRES_USER', 'postgres'),
