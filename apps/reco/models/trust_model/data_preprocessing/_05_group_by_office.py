@@ -83,6 +83,22 @@ def group_by_office():
         # 직원 이름 리스트 (쉼표로 구분)
         office_info['직원명단'] = ', '.join([s['이름'] for s in staff_list if s.get('이름')])
         
+        # 자격구분 추출 (이름이 일치하거나 직위가 '대표'인 경우)
+        rep_qualification = None
+        for s in staff_list:
+            # 1순위: 이름이 대표자와 일치하는 경우
+            if s.get('이름') == office_info['대표자']:
+                rep_qualification = s.get('구분명')
+                break
+            # 2순위: 이름 일치가 없을 때 직위가 '대표'인 경우 (임시 저장)
+            elif s.get('직위구분명') == '대표' and rep_qualification is None:
+                rep_qualification = s.get('구분명')
+        
+        if rep_qualification is None:
+            rep_qualification = "미등록"
+
+        office_info['자격구분'] = rep_qualification
+        
         office_data.append(office_info)
     
     # DataFrame 생성
