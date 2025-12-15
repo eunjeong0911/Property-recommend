@@ -1,0 +1,62 @@
+# Generated migration for UserSearchLog model
+
+from django.conf import settings
+from django.db import migrations, models
+import django.db.models.deletion
+
+
+class Migration(migrations.Migration):
+
+    initial = True
+
+    dependencies = [
+        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+    ]
+
+    operations = [
+        migrations.CreateModel(
+            name='UserSearchLog',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('session_id', models.CharField(db_index=True, help_text='세션 ID (비로그인 사용자 추적용)', max_length=100)),
+                ('query', models.TextField(help_text='검색 질의 내용')),
+                ('filters', models.JSONField(default=dict, help_text='적용된 필터 조건 (예: {price_min, price_max, region})')),
+                ('result_ids', models.JSONField(default=list, help_text='결과 매물 ID 목록')),
+                ('result_count', models.IntegerField(default=0, help_text='검색 결과 개수')),
+                ('search_duration_ms', models.IntegerField(default=0, help_text='검색 소요 시간 (밀리초)')),
+                ('search_type', models.CharField(
+                    choices=[('rag', 'RAG 검색'), ('es', 'Elasticsearch 검색'), ('hybrid', '하이브리드 검색')],
+                    default='rag',
+                    help_text='검색 유형',
+                    max_length=50
+                )),
+                ('created_at', models.DateTimeField(auto_now_add=True, db_index=True, help_text='검색 시간')),
+                ('user', models.ForeignKey(
+                    blank=True,
+                    help_text='검색을 수행한 사용자 (비로그인 시 null)',
+                    null=True,
+                    on_delete=django.db.models.deletion.SET_NULL,
+                    related_name='user_search_logs',
+                    to=settings.AUTH_USER_MODEL
+                )),
+            ],
+            options={
+                'verbose_name': '사용자 검색 로그',
+                'verbose_name_plural': '사용자 검색 로그 목록',
+                'db_table': 'user_search_log',
+                'ordering': ['-created_at'],
+            },
+        ),
+        migrations.AddIndex(
+            model_name='usersearchlog',
+            index=models.Index(fields=['created_at', 'user'], name='user_search_created_a_e8f3c5_idx'),
+        ),
+        migrations.AddIndex(
+            model_name='usersearchlog',
+            index=models.Index(fields=['query'], name='user_search_query_7e8d4a_idx'),
+        ),
+        migrations.AddIndex(
+            model_name='usersearchlog',
+            index=models.Index(fields=['session_id', '-created_at'], name='user_search_session_3b9f2c_idx'),
+        ),
+    ]

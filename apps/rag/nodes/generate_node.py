@@ -1,16 +1,23 @@
 from common.state import RAGState
+from common.search_logging import log_user_search
 import json
+import time
 
 def generate(state: RAGState) -> RAGState:
     from langchain_openai import ChatOpenAI
     from langchain_core.prompts import ChatPromptTemplate
     from langchain_core.output_parsers import StrOutputParser
 
+    # 검색 시작 시간 기록 (로깅용)
+    start_time = time.time()
+    
     question = state["question"]
+    session_id = state.get("session_id")
     graph_results = state.get("graph_results", [])
     sql_results = state.get("sql_results", [])
     search_context = state.get("search_context")
     use_cache = state.get("use_cache", False)
+    price_conditions = state.get("price_conditions", {})
     
     print(f"\n{'='*60}")
     print(f"[Generate] 🚀 Starting answer generation...")
@@ -160,6 +167,25 @@ def generate(state: RAGState) -> RAGState:
         print(f"[Generate] ⚠️ No results found - returning 'no match' message")
         state["answer"] = "죄송합니다. 해당 조건을 만족하는 매물이 없습니다."
         state["full_results"] = []
+        
+        # 결과 없음도 로그 저장 (Requirements 1.1, 6.4)
+        search_duration_ms = int((time.time() - start_time) * 1000)
+        filters = {}
+        if price_conditions:
+            filters['price_conditions'] = price_conditions
+        if use_cache:
+            filters['use_cache'] = True
+        
+        log_user_search(
+            query=question,
+            result_ids=[],
+            filters=filters,
+            session_id=session_id,
+            search_duration_ms=search_duration_ms,
+            search_type='rag'
+        )
+        print(f"[Generate] 📝 Search log queued (no results): {search_duration_ms}ms")
+        
         return state
     
     # Store full results for Redis caching
@@ -330,4 +356,41 @@ def generate(state: RAGState) -> RAGState:
     
     state["answer"] = answer
     state["full_results"] = full_results  # Store all results for Redis caching
+    
+    # ==========================================================================
+    # 검색 로그 저장 (Requirements 1.1, 6.4)
+    # ==========================================================================
+    # 검색 소요 시간 계산
+    search_duration_ms = int((time.time() - start_time) * 1000)
+    
+    # 결과 매물 ID 목록 추출
+    result_ids = []
+    for item in full_results:
+        prop_id = item.get('p.id') or item.get('id')
+        if prop_id:
+            result_ids.append(str(prop_id))
+    
+    # 필터 조건 수집
+    filters = {}
+    if price_conditions:
+        filters['price_conditions'] = price_conditions
+    if use_cache:
+        filters['use_cache'] = True
+    if search_context:
+        filters['search_context'] = {
+            'location': search_context.get('location', ''),
+            'criteria': search_context.get('criteria', [])
+        }
+    
+    # 비동기 로그 저장
+    log_user_search(
+        query=question,
+        result_ids=result_ids,
+        filters=filters,
+        session_id=session_id,
+        search_duration_ms=search_duration_ms,
+        search_type='rag'
+    )
+    print(f"[Generate] 📝 Search log queued: {len(result_ids)} results, {search_duration_ms}ms")
+    
     return state
