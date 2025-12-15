@@ -79,22 +79,22 @@ def train_models(X_train_scaled, y_train, X_test_scaled, y_test):
     
     models = {}
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-    total_models = 4 + (1 if HAS_XGB else 0) + (1 if HAS_CAT else 0)
+    total_models = 3 + (1 if HAS_XGB else 0) + (1 if HAS_CAT else 0)  # SVM 제거 (4→3)
     current = 1
     
-    # 1. LogisticRegression
+    # 1. LogisticRegression (정규화 강화: C 낮춤)
     print(f"\n[{current}/{total_models}] LogisticRegression 학습 중...")
-    lr_model = LogisticRegression(C=1.0, max_iter=1000, class_weight='balanced', random_state=42)
+    lr_model = LogisticRegression(C=0.5, max_iter=1000, class_weight='balanced', random_state=42)
     lr_model.fit(X_train_scaled, y_train)
     lr_scores = cross_val_score(lr_model, X_train_scaled, y_train, cv=cv, scoring='accuracy')
     models["LogisticRegression"] = lr_model
     print(f"   ✓ CV Score: {lr_scores.mean():.4f} (±{lr_scores.std():.4f})")
     current += 1
     
-    # 2. RandomForest
+    # 2. RandomForest (depth 5→4, 정규화 강화)
     print(f"\n[{current}/{total_models}] RandomForest 학습 중...")
     rf_model = RandomForestClassifier(
-        n_estimators=200, max_depth=5, min_samples_split=10,
+        n_estimators=200, max_depth=4, min_samples_split=15, min_samples_leaf=5,
         class_weight='balanced', random_state=42, n_jobs=-1
     )
     rf_model.fit(X_train_scaled, y_train)
@@ -103,20 +103,14 @@ def train_models(X_train_scaled, y_train, X_test_scaled, y_test):
     print(f"   ✓ CV Score: {rf_scores.mean():.4f} (±{rf_scores.std():.4f})")
     current += 1
     
-    # 3. SVM
-    print(f"\n[{current}/{total_models}] SVM 학습 중...")
-    svm_model = SVC(C=1.0, kernel='rbf', class_weight='balanced', probability=True, random_state=42)
-    svm_model.fit(X_train_scaled, y_train)
-    svm_scores = cross_val_score(svm_model, X_train_scaled, y_train, cv=cv, scoring='accuracy')
-    models["SVM"] = svm_model
-    print(f"   ✓ CV Score: {svm_scores.mean():.4f} (±{svm_scores.std():.4f})")
-    current += 1
+    # ❌ SVM 제거 (성능 낮음)
     
-    # 4. XGBoost (설치된 경우)
+    # 3. XGBoost (depth 4→3, 정규화 강화)
     if HAS_XGB:
         print(f"\n[{current}/{total_models}] XGBoost 학습 중...")
         xgb_model = XGBClassifier(
-            n_estimators=200, max_depth=4, learning_rate=0.05,
+            n_estimators=200, max_depth=3, learning_rate=0.05,
+            reg_lambda=2.0, reg_alpha=0.5, min_child_weight=3,
             use_label_encoder=False, eval_metric='mlogloss', random_state=42, verbosity=0
         )
         xgb_model.fit(X_train_scaled, y_train)
@@ -125,11 +119,12 @@ def train_models(X_train_scaled, y_train, X_test_scaled, y_test):
         print(f"   ✓ CV Score: {xgb_scores.mean():.4f} (±{xgb_scores.std():.4f})")
         current += 1
     
-    # 5. CatBoost (설치된 경우)
+    # 4. CatBoost (depth 4→3, 정규화 강화)
     if HAS_CAT:
         print(f"\n[{current}/{total_models}] CatBoost 학습 중...")
         cat_model = CatBoostClassifier(
-            iterations=200, depth=4, learning_rate=0.05,
+            iterations=200, depth=3, learning_rate=0.05,
+            l2_leaf_reg=5.0, min_data_in_leaf=5,
             auto_class_weights='Balanced', random_state=42, verbose=False
         )
         cat_model.fit(X_train_scaled, y_train)
@@ -138,7 +133,7 @@ def train_models(X_train_scaled, y_train, X_test_scaled, y_test):
         print(f"   ✓ CV Score: {cat_scores.mean():.4f} (±{cat_scores.std():.4f})")
         current += 1
     
-    # 6. Voting Ensemble
+    # 5. Voting Ensemble (SVM 제외)
     print(f"\n[{current}/{total_models}] VotingClassifier (앙상블) 학습 중...")
     estimators = [(name, model) for name, model in models.items()]
     ensemble = VotingClassifier(estimators=estimators, voting='soft')
