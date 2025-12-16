@@ -17,6 +17,9 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Land, LandFilterParams } from '../types/land';
 import { fetchLands } from '../api/landApi';
+import {fetchWishlist, addWishlist, removeWishlist} from '../api/wishlistApi';
+import { useSession } from 'next-auth/react';
+
 
 interface LandListProps {
     filterParams?: LandFilterParams;
@@ -27,6 +30,7 @@ const ITEMS_PER_PAGE = 5; // 페이지당 5개 표시 (화면에 맞춤)
 
 export default function LandList({ filterParams, recommendedLandIds }: LandListProps) {
     const router = useRouter();
+    const { data: session } = useSession();
     const [lands, setLands] = useState<Land[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
@@ -60,6 +64,25 @@ export default function LandList({ filterParams, recommendedLandIds }: LandListP
 
         loadLands();
     }, [filterParams, recommendedLandIds]);
+// ✅ 로그인된 사용자 기준으로 DB에 있는 찜 목록 불러오기
+    useEffect(() => {
+        const loadFavoritesFromServer = async () => {
+            if (!session) {
+                setFavorites(new Set());
+                return;
+            }
+            try {
+                const wishlist = await fetchWishlist();
+                const ids = wishlist.map(item => Number(item.listing_id));
+                setFavorites(new Set(ids));
+            } catch (err) {
+                console.error('Failed to fetch wishlist:', err);
+            }
+        };
+
+        loadFavoritesFromServer();
+    }, [session]);
+
 
     // 페이지네이션 계산
     const totalPages = Math.ceil(lands.length / ITEMS_PER_PAGE);
@@ -92,17 +115,46 @@ export default function LandList({ filterParams, recommendedLandIds }: LandListP
         }
     };
 
-    const toggleFavorite = (landId: number, e: React.MouseEvent) => {
+    const toggleFavorite = async (landId: number, e: React.MouseEvent) => {
         e.stopPropagation();
+        // 로그인 안 되어 있으면 로그인 페이지로
+        if (!session) {
+            router.push('/login');
+            return;
+        }
+        const isFavorite = favorites.has(landId);   //현재 상태 확인
+
+        // UI를 먼저 반영하는 낙관적 업데이트
         setFavorites(prev => {
-            const newFavorites = new Set(prev);
-            if (newFavorites.has(landId)) {
-                newFavorites.delete(landId);
+            const next = new Set(prev);
+            if (isFavorite) {
+                next.delete(landId);
             } else {
-                newFavorites.add(landId);
+                next.add(landId);
             }
-            return newFavorites;
+            return next;
         });
+
+        try {
+            if (isFavorite) {
+                await removeWishlist(landId);     // ✅ DB에서 찜 삭제
+            } else {
+                await addWishlist(landId);        // ✅ DB에 찜 추가
+            }
+        } catch (error) {
+            console.error('Failed to toggle wishlist:', error);
+
+            // 실패 시 상태 롤백
+            setFavorites(prev => {
+                const next = new Set(prev);
+                if (isFavorite) {
+                    next.add(landId);
+                } else {
+                    next.delete(landId);
+                }
+                return next;
+            });
+        }
     };
 
     const handleCardClick = (landId: number) => {
