@@ -38,6 +38,7 @@ def create_features(df: pd.DataFrame):
     df["등록매물_숫자"] = pd.to_numeric(df["등록매물_숫자"], errors="coerce")
     df["공인중개사수"] = pd.to_numeric(df["공인중개사수"], errors="coerce")
     df["중개보조원수"] = pd.to_numeric(df["중개보조원수"], errors="coerce")
+    df["총_직원수"] = pd.to_numeric(df["총_직원수"], errors="coerce")
 
     # ------------------------------------------------------------
     # 12개 Feature 생성
@@ -54,9 +55,8 @@ def create_features(df: pd.DataFrame):
     df["총거래활동량_log"] = np.power(np.sqrt(np.log1p(df["총거래활동량"])), 1/3) * 0.0005  # 0.05% 스케일링 (초완전 억제)
     
     # 4-6. 인력 지표
-    df["총_직원수"] = df["공인중개사수"] + df["중개보조원수"] + df.get("일반직원수", 0)
-    df["총_직원수_safe"] = df["총_직원수"].replace(0, 1)
-    df["공인중개사_비율"] = df["공인중개사수"] / df["총_직원수_safe"]
+    df["총_직원수"] = df["총_직원수"]
+    df["공인중개사_비율"] = df["공인중개사수"] / df["총_직원수"]
     
     # 7-10. 운영 경험
     df["등록일"] = pd.to_datetime(df["등록일"], errors="coerce")
@@ -69,7 +69,7 @@ def create_features(df: pd.DataFrame):
     df["운영_안정성"] = (df["운영기간_년"] >= 3).astype(int)
     
     # 11-12. 조직 구조 (가중치 강화)
-    df["대형사무소"] = (df["총_직원수"] >= 3).astype(int)
+    df["대형사무소"] = (df["총_직원수"] >= 2).astype(int)
     df["직책_다양성"] = (
         (df["공인중개사수"] > 0).astype(int) +
         (df["중개보조원수"] > 0).astype(int) +
