@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     "apps.recommend",
     "apps.graph",
     "apps.community",
+    "apps.search",
 ]
 
 MIDDLEWARE = [
