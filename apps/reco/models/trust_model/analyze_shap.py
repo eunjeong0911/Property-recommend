@@ -40,6 +40,17 @@ def load_model_and_data():
     print(f"   ✅ 테스트 샘플 수: {len(X_test_scaled)}")
     print(f"   ✅ 테스트 데이터 shape: {X_test_scaled.shape}")
     
+    # 🔍 현재 사용 중인 피처명 출력 (디버깅용)
+    print(f"\n🔍 현재 사용 중인 피처명:")
+    for i, name in enumerate(feature_names):
+        print(f"   {i+1:2d}. {name}")
+    
+    # 🔍 데이터 샘플 확인 (처음 5개 샘플의 처음 5개 피처)
+    print(f"\n🔍 데이터 샘플 확인 (처음 5개 샘플, 처음 5개 피처):")
+    for i in range(min(5, len(X_test_scaled))):
+        sample_values = [f"{X_test_scaled[i][j]:.4f}" for j in range(min(5, len(feature_names)))]
+        print(f"   샘플 {i+1}: {sample_values}")
+    
     return model, X_test_scaled, feature_names, y_test
 
 
@@ -138,9 +149,9 @@ def plot_manual_shap_importance(shap_values, feature_names, model):
             'importance': mean_abs_shap
         }).sort_values('importance', ascending=True)
         
-        # 상위 20개만 표시
-        top_n = min(20, len(importance_df))
-        importance_df_top = importance_df.tail(top_n)
+        # 전체 피처 표시 (16개)
+        top_n = len(importance_df)
+        importance_df_top = importance_df
         
         # 1) Bar Plot 생성
         fig_height = max(8, top_n * 0.4)
@@ -164,11 +175,24 @@ def plot_manual_shap_importance(shap_values, feature_names, model):
         print(f"   ✅ 저장: {output_path}")
         plt.close()
         
-        # 2) 상위 10개 Feature 출력
-        top_10 = importance_df.tail(10).sort_values('importance', ascending=False)
-        print(f"\n   📋 {class_name}등급 - 상위 10개 Feature:")
-        for idx, row in top_10.iterrows():
-            print(f"      {row['feature']:30s}: {row['importance']:.4f}")
+        # 2) 전체 16개 Feature 출력 (가중치 조정 효과 표시)
+        top_16 = importance_df.sort_values('importance', ascending=False)
+        print(f"\n   📋 {class_name}등급 - 전체 16개 Feature:")
+        
+        # 거래 관련 피처들 식별
+        trade_features = ['거래완료_log', '등록매물_log', '총거래활동량_log']
+        
+        for idx, row in top_16.iterrows():
+            feature_name = row['feature']
+            importance = row['importance']
+            
+            # 거래 관련 피처인지 확인
+            if feature_name in trade_features:
+                status = "📉 (억제됨)"
+            else:
+                status = "📈 (강화됨)"
+            
+            print(f"      {feature_name:30s}: {importance:.4f} {status}")
 
 
 def plot_shap_scatter(shap_values, X_test_scaled, feature_names, model):
