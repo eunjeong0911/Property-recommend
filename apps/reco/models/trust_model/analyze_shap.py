@@ -175,24 +175,14 @@ def plot_manual_shap_importance(shap_values, feature_names, model):
         print(f"   ✅ 저장: {output_path}")
         plt.close()
         
-        # 2) 전체 16개 Feature 출력 (가중치 조정 효과 표시)
+        # 2) 전체 16개 Feature 출력
         top_16 = importance_df.sort_values('importance', ascending=False)
         print(f"\n   📋 {class_name}등급 - 전체 16개 Feature:")
-        
-        # 거래 관련 피처들 식별
-        trade_features = ['거래완료_log', '등록매물_log', '총거래활동량_log']
         
         for idx, row in top_16.iterrows():
             feature_name = row['feature']
             importance = row['importance']
-            
-            # 거래 관련 피처인지 확인
-            if feature_name in trade_features:
-                status = "📉 (억제됨)"
-            else:
-                status = "📈 (강화됨)"
-            
-            print(f"      {feature_name:30s}: {importance:.4f} {status}")
+            print(f"      {feature_name:30s}: {importance:.4f}")
 
 
 def plot_shap_scatter(shap_values, X_test_scaled, feature_names, model):

@@ -55,9 +55,9 @@ def load_data():
     # 타겟 변수
     y = df["신뢰도등급"].copy()
     
-    # Feature 선택 (16개) - 거래 지표 강력 억제
+    # Feature 선택 (15개)
     selected_features = [
-        "거래완료_log", "등록매물_log", "총거래활동량_log",  # 로그+스케일링 적용
+        "등록매물_log", "총거래활동량_log",  # 로그 변환 (거래완료_log 제거)
         "총_직원수", "공인중개사수", "공인중개사_비율",
         "운영기간_년", "운영경험_지수", "숙련도_지수", "운영_안정성",
         "대형사무소", "직책_다양성",
@@ -93,14 +93,14 @@ def train_models(X_train_scaled, y_train, X_test_scaled, y_test):
     models = {}
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
     
-    # LogisticRegression (거래 지표 강력 억제)
+    # LogisticRegression (최적 하이퍼파라미터 적용)
     print("\n[1/1] LogisticRegression 학습 중...")
-    print("   - 거래 지표: 로그 + 제곱근 + 세제곱근 + 극초강 억제 (0.05-0.1%)")
-    print("   - 다른 피처: 2-3배 가중치 강화")
-    print("   - L2 정규화 강화 (C=0.01)로 최대 억제")
+    print("   - 최적 하이퍼파라미터 적용 (GridSearchCV 결과)")
+    print("   - C=1, penalty=l1, solver=saga, class_weight=balanced")
     lr_model = LogisticRegression(
-        C=0.01,  # 최강 정규화 (0.05 → 0.01)
-        penalty='l2',
+        C=1,  # 정규화 강도 (튜닝 결과)
+        penalty='l1',  # L1 정규화 (피처 선택 효과)
+        solver='saga',  # L1을 지원하는 solver
         max_iter=1000,
         class_weight='balanced',
         random_state=42
@@ -116,7 +116,7 @@ def train_models(X_train_scaled, y_train, X_test_scaled, y_test):
 
 def main():
     print("=" * 70)
-    print(" " * 10 + "모델 학습 (거래 지표 강력 억제 버전)")
+    print(" " * 20 + "모델 학습")
     print("=" * 70)
 
     # 1) 데이터 로드
