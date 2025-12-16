@@ -111,3 +111,113 @@ def clear_cache(session_id: str):
         print(f"[RedisCache] ✓ Cleared cache")
     except Exception as e:
         print(f"[RedisCache] ✗ Clear failed: {e}")
+
+
+# =============================================================================
+# 위치 기반 Neo4j 결과 캐싱 (Plan 4: 응답 속도 최적화)
+# =============================================================================
+# 동일 위치 검색 시 Neo4j 쿼리를 스킵하여 응답 시간 대폭 단축
+# TTL: 24시간 (위치 데이터는 자주 변경되지 않음)
+
+import hashlib
+
+def normalize_location(location: str) -> str:
+    """위치명 정규화 (역, 대, 학교 등 접미사 제거)"""
+    if not location:
+        return ""
+    # 접미사 제거
+    normalized = location.replace("역", "").replace("대학교", "").replace("학교", "")
+    return normalized.strip().lower()
+
+def get_location_cache_key(location: str, facility_type: str = "default") -> str:
+    """위치+시설 기반 캐시 키 생성"""
+    normalized = normalize_location(location)
+    key_str = f"{normalized}:{facility_type}"
+    hash_suffix = hashlib.md5(key_str.encode()).hexdigest()[:8]
+    return f"neo4j:loc:{hash_suffix}"
+
+def save_location_cache(location: str, facility_type: str, results: list, ttl: int = 86400):
+    """
+    위치 기반 Neo4j 검색 결과 캐싱
+    
+    Args:
+        location: 위치명 (예: "홍대입구", "강남")
+        facility_type: 시설 타입 (예: "convenience", "safety")
+        results: Neo4j 검색 결과 리스트
+        ttl: 캐시 유지 시간 (기본 24시간)
+    """
+    if not location or not results:
+        return
+    
+    try:
+        r = get_redis_client()
+        key = get_location_cache_key(location, facility_type)
+        
+        # 결과를 JSON으로 직렬화
+        data = {
+            "location": location,
+            "facility_type": facility_type,
+            "results": results,
+            "count": len(results)
+        }
+        r.setex(key, ttl, json.dumps(data, default=str))
+        
+        print(f"[LocationCache] ✓ Saved {len(results)} results for '{location}:{facility_type}' (TTL: {ttl//3600}h)")
+    except Exception as e:
+        print(f"[LocationCache] ✗ Save failed: {e}")
+
+def get_location_cache(location: str, facility_type: str = "default") -> list | None:
+    """
+    위치 기반 Neo4j 검색 결과 조회
+    
+    Args:
+        location: 위치명
+        facility_type: 시설 타입
+    
+    Returns:
+        캐시된 결과 리스트 (없으면 None)
+    """
+    if not location:
+        return None
+    
+    try:
+        r = get_redis_client()
+        key = get_location_cache_key(location, facility_type)
+        
+        data = r.get(key)
+        if data:
+            cached = json.loads(data)
+            results = cached.get("results", [])
+            print(f"[LocationCache] ✓ Cache HIT for '{location}:{facility_type}' ({len(results)} results)")
+            return results
+        
+        print(f"[LocationCache] Cache MISS for '{location}:{facility_type}'")
+        return None
+    except Exception as e:
+        print(f"[LocationCache] ✗ Load failed: {e}")
+        return None
+
+def clear_location_cache(location: str = None, facility_type: str = None):
+    """
+    위치 캐시 삭제
+    
+    Args:
+        location: 특정 위치만 삭제 (None이면 전체)
+        facility_type: 특정 시설만 삭제
+    """
+    try:
+        r = get_redis_client()
+        
+        if location and facility_type:
+            # 특정 위치+시설 삭제
+            key = get_location_cache_key(location, facility_type)
+            r.delete(key)
+            print(f"[LocationCache] ✓ Cleared '{location}:{facility_type}'")
+        else:
+            # 전체 위치 캐시 삭제
+            keys = r.keys("neo4j:loc:*")
+            if keys:
+                r.delete(*keys)
+            print(f"[LocationCache] ✓ Cleared all location caches ({len(keys)} keys)")
+    except Exception as e:
+        print(f"[LocationCache] ✗ Clear failed: {e}")
