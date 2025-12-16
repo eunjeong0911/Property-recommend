@@ -38,15 +38,7 @@ export default function Header() {
 
         {/* 네비게이션 */}
         <nav className="flex items-center gap-2">
-          <Link
-            href="/main"
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${pathname === '/main'
-                ? 'bg-[var(--color-primary)] text-white'
-                : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-primary)]'
-              }`}
-          >
-            AI 상담
-          </Link>
+
           <Link
             href="/serviceIns"
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${pathname === '/serviceIns'

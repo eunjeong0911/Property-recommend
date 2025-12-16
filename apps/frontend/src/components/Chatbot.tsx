@@ -247,7 +247,7 @@ export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
         
         {/* 헤더 */}
         <div className="flex justify-between p-6 border-b">
-          <h2 className="text-lg font-bold">부동산 AI 상담</h2>
+          <h2 className="text-lg font-bold">매물 추천 챗봇</h2>
 
           <div className="flex items-center gap-2">
             {/* 새 채팅(+ 버튼) */}
@@ -294,7 +294,7 @@ export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
                   strokeLinejoin="round"
                 />
               </svg>
-              과거 대화보기
+              채팅 내역
             </button>
           </div>
         </div>
