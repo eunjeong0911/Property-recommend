@@ -31,8 +31,9 @@ def example_shap_analysis():
 
     # 1. 데이터 로딩
     print("\n[Step 1] 데이터 로딩")
-    data_dir = "C:/dev/SKN18-FINAL-1TEAM/data/actual_transaction_price"
-    loader = DataLoader(data_dir)
+    REPO_ROOT = ML_ROOT.parent.parent.parent.parent.parent  # SKN18-FINAL-1TEAM
+    data_dir = REPO_ROOT / "data" / "actual_transaction_price"
+    loader = DataLoader(str(data_dir))
     train_df, test_df = loader.load_train_test(
         train_filename="월세_train(24.08~25.08).csv",
         test_filename="월세_test(25.09~25.10).csv",

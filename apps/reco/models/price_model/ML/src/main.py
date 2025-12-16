@@ -9,6 +9,10 @@ from preprocessor import PriceDataPreprocessor
 from model import get_models
 from trainer import ModelTrainer
 
+ML_ROOT = Path(__file__).resolve().parent.parent  # .../ML
+REPO_ROOT = ML_ROOT.parent.parent.parent.parent.parent  # SKN18-FINAL-1TEAM
+DEFAULT_DATA_DIR = REPO_ROOT / "data" / "actual_transaction_price"
+
 
 def main(
     data_dir: str,
@@ -138,7 +142,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--data_dir",
         type=str,
-        default="C:/dev/SKN18-FINAL-1TEAM/data/actual_transaction_price",
+        default=str(DEFAULT_DATA_DIR),
         help="데이터 디렉토리 경로"
     )
     parser.add_argument(
