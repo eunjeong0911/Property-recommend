@@ -1,7 +1,10 @@
 import pandas as pd
 from pathlib import Path
 
-BASE_DIR = Path(r"C:\dev\SKN18-FINAL-1TEAM\data\actual_transaction_price")
+# 이 파일 위치 기준으로 프로젝트 루트 찾기
+REPO_ROOT = Path(__file__).resolve().parents[4]
+BASE_DIR = REPO_ROOT / "data" / "actual_transaction_price"
+
 
 # -------------------------------
 # 1) 금리 데이터 통합 함수
