@@ -22,6 +22,8 @@ cd apps\backend
 ### 2. 임베딩 상태 확인
 ```cmd
 python ..\..\scripts\ES답변테스트\test_vector_search.py --stats
+또는 루트 위치에서
+python -m scripts\ES답변테스트\test_vector_search.py --stats
 ```
 
 출력 예시:
@@ -37,6 +39,8 @@ python ..\..\scripts\ES답변테스트\test_vector_search.py --stats
 ### 3. 임베딩 생성 (미완료 시)
 ```cmd
 python ..\..\scripts\ES답변테스트\build_embeddings.py
+또는 루트 위치에서
+python -m scripts\ES답변테스트\build_embeddings.py
 ```
 
 ## 검색 모드 비교
@@ -60,6 +64,9 @@ python ..\..\scripts\ES답변테스트\test_vector_search.py "역삼동 원룸" 
 
 # 하이브리드 검색
 python ..\..\scripts\ES답변테스트\test_vector_search.py "조용한 동네" -m hybrid --top-k 3 --full
+
+또는 루트 폴더에서 벡터, 키워드, 하이브리드 맞춰서 변경 후 실행
+python -m scripts\ES답변테스트\test_vector_search.py "햇살 좋은 집" --top-k 3 --full
 ```
 
 ### 대화형 모드
