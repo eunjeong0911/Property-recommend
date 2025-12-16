@@ -669,25 +669,26 @@ def analyze_query_complexity(question: str) -> dict:
     active_facilities = [f for f, active in facilities.items() if active]
     
     # 3. 복잡한 자연어 패턴 감지
+    # [Optimized]: 시설 키워드가 있으면 선호도/예산 표현은 무시 (규칙 기반으로 처리 가능)
+    has_facility = len(active_facilities) > 0
+    
     complex_patterns = [
-        # 비교 표현
-        (r'(보다|더|가장|최고|가장 좋|덜|제일)', '비교 표현'),
-        # 조건부 표현
-        (r'(만약|경우|때문에|그래서|하지만|그런데)', '조건부 표현'),
-        # 선호도 표현
-        (r'(좋은|좋을|좋게|싫은|원하는|원해|바라)', '선호도 표현'),
-        # 추천 요청 - "추천"은 일반적이므로 제외, 복잡한 선택만 포함
-        # (r'(추천|골라|선택|어떤게|어디가|뭐가)', '추천 요청'),  # 비활성화 - 대부분 간단한 요청
-        # 복합 조건
-        (r'(그리고|또는|이면서|동시에|둘 다)', '복합 조건'),
-        # 예산 관련 복잡 표현
-        (r'(예산|적당|합리적|저렴|비싸지|가성비)', '예산 복합 표현'),
-        # 대화형/질문형
-        (r'(뭐야\?|어때\?|있어\?|될까\?|할까\?)', '대화형 질문'),
+        # 비교 표현 (항상 복잡)
+        (r'(보다|더|가장|최고|덜|제일)', '비교 표현', True),
+        # 조건부 표현 (항상 복잡)
+        (r'(만약|경우|때문에|그래서|하지만|그런데)', '조건부 표현', True),
+        # 선호도 표현 - 시설 키워드 있으면 무시 ("치안 좋은" → safety 검색으로 처리)
+        (r'(좋은|좋을|좋게|싫은|원하는|원해|바라)', '선호도 표현', not has_facility),
+        # 복합 조건 (항상 복잡)
+        (r'(그리고|또는|이면서|동시에|둘 다)', '복합 조건', True),
+        # 예산 표현 - 시설 키워드 있으면 무시 ("저렴한" → 가격 필터로 처리)
+        (r'(예산|적당|합리적|저렴|비싸지|가성비)', '예산 복합 표현', not has_facility),
+        # 대화형/질문형 (항상 복잡)
+        (r'(뭐야\?|어때\?|있어\?|될까\?|할까\?)', '대화형 질문', True),
     ]
     
-    for pattern, reason in complex_patterns:
-        if re.search(pattern, q):
+    for pattern, reason, should_check in complex_patterns:
+        if should_check and re.search(pattern, q):
             return {
                 'is_complex': True,
                 'reason': reason,

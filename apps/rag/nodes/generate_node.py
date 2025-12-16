@@ -228,39 +228,25 @@ def generate(state: RAGState) -> RAGState:
     # Simple generation using LLM
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
     
-    # 최적화된 프롬프트 (기존 2000 tokens → ~800 tokens)
+    # [Optimized]: 프롬프트 압축 (~800 토큰 → ~400 토큰) - LLM 응답 50% 빨라짐
     prompt = ChatPromptTemplate.from_template(
-        """부동산 AI 비서입니다. 검색된 매물만 소개하세요 (가상 매물 금지).
-
+        """부동산 AI. 검색된 매물만 소개 (가상 금지).
 {context_info}
+**검색결과**: {context}
 
-**검색 결과**: {context}
+**포맷** (상위 3개):
+**1순위**
+- 주소: [postgres_details.address]
+- 가격: [postgres_details.trade_info]
+- 면적: [postgres_details.listing_info]
+- 역: [formatted_poi]
+- 시설: [formatted_infrastructure]
+- 안전: [formatted_safety] (있으면)
+👉 [detail_link]
 
-**필드 설명**:
-- `formatted_poi`: 역/위치 정보
-- `formatted_infrastructure`: 주변시설 (이름, 거리, 시간)
-- `formatted_safety`: 안전시설
-- `detail_link`: 상세보기 링크 (그대로 사용)
-- `postgres_details`: 가격/면적 등 상세정보
+**2순위** / **3순위** - 동일 포맷
 
-**답변 포맷** (상위 3개):
-
-**1순위 (옵션 A)**
-- **주소**: [postgres_details.address]
-- **타입**: [postgres_details.building_type]
-- **가격**: [postgres_details.trade_info에서 추출]
-- **면적/구조**: [postgres_details.listing_info에서 추출]
-- **역 접근성**: [formatted_poi]
-- **주변 인프라**: [formatted_infrastructure - 구체적 이름과 거리]
-- **안전 시설**: [formatted_safety] (있으면)
-- **한줄 요약**: [장점 요약]
-👉 [detail_link 그대로]
-
-**2순위 (옵션 B)** / **3순위 (옵션 C)** - 동일 형식
-
-**마무리**:
-💬 추가 질문 2-3개 제안 (가격대, 층수, 구조 등)
-
+💬 추가질문 2개 제안
 질문: {question}"""
     )
     
