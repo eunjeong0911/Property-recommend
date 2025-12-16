@@ -242,11 +242,11 @@ export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
   return (
     <>
       <div className="flex flex-col h-full bg-white rounded-xl border"
-      style={{ height: 'calc(100vh - 120px)' }}
+        style={{ height: 'calc(100vh - 120px)' }}
       >
 
         {/* 헤더 */}
-        <div className="flex justify-between p-6 border-b">
+        <div className="flex justify-between p-4 border-b">
           <h2 className="text-lg font-bold">매물 추천 챗봇</h2>
 
           <div className="flex items-center gap-2">
@@ -301,41 +301,87 @@ export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
 
         {/* 메시지 영역 */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {messages.map(message => (
-            <div
-              key={message.id}
-              className={`flex ${
-                message.type === 'user' ? 'justify-end' : 'justify-start'
-                }`}
-            >
-              <div
-                className={`max-w-[75%] p-4 rounded-lg ${
-                  message.type === 'user'
-                    ? 'bg-[#16375B] text-white'
-                    : 'bg-gray-100'
-                  }`}
-              >
-                {message.type === 'ai' ? (
-                  <div className="prose prose-sm max-w-none">
-                    <ReactMarkdown>{message.content}</ReactMarkdown>
-                  </div>
-                ) : (
-                  <p className="text-sm whitespace-pre-wrap break-words">
-                    {message.content}
-                  </p>
-                )}
-                <p className="text-xs mt-2 text-gray-500">
-                  {formatTime(message.timestamp)}
-                </p>
+          {messages.length === 0 && !isLoading ? (
+            /* 초기 화면 - 환영 메시지 및 추천 질문 */
+            <div className="flex flex-col items-center justify-center h-full space-y-6">
+              {/* 환영 메시지 */}
+              <div className="text-center">
+                <h3 className="text-2xl font-bold text-[var(--color-primary)] mb-2">안녕하세요!</h3>
+                <p className="text-sm text-[var(--color-text-secondary)]">AI 매물 상담사가 도와드릴게요</p>
+              </div>
+
+              {/* 추천 질문 버튼 */}
+              <div className="flex flex-wrap gap-3 justify-center max-w-md">
+                <button
+                  onClick={() => {
+                    const question = '강남 원룸 추천해줘';
+                    setInputValue(question);
+                    handleSendMessage();
+                  }}
+                  className="px-4 py-2 bg-white border-2 border-purple-200 text-purple-600 rounded-full text-sm font-medium hover:bg-purple-50 hover:border-purple-300 transition-all shadow-sm"
+                >
+                  강남 원룸 추천해줘
+                </button>
+                <button
+                  onClick={() => {
+                    const question = '전세 매물 알려줘';
+                    setInputValue(question);
+                    handleSendMessage();
+                  }}
+                  className="px-4 py-2 bg-white border-2 border-purple-200 text-purple-600 rounded-full text-sm font-medium hover:bg-purple-50 hover:border-purple-300 transition-all shadow-sm"
+                >
+                  전세 매물 알려줘
+                </button>
+                <button
+                  onClick={() => {
+                    const question = '교통 좋은 곳 어디야?';
+                    setInputValue(question);
+                    handleSendMessage();
+                  }}
+                  className="px-4 py-2 bg-white border-2 border-purple-200 text-purple-600 rounded-full text-sm font-medium hover:bg-purple-50 hover:border-purple-300 transition-all shadow-sm"
+                >
+                  교통 좋은 곳 어디야?
+                </button>
               </div>
             </div>
-          ))}
+          ) : (
+            /* 기존 메시지 표시 */
+            <>
+              {messages.map(message => (
+                <div
+                  key={message.id}
+                  className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'
+                    }`}
+                >
+                  <div
+                    className={`max-w-[75%] p-4 rounded-lg ${message.type === 'user'
+                      ? 'bg-[#16375B] text-white'
+                      : 'bg-gray-100'
+                      }`}
+                  >
+                    {message.type === 'ai' ? (
+                      <div className="prose prose-sm max-w-none">
+                        <ReactMarkdown>{message.content}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      <p className="text-sm whitespace-pre-wrap break-words">
+                        {message.content}
+                      </p>
+                    )}
+                    <p className="text-xs mt-2 text-gray-500">
+                      {formatTime(message.timestamp)}
+                    </p>
+                  </div>
+                </div>
+              ))}
 
-          {isLoading && (
-            <p className="text-sm text-gray-400">AI가 답변을 생성 중입니다...</p>
+              {isLoading && (
+                <p className="text-sm text-gray-400">AI가 답변을 생성 중입니다...</p>
+              )}
+
+              <div ref={messagesEndRef} />
+            </>
           )}
-
-          <div ref={messagesEndRef} />
         </div>
 
         {/* 입력 영역 */}
@@ -345,7 +391,7 @@ export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
             onChange={e => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
             className="flex-1 border rounded px-3 py-2 text-sm"
-            placeholder="부동산 관련 질문을 입력하세요…"
+            placeholder="궁금한 매물 정보를 물어보세요"
             disabled={isLoading}
           />
           <button
@@ -401,10 +447,9 @@ export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
                     <div
                       key={session.id}
                       onClick={() => handleSelectSession(session.id)}
-                      className={`p-4 rounded-lg cursor-pointer transition-colors border ${
-                        currentSessionId === session.id
-                          ? 'bg-blue-50 border-[var(--color-primary)]'
-                          : 'bg-white hover:bg-[var(--color-bg-hover)] border-[var(--color-border-light)]'
+                      className={`p-4 rounded-lg cursor-pointer transition-colors border ${currentSessionId === session.id
+                        ? 'bg-blue-50 border-[var(--color-primary)]'
+                        : 'bg-white hover:bg-[var(--color-bg-hover)] border-[var(--color-border-light)]'
                         }`}
                     >
                       <div className="flex justify-between items-start gap-3">
@@ -442,7 +487,8 @@ export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
             </div>
           </div>
         </div>
-      )}
+      )
+      }
     </>
   )
 }
