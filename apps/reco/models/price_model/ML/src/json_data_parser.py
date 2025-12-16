@@ -137,18 +137,21 @@ class JSONDataParser:
         층수 문자열에서 해당층 추출
         
         Args:
-            floor_str: "중층(총 9층)" 형식
+            floor_str: "중층(총 9층)" 또는 "지하1층" 형식
             
         Returns:
             층수 (int) 또는 None
+            - 지하/반지하: -1
+            - 지상층: 양수
         """
         if not floor_str:
             return None
         
-        # 숫자 추출 (첫 번째 숫자를 해당층으로 간주)
-        # "3층(총 9층)" 또는 "중층(총 9층)" 형식 처리
+        # 지하/반지하 처리 (최우선)
+        if "지하" in floor_str or "반지하" in floor_str or "B" in floor_str.upper():
+            return -1
         
-        # 먼저 "저층", "중층", "고층" 매핑
+        # 문자형 층수 매핑 ("저층", "중층", "고층")
         floor_mapping = {
             "저층": 2,
             "중층": 5,
@@ -160,7 +163,7 @@ class JSONDataParser:
             if key in floor_str:
                 return value
         
-        # 숫자가 있으면 추출
+        # 숫자가 있으면 추출 ("3층(총 9층)" 형식)
         match = re.search(r'(\d+)\s*층', floor_str)
         if match:
             try:
@@ -172,7 +175,7 @@ class JSONDataParser:
     
     def parse_year(self, year_str: str) -> Optional[int]:
         """
-        건축년도 추출
+        건축년도 추출 -> 사용승인일
         
         Args:
             year_str: "2013" 또는 "2013년" 형식
@@ -193,32 +196,39 @@ class JSONDataParser:
     
     def parse_building_type(self, building_type: str) -> str:
         """
-        건물용도 정규화
+        건물용도 정규화 (부동산 실거래가 데이터 기준)
+        
+        CSV 학습 데이터는 3가지 카테고리만 존재:
+        - 아파트: 공동주택 중 5개 층 이상
+        - 연립다세대: 연립주택 + 다세대주택 + 다가구주택 + 단독주택
+        - 오피스텔: 준주택 (업무시설)
         
         Args:
-            building_type: 원본 건물용도
+            building_type: 원본 건축물용도
             
         Returns:
-            정규화된 건물용도
+            정규화된 건물용도 ("아파트", "연립다세대", "오피스텔" 중 하나)
         """
         if not building_type:
-            return "기타"
+            return "연립다세대"  # 기본값
         
-        # 건물용도 매핑
-        type_mapping = {
-            "아파트": "아파트",
-            "빌라": "빌라",
-            "주택": "주택",
-            "오피스텔": "오피스텔",
-            "원룸": "원룸",
-            "투룸": "원룸",  # 원룸으로 통합
-        }
+        # 대소문자 구분 없이 매칭하기 위해 소문자로 변환
+        building_type_lower = building_type.lower()
         
-        for key, value in type_mapping.items():
-            if key in building_type:
-                return value
+        # 1. 아파트 (공동주택 중 아파트)
+        if "아파트" in building_type_lower or "apt" in building_type_lower:
+            return "아파트"
         
-        return "기타"
+        # 2. 오피스텔 (준주택, 업무시설)
+        if "오피스텔" in building_type_lower or "officetel" in building_type_lower or "업무시설" in building_type_lower:
+            return "오피스텔"
+        
+        # 3. 연립다세대 (나머지 모든 주거용 건물)
+        # - 공동주택 (아파트 제외): 연립주택, 다세대주택, 다가구주택
+        # - 단독주택: 단독주택, 다중주택
+        # - 원룸/투룸/빌라 등
+        # - 근린생활시설, 숙박시설 등 (주거 목적으로 사용되는 경우)
+        return "연립다세대"
     
     def parse_price(self, price_str: str) -> Optional[float]:
         """

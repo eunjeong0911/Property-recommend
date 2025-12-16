@@ -272,7 +272,7 @@ class PriceClassifier:
 
         # 애매한 확률이 있으면 적정(1)으로
         max_proba = np.max(y_pred_proba, axis=1)
-        threshold = 0.6
+        threshold = 0.7
         
         uncertain = max_proba < threshold
         y_pred[uncertain] = 1
@@ -332,7 +332,7 @@ class PriceClassifier:
         # 3. 데이터 전처리
         df_processed = self.prepare_data(df)
         
-                # 4. 예측
+        # 4. 예측
         df_result = self.predict(df_processed)
 
         # 4-1. 예측 vs 로컬 룰 분포 / 교차표 디버그
