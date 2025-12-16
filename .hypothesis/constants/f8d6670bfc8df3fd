@@ -1,4 +1,0 @@
-# file: E:\SKN family AI bootcamp\파이널 프로젝트\SKN18-FINAL-1TEAM\apps\rag\common\db_pool.py
-# hypothesis_version: 6.148.2
-
-['10', '2', '5432', 'POSTGRES_DB', 'POSTGRES_HOST', 'POSTGRES_PASSWORD', 'POSTGRES_POOL_MAX', 'POSTGRES_POOL_MIN', 'POSTGRES_PORT', 'POSTGRES_USER', 'postgres']

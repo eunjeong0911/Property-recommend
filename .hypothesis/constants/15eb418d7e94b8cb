@@ -1,4 +1,0 @@
-# file: E:\SKN family AI bootcamp\파이널 프로젝트\SKN18-FINAL-1TEAM\apps\backend\apps\listings\utils\price_utils.py
-# hypothesis_version: 6.148.2
-
-[10000, 100000000, '(\\d+)만원', '(\\d+)억', '(\\d+\\.?\\d*m2)', ',', '-', '/([^(]+)\\(', '/(\\d+)층', '0', '\\(([^)]+평)', 'area_exclusive', 'area_pyeong', 'area_supply', 'danggi', 'eok', 'floor_total', 'jeonse', 'maemae', 'manwon', 'wolse', '가격 정보 없음', '거래방식', '단기임대', '매매', '매매 (가격 미정)', '월세', '월세 (가격 미정)', '전세', '전세 (가격 미정)']

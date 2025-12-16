@@ -236,20 +236,20 @@ class PostgresImporter:
         listing_info = Json(item.get("매물_정보", {}))
         additional_options = item.get("추가_옵션", [])
         description = item.get("상세_설명")
-        agent_info = Json(item.get("중개사_정보", {}))
+        # agent_info는 저장하지 않음 - reimport_brokers.py에서 landbroker 테이블로 별도 처리
 
-        # UPSERT 쿼리 (land 테이블 스키마 - images 제거)
+        # UPSERT 쿼리 (land 테이블 스키마 - images, agent_info 제거)
         query = """
             INSERT INTO land (
                 land_num, building_type, address, deal_type,
                 deposit, monthly_rent, jeonse_price, sale_price,
                 url, trade_info, listing_info,
-                additional_options, description, agent_info
+                additional_options, description
             ) VALUES (
                 %s, %s, %s, %s,
                 %s, %s, %s, %s,
                 %s, %s, %s,
-                %s, %s, %s
+                %s, %s
             )
             ON CONFLICT (land_num) DO UPDATE SET
                 building_type = EXCLUDED.building_type,
@@ -264,7 +264,6 @@ class PostgresImporter:
                 listing_info = EXCLUDED.listing_info,
                 additional_options = EXCLUDED.additional_options,
                 description = EXCLUDED.description,
-                agent_info = EXCLUDED.agent_info,
                 updated_at = CURRENT_TIMESTAMP
             RETURNING land_id, (xmax = 0) AS inserted;
         """
@@ -273,7 +272,7 @@ class PostgresImporter:
             land_num, building_type, address, deal_type,
             deposit, monthly_rent, jeonse_price, sale_price,
             url, trade_info, listing_info,
-            additional_options, description, agent_info
+            additional_options, description
         ))
         
         result = self.cur.fetchone()

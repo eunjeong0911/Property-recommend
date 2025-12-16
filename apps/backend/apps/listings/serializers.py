@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Land
+from .models import Land, LandBroker
 from .utils.price_utils import (
     parse_korean_price,
     format_price_in_manwon,
@@ -12,6 +12,21 @@ from .utils.price_utils import (
     extract_total_floors,
 )
 import random
+
+
+class BrokerSerializer(serializers.ModelSerializer):
+    """중개업소 시리얼라이저"""
+    id = serializers.IntegerField(source='landbroker_id')
+    trust_grade = serializers.CharField(source='trust_grade_display', read_only=True)
+    
+    class Meta:
+        model = LandBroker
+        fields = [
+            'id', 'office_name', 'representative', 'phone', 'address',
+            'registration_number', 'trust_score', 'trust_grade',
+            'trust_score_updated_at'
+        ]
+
 
 class LandSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='land_id')
@@ -40,7 +55,9 @@ class LandSerializer(serializers.ModelSerializer):
     heating_method = serializers.SerializerMethodField()
     elevator = serializers.SerializerMethodField()
     description = serializers.CharField()
-    agent_info = serializers.SerializerMethodField()
+    
+    # 중개업소 정보
+    broker = BrokerSerializer(source='landbroker', read_only=True)
 
     class Meta:
         model = Land
@@ -69,7 +86,7 @@ class LandSerializer(serializers.ModelSerializer):
             'heating_method',
             'elevator',
             'description',
-            'agent_info'
+            'broker'
         ]
 
     def get_title(self, obj):
@@ -178,14 +195,3 @@ class LandSerializer(serializers.ModelSerializer):
             return '있음' if total_floors >= 5 else '없음'
         return '-'
     
-    def get_agent_info(self, obj):
-        """중개사 정보"""
-        if obj.agent_info and isinstance(obj.agent_info, dict):
-            return obj.agent_info
-        # agent_info가 비어있으면 기본값 반환
-        return {
-            'name': '-',
-            'phone': '-',
-            'representative': '-',
-            'address': '-'
-        }

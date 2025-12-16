@@ -13,7 +13,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY scripts .
 COPY libs /libs
 COPY data /data
-COPY GraphDB_data /GraphDB_data
+COPY data/GraphDB_data /GraphDB_data
 
 ENV PYTHONPATH=/app:/libs
 
