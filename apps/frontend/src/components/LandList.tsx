@@ -17,7 +17,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Land, LandFilterParams } from '../types/land';
 import { fetchLands } from '../api/landApi';
-import {fetchWishlist, addWishlist, removeWishlist} from '../api/wishlistApi';
+import { fetchWishlist, addWishlist, removeWishlist } from '../api/wishlistApi';
 import { useSession } from 'next-auth/react';
 
 
@@ -64,7 +64,7 @@ export default function LandList({ filterParams, recommendedLandIds }: LandListP
 
         loadLands();
     }, [filterParams, recommendedLandIds]);
-// ✅ 로그인된 사용자 기준으로 DB에 있는 찜 목록 불러오기
+    // ✅ 로그인된 사용자 기준으로 DB에 있는 찜 목록 불러오기
     useEffect(() => {
         const loadFavoritesFromServer = async () => {
             if (!session) {
@@ -243,14 +243,6 @@ export default function LandList({ filterParams, recommendedLandIds }: LandListP
                                     {/* 가격 */}
                                     <p className="text-xl font-bold text-[var(--color-primary)] mb-2">
                                         {land.price}
-                                    </p>
-
-                                    {/* 위치 정보 */}
-                                    <p className="text-sm text-[var(--color-text-secondary)] flex items-center gap-1">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M12 2C8.13 2 5 5.13 5 9C5 14.25 12 22 12 22C12 22 19 14.25 19 9C19 5.13 15.87 2 12 2ZM12 11.5C10.62 11.5 9.5 10.38 9.5 9C9.5 7.62 10.62 6.5 12 6.5C13.38 6.5 14.5 7.62 14.5 9C14.5 10.38 13.38 11.5 12 11.5Z" fill="currentColor" />
-                                        </svg>
-                                        {land.region || '서울특별시'}
                                     </p>
 
                                     {/* 메타 정보 */}

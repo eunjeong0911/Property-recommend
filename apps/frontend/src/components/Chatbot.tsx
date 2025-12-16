@@ -192,15 +192,15 @@ export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
       prev.map(session =>
         session.id === currentSessionId
           ? {
-              ...session,
-              messages,
-              updatedAt: new Date(),
-              title:
-                session.title === '새 대화'
-                  ? messages[0].content.slice(0, 30) +
-                    (messages[0].content.length > 30 ? '...' : '')
-                  : session.title,
-            }
+            ...session,
+            messages,
+            updatedAt: new Date(),
+            title:
+              session.title === '새 대화'
+                ? messages[0].content.slice(0, 30) +
+                (messages[0].content.length > 30 ? '...' : '')
+                : session.title,
+          }
           : session,
       ),
     )
@@ -244,7 +244,7 @@ export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
       <div className="flex flex-col h-full bg-white rounded-xl border"
       style={{ height: 'calc(100vh - 120px)' }}
       >
-        
+
         {/* 헤더 */}
         <div className="flex justify-between p-6 border-b">
           <h2 className="text-lg font-bold">매물 추천 챗봇</h2>
@@ -306,14 +306,14 @@ export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
               key={message.id}
               className={`flex ${
                 message.type === 'user' ? 'justify-end' : 'justify-start'
-              }`}
+                }`}
             >
               <div
                 className={`max-w-[75%] p-4 rounded-lg ${
                   message.type === 'user'
                     ? 'bg-[#16375B] text-white'
                     : 'bg-gray-100'
-                }`}
+                  }`}
               >
                 {message.type === 'ai' ? (
                   <div className="prose prose-sm max-w-none">
@@ -405,7 +405,7 @@ export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
                         currentSessionId === session.id
                           ? 'bg-blue-50 border-[var(--color-primary)]'
                           : 'bg-white hover:bg-[var(--color-bg-hover)] border-[var(--color-border-light)]'
-                      }`}
+                        }`}
                     >
                       <div className="flex justify-between items-start gap-3">
                         <div className="flex-1 min-w-0">
