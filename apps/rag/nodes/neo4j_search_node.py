@@ -108,9 +108,10 @@ def execute_hybrid_query(location_keyword: str, facility_labels: str, facility_r
     return get_graph().query(full_cypher, params={"keyword": location_keyword})
 
 
-# --- DOMAIN TOOLS ---
+# --- DOMAIN TOOLS (검색 도구) ---
+# LLM Agent가 사용자 질문을 분석하여 적절한 도구를 선택합니다.
 
-@tool
+@tool  # 🚇 지하철역 근처 매물 검색
 def search_properties_near_subway(location_keyword: str):
     """
     Find properties near a specific Subway Station (Transportation).
@@ -131,7 +132,7 @@ def search_properties_near_subway(location_keyword: str):
     """
     return get_graph().query(query, params={"keyword": location_keyword})
 
-@tool
+@tool  # 🏥 병원/종합병원 근처 매물 검색 (general_only=True: 종합병원만)
 def search_properties_near_hospital(location_keyword: str, general_only: bool = False):
     """
     Find properties near Hospitals.
@@ -146,28 +147,28 @@ def search_properties_near_hospital(location_keyword: str, general_only: bool = 
         # Broad: Hospital, GeneralHospital (EXCLUDE Pharmacy)
         return execute_hybrid_query(location_keyword, "ANY", "NEAR_HOSPITAL|NEAR_GENERAL_HOSPITAL", "med_details", "dist")
 
-@tool
+@tool  # 💊 약국 근처 매물 검색
 def search_properties_near_pharmacy(location_keyword: str):
     """
     Find properties near Pharmacies.
     """
     return execute_hybrid_query(location_keyword, "Pharmacy", "NEAR_PHARMACY", "pharmacy_details", "dist")
 
-@tool
+@tool  # 🏪 편의점 근처 매물 검색 (슬세권)
 def search_properties_near_convenience(location_keyword: str):
     """
     Find properties near Convenience Stores.
     """
     return execute_hybrid_query(location_keyword, "Convenience", "NEAR_CONVENIENCE", "conv_details", "dist")
 
-@tool
+@tool  # 🌳 공원 근처 매물 검색
 def search_properties_near_park(location_keyword: str):
     """
     Find properties near Parks or Walking areas.
     """
     return execute_hybrid_query(location_keyword, "Park", "NEAR_PARK", "park_details", "dist")
 
-@tool
+@tool  # 🎓 대학교 근처 매물 검색 (학세권)
 def search_properties_near_university(location_keyword: str):
     """
     Find properties near Universities/Colleges.
@@ -198,7 +199,7 @@ def search_properties_near_university(location_keyword: str):
     return get_graph().query(query, params={"keyword": location_keyword})
 
 
-@tool
+@tool  # 🛡️ 안전 시설 근처 매물 검색 (CCTV, 비상벨, 경찰서, 소방서)
 def search_properties_with_safety(location_keyword: str):
     """
     Find properties with GOOD SAFETY infrastructure.
@@ -252,7 +253,7 @@ def search_properties_with_safety(location_keyword: str):
     """
     return get_graph().query(query, params={"keyword": location_keyword})
 
-@tool
+@tool  # 🔍 다중 조건 매물 검색 (편의점+병원+안전 등 복합 조건)
 def search_properties_multi_criteria(
     location_keyword: str,
     convenience: bool = False,
