@@ -106,9 +106,9 @@ export default function LandListFilter({ onFilterChange }: LandListFilterProps) 
                 </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="flex items-end gap-4">
                 {/* 자치구 선택 */}
-                <div className="space-y-2">
+                <div className="flex-1 space-y-2">
                     <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
                         자치구
                     </label>
@@ -127,7 +127,7 @@ export default function LandListFilter({ onFilterChange }: LandListFilterProps) 
                 </div>
 
                 {/* 행정동 선택 */}
-                <div className="space-y-2">
+                <div className="flex-1 space-y-2">
                     <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
                         행정동
                     </label>
@@ -138,7 +138,7 @@ export default function LandListFilter({ onFilterChange }: LandListFilterProps) 
                         className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg text-sm text-[var(--color-text-primary)] bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent disabled:bg-[var(--color-bg-secondary)] disabled:cursor-not-allowed transition-all"
                     >
                         <option value="">
-                            {selectedRegion ? '전체' : '자치구를 먼저 선택하세요'}
+                            {selectedRegion ? '전체' : '선택'}
                         </option>
                         {dongList.map((dong) => (
                             <option key={dong} value={dong}>
@@ -147,47 +147,43 @@ export default function LandListFilter({ onFilterChange }: LandListFilterProps) 
                         ))}
                     </select>
                 </div>
-            </div>
 
-            {/* 거래유형 칩 버튼 */}
-            <div className="mt-6 space-y-2">
-                <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
-                    거래유형
-                </label>
-                <div className="flex flex-wrap gap-2">
-                    {TRANSACTION_OPTIONS.map((option) => (
-                        <button
-                            key={option}
-                            onClick={() => setSelectedTransaction(selectedTransaction === option ? '' : option)}
-                            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${selectedTransaction === option
-                                    ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
-                                    : 'bg-white text-[var(--color-text-secondary)] border border-[var(--color-border)] hover:bg-[var(--color-bg-hover)] hover:border-[var(--color-border-dark)]'
-                                }`}
-                        >
-                            {option}
-                        </button>
-                    ))}
+                {/* 거래유형 드롭다운 */}
+                <div className="flex-1 space-y-2">
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
+                        거래유형
+                    </label>
+                    <select
+                        value={selectedTransaction}
+                        onChange={(e) => setSelectedTransaction(e.target.value)}
+                        className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg text-sm text-[var(--color-text-primary)] bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent transition-all"
+                    >
+                        <option value="">전체</option>
+                        {TRANSACTION_OPTIONS.map((option) => (
+                            <option key={option} value={option}>
+                                {option}
+                            </option>
+                        ))}
+                    </select>
                 </div>
-            </div>
 
-            {/* 건물용도 칩 버튼 */}
-            <div className="mt-6 space-y-2">
-                <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
-                    건물용도
-                </label>
-                <div className="flex flex-wrap gap-2">
-                    {BUILDING_OPTIONS.map((option) => (
-                        <button
-                            key={option}
-                            onClick={() => setSelectedBuilding(selectedBuilding === option ? '' : option)}
-                            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${selectedBuilding === option
-                                    ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
-                                    : 'bg-white text-[var(--color-text-secondary)] border border-[var(--color-border)] hover:bg-[var(--color-bg-hover)] hover:border-[var(--color-border-dark)]'
-                                }`}
-                        >
-                            {option}
-                        </button>
-                    ))}
+                {/* 건물용도 드롭다운 */}
+                <div className="flex-1 space-y-2">
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
+                        건물용도
+                    </label>
+                    <select
+                        value={selectedBuilding}
+                        onChange={(e) => setSelectedBuilding(e.target.value)}
+                        className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg text-sm text-[var(--color-text-primary)] bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent transition-all"
+                    >
+                        <option value="">전체</option>
+                        {BUILDING_OPTIONS.map((option) => (
+                            <option key={option} value={option}>
+                                {option}
+                            </option>
+                        ))}
+                    </select>
                 </div>
             </div>
         </div>

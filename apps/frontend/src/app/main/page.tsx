@@ -36,8 +36,8 @@ export default function MainPage() {
 
     return (
         <div className="max-w-[1440px] mx-auto px-8 py-8">
-            {/* 2컬럼 그리드 레이아웃 */}
-            <div className="grid grid-cols-[1fr_480px] gap-8 isolate">
+            {/* 2컬럼 그리드 레이아웃 - 반반 */}
+            <div className="grid grid-cols-2 gap-8 isolate">
                 {/* 좌측: 필터 + 매물 리스트 */}
                 <main className="space-y-6 z-0">
                     {/* 매물 필터 */}

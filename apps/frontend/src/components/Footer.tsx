@@ -33,7 +33,7 @@ const Footer: React.FC = () => {
       {/* 안내/면책 문구 영역 */}
       <div className="mx-auto max-w-6xl px-4 py-6 leading-loose">
         <p className="mb-4 text-slate-400">
-          온도하우스에서 제공하는 부동산 정보는 공공데이터 포털, 서울특별시 열린
+          GoZip에서 제공하는 부동산 정보는 공공데이터 포털, 서울특별시 열린
           데이터, 국토교통부 실거래가 공개 시스템 등 외부 제공처로부터 수집된
           자료를 기반으로 한 참고용 정보입니다.
           서비스는 이용자가 해당 정보를 바탕으로 진행한 매매,
@@ -49,7 +49,7 @@ const Footer: React.FC = () => {
       <div className="border-t border-slate-700/50 bg-slate-900/50">
         <div className="mx-auto max-w-6xl px-4 py-6 text-center">
           <p className="mb-3 font-semibold text-slate-300">
-            온도하우스 프로젝트 팀 정보
+            GoZip 프로젝트 팀 정보
           </p>
           <div className="flex flex-col gap-2 text-[11px] text-slate-400 md:flex-row md:flex-wrap md:gap-x-6 md:justify-center">
             <div className="flex gap-1 justify-center">
@@ -72,7 +72,7 @@ const Footer: React.FC = () => {
                 target="_blank"
                 className="hover:text-cyan-400 transition-colors"
               >
-                @ONDO-HOUSE
+                @GoZip
               </Link>
             </div>
           </div>
@@ -80,7 +80,7 @@ const Footer: React.FC = () => {
           {/* 하단 저작권 문구 */}
           <div className="mt-4 text-[11px] text-slate-500">
             © {currentYear}{" "}
-            <span className="font-medium bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">ONDO HOUSE Team</span>. All
+            <span className="font-medium bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">GoZip Team</span>. All
             rights reserved.
           </div>
         </div>

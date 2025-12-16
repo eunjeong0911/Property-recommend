@@ -33,7 +33,7 @@ export default function Header() {
             <rect width="32" height="32" rx="6" fill="currentColor" />
             <path d="M16 8L8 14V24H12V18H20V24H24V14L16 8Z" fill="white" />
           </svg>
-          <span>온도하우스</span>
+          <span>GoZip</span>
         </Link>
 
         {/* 네비게이션 */}

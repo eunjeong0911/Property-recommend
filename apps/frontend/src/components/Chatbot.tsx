@@ -247,7 +247,7 @@ export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
 
         {/* 헤더 */}
         <div className="flex justify-between p-4 border-b">
-          <h2 className="text-lg font-bold">매물 추천 챗봇</h2>
+          <h2 className="text-lg font-bold text-black">매물 추천 챗봇</h2>
 
           <div className="flex items-center gap-2">
             {/* 새 채팅(+ 버튼) */}
@@ -313,30 +313,192 @@ export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
               {/* 추천 질문 버튼 */}
               <div className="flex flex-wrap gap-3 justify-center max-w-md">
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     const question = '강남 원룸 추천해줘';
-                    setInputValue(question);
-                    handleSendMessage();
+
+                    let sessionId = currentSessionId;
+                    if (!sessionId) {
+                      sessionId = Date.now().toString();
+                      const newSession: ChatSession = {
+                        id: sessionId,
+                        title: '새 대화',
+                        messages: [],
+                        createdAt: new Date(),
+                        updatedAt: new Date(),
+                      };
+                      setSessions(prev => [newSession, ...prev]);
+                      setCurrentSessionId(sessionId);
+                    }
+
+                    const userMessage: Message = {
+                      id: Date.now().toString(),
+                      type: 'user',
+                      content: question,
+                      timestamp: new Date(),
+                    };
+
+                    setMessages(prev => [...prev, userMessage]);
+                    setIsLoading(true);
+
+                    try {
+                      const answer = await sendChatQuestion(question, sessionId);
+                      const aiMessage: Message = {
+                        id: (Date.now() + 1).toString(),
+                        type: 'ai',
+                        content: answer,
+                        timestamp: new Date(),
+                      };
+                      setMessages(prev => [...prev, aiMessage]);
+
+                      if (onRecommendLands) {
+                        const landIds = [...answer.matchAll(/\/landDetail\/(\d+)/g)]
+                          .map(match => Number(match[1]))
+                          .filter(Boolean);
+                        if (landIds.length > 0) {
+                          onRecommendLands(landIds);
+                        }
+                      }
+                    } catch (error) {
+                      setMessages(prev => [
+                        ...prev,
+                        {
+                          id: (Date.now() + 2).toString(),
+                          type: 'ai',
+                          content: '응답 중 오류가 발생했습니다. 다시 시도해주세요.',
+                          timestamp: new Date(),
+                        },
+                      ]);
+                    } finally {
+                      setIsLoading(false);
+                    }
                   }}
                   className="px-4 py-2 bg-white border-2 border-purple-200 text-purple-600 rounded-full text-sm font-medium hover:bg-purple-50 hover:border-purple-300 transition-all shadow-sm"
                 >
                   강남 원룸 추천해줘
                 </button>
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     const question = '전세 매물 알려줘';
-                    setInputValue(question);
-                    handleSendMessage();
+
+                    let sessionId = currentSessionId;
+                    if (!sessionId) {
+                      sessionId = Date.now().toString();
+                      const newSession: ChatSession = {
+                        id: sessionId,
+                        title: '새 대화',
+                        messages: [],
+                        createdAt: new Date(),
+                        updatedAt: new Date(),
+                      };
+                      setSessions(prev => [newSession, ...prev]);
+                      setCurrentSessionId(sessionId);
+                    }
+
+                    const userMessage: Message = {
+                      id: Date.now().toString(),
+                      type: 'user',
+                      content: question,
+                      timestamp: new Date(),
+                    };
+
+                    setMessages(prev => [...prev, userMessage]);
+                    setIsLoading(true);
+
+                    try {
+                      const answer = await sendChatQuestion(question, sessionId);
+                      const aiMessage: Message = {
+                        id: (Date.now() + 1).toString(),
+                        type: 'ai',
+                        content: answer,
+                        timestamp: new Date(),
+                      };
+                      setMessages(prev => [...prev, aiMessage]);
+
+                      if (onRecommendLands) {
+                        const landIds = [...answer.matchAll(/\/landDetail\/(\d+)/g)]
+                          .map(match => Number(match[1]))
+                          .filter(Boolean);
+                        if (landIds.length > 0) {
+                          onRecommendLands(landIds);
+                        }
+                      }
+                    } catch (error) {
+                      setMessages(prev => [
+                        ...prev,
+                        {
+                          id: (Date.now() + 2).toString(),
+                          type: 'ai',
+                          content: '응답 중 오류가 발생했습니다. 다시 시도해주세요.',
+                          timestamp: new Date(),
+                        },
+                      ]);
+                    } finally {
+                      setIsLoading(false);
+                    }
                   }}
                   className="px-4 py-2 bg-white border-2 border-purple-200 text-purple-600 rounded-full text-sm font-medium hover:bg-purple-50 hover:border-purple-300 transition-all shadow-sm"
                 >
                   전세 매물 알려줘
                 </button>
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     const question = '교통 좋은 곳 어디야?';
-                    setInputValue(question);
-                    handleSendMessage();
+
+                    let sessionId = currentSessionId;
+                    if (!sessionId) {
+                      sessionId = Date.now().toString();
+                      const newSession: ChatSession = {
+                        id: sessionId,
+                        title: '새 대화',
+                        messages: [],
+                        createdAt: new Date(),
+                        updatedAt: new Date(),
+                      };
+                      setSessions(prev => [newSession, ...prev]);
+                      setCurrentSessionId(sessionId);
+                    }
+
+                    const userMessage: Message = {
+                      id: Date.now().toString(),
+                      type: 'user',
+                      content: question,
+                      timestamp: new Date(),
+                    };
+
+                    setMessages(prev => [...prev, userMessage]);
+                    setIsLoading(true);
+
+                    try {
+                      const answer = await sendChatQuestion(question, sessionId);
+                      const aiMessage: Message = {
+                        id: (Date.now() + 1).toString(),
+                        type: 'ai',
+                        content: answer,
+                        timestamp: new Date(),
+                      };
+                      setMessages(prev => [...prev, aiMessage]);
+
+                      if (onRecommendLands) {
+                        const landIds = [...answer.matchAll(/\/landDetail\/(\d+)/g)]
+                          .map(match => Number(match[1]))
+                          .filter(Boolean);
+                        if (landIds.length > 0) {
+                          onRecommendLands(landIds);
+                        }
+                      }
+                    } catch (error) {
+                      setMessages(prev => [
+                        ...prev,
+                        {
+                          id: (Date.now() + 2).toString(),
+                          type: 'ai',
+                          content: '응답 중 오류가 발생했습니다. 다시 시도해주세요.',
+                          timestamp: new Date(),
+                        },
+                      ]);
+                    } finally {
+                      setIsLoading(false);
+                    }
                   }}
                   className="px-4 py-2 bg-white border-2 border-purple-200 text-purple-600 rounded-full text-sm font-medium hover:bg-purple-50 hover:border-purple-300 transition-all shadow-sm"
                 >
@@ -360,7 +522,7 @@ export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
                       }`}
                   >
                     {message.type === 'ai' ? (
-                      <div className="prose prose-sm max-w-none">
+                      <div className="prose prose-sm max-w-none text-gray-900">
                         <ReactMarkdown>{message.content}</ReactMarkdown>
                       </div>
                     ) : (
