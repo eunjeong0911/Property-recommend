@@ -64,7 +64,7 @@ export default function Profile({
   const displayName = name || email || '사용자'
 
   return (
-    <div className="w-full max-w-4xl mx-auto p-8 rounded-3xl border-2 border-white/40 bg-gradient-to-b from-sky-100/95 to-blue-200/95 backdrop-blur-xl shadow-2xl mb-6">
+    <div className="w-full max-w-4xl mx-auto p-8 rounded-3xl border-2 border-slate-200 bg-white shadow-lg mb-6">
       <div className="flex flex-col items-center mb-6">
         <div className="w-24 h-24 rounded-full bg-white/40 border-2 border-white/60 flex items-center justify-center overflow-hidden mb-4 shadow-md">
           {previewImage ? (
