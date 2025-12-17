@@ -16,6 +16,36 @@ warnings.filterwarnings('ignore')
 
 FEATURE_PATH = "data/ML/office_features.csv"
 MODEL_TEMP_PATH = "apps/reco/models/trust_model/save_models/temp_trained_models.pkl"
+TRAIN_DATA_PATH = "data/ML/train_data.csv"
+TEST_DATA_PATH = "data/ML/test_data.csv"
+
+
+def save_train_test_data(X_train, X_test, y_train, y_test):
+    """Train/Test 데이터를 CSV 파일로 저장"""
+    print("\n💾 Train/Test 데이터 CSV 저장 중...")
+    
+    # Train 데이터 저장
+    train_data = X_train.copy()
+    train_data['신뢰도등급'] = y_train.values
+    train_data.to_csv(TRAIN_DATA_PATH, index=False, encoding='utf-8-sig')
+    print(f"   ✅ Train 데이터 저장: {TRAIN_DATA_PATH} ({len(train_data)}개)")
+    
+    # Test 데이터 저장  
+    test_data = X_test.copy()
+    test_data['신뢰도등급'] = y_test.values
+    test_data.to_csv(TEST_DATA_PATH, index=False, encoding='utf-8-sig')
+    print(f"   ✅ Test 데이터 저장: {TEST_DATA_PATH} ({len(test_data)}개)")
+    
+    # 등급별 분포 출력
+    print(f"\n   📊 Train 등급 분포:")
+    train_counts = train_data['신뢰도등급'].value_counts().sort_index()
+    for grade, count in train_counts.items():
+        print(f"      {grade}등급: {count}개 ({count/len(train_data)*100:.1f}%)")
+    
+    print(f"\n   📊 Test 등급 분포:")
+    test_counts = test_data['신뢰도등급'].value_counts().sort_index()
+    for grade, count in test_counts.items():
+        print(f"      {grade}등급: {count}개 ({count/len(test_data)*100:.1f}%)")
 
 
 def load_data():
@@ -25,12 +55,13 @@ def load_data():
     # 타겟 변수
     y = df["신뢰도등급"].copy()
     
-    # Feature 선택 (12개)
+    # Feature 선택 (15개)
     selected_features = [
-        "거래완료_safe", "등록매물_safe", "총거래활동량",
+        "등록매물_log", "총거래활동량_log",  # 로그 변환 (거래완료_log 제거)
         "총_직원수", "공인중개사수", "공인중개사_비율",
         "운영기간_년", "운영경험_지수", "숙련도_지수", "운영_안정성",
-        "대형사무소", "직책_다양성"
+        "대형사무소", "직책_다양성",
+        "대표_공인중개사", "대표_법인", "대표_중개인", "대표_중개보조원"
     ]
     
     # 실제 존재하는 Feature만 필터링
@@ -62,10 +93,14 @@ def train_models(X_train_scaled, y_train, X_test_scaled, y_test):
     models = {}
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
     
-    # LogisticRegression
+    # LogisticRegression (최적 하이퍼파라미터 적용)
     print("\n[1/1] LogisticRegression 학습 중...")
+    print("   - 최적 하이퍼파라미터 적용 (GridSearchCV 결과)")
+    print("   - C=1, penalty=l1, solver=saga, class_weight=balanced")
     lr_model = LogisticRegression(
-        C=1.0,
+        C=1,  # 정규화 강도 (튜닝 결과)
+        penalty='l1',  # L1 정규화 (피처 선택 효과)
+        solver='saga',  # L1을 지원하는 solver
         max_iter=1000,
         class_weight='balanced',
         random_state=42
@@ -81,7 +116,7 @@ def train_models(X_train_scaled, y_train, X_test_scaled, y_test):
 
 def main():
     print("=" * 70)
-    print(" " * 20 + "모델 학습 (12개 Feature)")
+    print(" " * 20 + "모델 학습")
     print("=" * 70)
 
     # 1) 데이터 로드
@@ -95,6 +130,9 @@ def main():
     print(f"\n📊 데이터 분할:")
     print(f"   - Train: {len(X_train)}개")
     print(f"   - Test: {len(X_test)}개")
+    
+    # 2-1) Train/Test 데이터 CSV 저장
+    save_train_test_data(X_train, X_test, y_train, y_test)
     
     # 3) 스케일링
     print("\n🔍 데이터 스케일링 중...")

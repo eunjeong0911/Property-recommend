@@ -1,6 +1,6 @@
 """
 02_create_features.py
-중개사 신뢰도 모델 - Feature 생성 (12개 버전)
+중개사 신뢰도 모델 - Feature 생성
 """
 
 import pandas as pd
@@ -25,23 +25,23 @@ def load_target_data(filepath: str = "data/ML/office_target.csv") -> pd.DataFram
 
 
 # ============================================================
-# 2) Feature 생성 (12개)
+# 2) Feature (12개)
 # ============================================================
 def create_features(df: pd.DataFrame):
 
-    print("\n🔧 [2단계] Feature 생성 시작 (12개)")
+    print("\n🔧 [2단계] Feature 생성")
 
     # ------------------------------------------------------------
     # 숫자형 변환
     # ------------------------------------------------------------
-    df["거래완료_숫자"] = pd.to_numeric(df["거래완료_숫자"], errors="coerce").fillna(0)
-    df["등록매물_숫자"] = pd.to_numeric(df["등록매물_숫자"], errors="coerce").fillna(0)
-    df["공인중개사수"] = pd.to_numeric(df["공인중개사수"], errors="coerce").fillna(0)
-    df["중개보조원수"] = pd.to_numeric(df["중개보조원수"], errors="coerce").fillna(0)
-    df["일반직원수"] = pd.to_numeric(df["일반직원수"], errors="coerce").fillna(0)
+    df["거래완료_숫자"] = pd.to_numeric(df["거래완료_숫자"], errors="coerce")
+    df["등록매물_숫자"] = pd.to_numeric(df["등록매물_숫자"], errors="coerce")
+    df["공인중개사수"] = pd.to_numeric(df["공인중개사수"], errors="coerce")
+    df["중개보조원수"] = pd.to_numeric(df["중개보조원수"], errors="coerce")
+    df["총_직원수"] = pd.to_numeric(df["총_직원수"], errors="coerce")
 
     # ------------------------------------------------------------
-    # 12개 Feature 생성
+    # 16개 Feature 생성
     # ------------------------------------------------------------
     
     # 1-3. 거래 지표 (로그 변환으로 가중치 감소)
@@ -50,9 +50,9 @@ def create_features(df: pd.DataFrame):
     df["총거래활동량"] = np.log1p(df["거래완료_숫자"] + df["등록매물_숫자"])  # log(1+x) 변환
     
     # 4-6. 인력 지표
-    df["총_직원수"] = df["공인중개사수"] + df["중개보조원수"] + df["일반직원수"]
-    df["총_직원수_safe"] = df["총_직원수"].replace(0, 1)
-    df["공인중개사_비율"] = df["공인중개사수"] / df["총_직원수_safe"]
+    df["총_직원수"] = df["총_직원수"]
+    df["공인중개사수"] = df["공인중개사수"]
+    df["공인중개사_비율"] = df["공인중개사수"] / df["총_직원수"]
     
     # 7-10. 운영 경험
     df["등록일"] = pd.to_datetime(df["등록일"], errors="coerce")
@@ -65,13 +65,19 @@ def create_features(df: pd.DataFrame):
     df["운영_안정성"] = (df["운영기간_년"] >= 3).astype(int)
     
     # 11-12. 조직 구조
-    df["대형사무소"] = (df["총_직원수"] >= 3).astype(int)
+    df["대형사무소"] = (df["총_직원수"] >= 2).astype(int)
     df["직책_다양성"] = (
         (df["공인중개사수"] > 0).astype(int) +
         (df["중개보조원수"] > 0).astype(int) +
         (df.get("대표수", pd.Series([1] * len(df))) > 0).astype(int) +
         (df.get("일반직원수", pd.Series([0] * len(df))) > 0).astype(int)
     )
+    
+    # 13-16. 대표자 구분 (원-핫 인코딩)
+    df["대표_공인중개사"] = (df["대표자구분명"] == "공인중개사").astype(int)
+    df["대표_법인"] = (df["대표자구분명"] == "법인").astype(int)
+    df["대표_중개인"] = (df["대표자구분명"] == "중개인").astype(int)
+    df["대표_중개보조원"] = (df["대표자구분명"] == "중개보조원").astype(int)
     
     # ------------------------------------------------------------
     # 추가 Feature (3개) - 누수/과적합 없음
@@ -89,10 +95,9 @@ def create_features(df: pd.DataFrame):
     # Feature 선택 (15개)
     # ------------------------------------------------------------
     selected_features = [
-        # 거래 지표 (3개)
-        "거래완료_safe",
-        "등록매물_safe",
-        "총거래활동량",
+        # 거래 지표 (2개) - 로그 변환
+        "등록매물_log", 
+        "총거래활동량_log",
         
         # 인력 지표 (4개) - +1개 추가
         "총_직원수",
@@ -107,10 +112,15 @@ def create_features(df: pd.DataFrame):
         "운영_안정성",
         "베테랑",  # NEW
         
-        # 조직 구조 (3개) - +1개 추가
-        "대형사무소",
+        # 조직 구조 (2개)
+        "대형사무소", 
         "직책_다양성",
-        "경력_규모_지수",  # NEW
+        
+        # 대표자 구분 (4개)
+        "대표_공인중개사",
+        "대표_법인",
+        "대표_중개인",
+        "대표_중개보조원"
     ]
     
     # Feature 추출
@@ -132,7 +142,7 @@ def create_features(df: pd.DataFrame):
     print(f"   - X shape: {X.shape}")
     print(f"   - 결측치: {X.isna().sum().sum()}")
     
-    print(f"\n📋 15개 Feature (데이터 누수 없음):")
+    print(f"\n📋 {len(X.columns)}개 Feature:")
     for i, feature in enumerate(X.columns, 1):
         print(f"   {i:2d}. {feature}")
     

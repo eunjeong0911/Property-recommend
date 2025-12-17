@@ -64,7 +64,24 @@ def evaluate_model(models, X_train, y_train, X_test, y_test, cv_results=None):
         print(classification_report(y_test, test_preds))
 
         print("▶ Test Confusion Matrix:")
-        print(confusion_matrix(y_test, test_preds))
+        cm = confusion_matrix(y_test, test_preds)
+        
+        # 등급 라벨 (실제 데이터에 맞게 조정)
+        labels = sorted(y_test.unique())
+        
+        # 혼동행렬을 보기 좋게 출력
+        print("\n" + " " * 12 + "예측")
+        print(" " * 8 + "  ".join([f"{label:>6}" for label in labels]))
+        print(" " * 6 + "-" * (8 * len(labels) + 4))
+        
+        for i, label in enumerate(labels):
+            if i == len(labels) // 2:
+                row_label = f"실제 {label} |"
+            else:
+                row_label = f"     {label} |"
+            row_values = "  ".join([f"{val:>6}" for val in cm[i]])
+            print(f"{row_label} {row_values}")
+        print()
 
         result_dict = {
             "model": name,

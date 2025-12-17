@@ -81,3 +81,7 @@ catboost_info
 md
 
 .kiro
+
+.hypothesis
+
+shap_plots/

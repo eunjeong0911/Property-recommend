@@ -61,8 +61,8 @@ def create_target(df: pd.DataFrame) -> pd.DataFrame:
     df["지역평균"] = df.groupby("지역명")["거래성사율"].transform("mean")
     df["지역표준편차"] = df.groupby("지역명")["거래성사율"].transform("std")
 
-    # 표준편차가 0일 수 있으므로 안정적 계산
-    df["지역표준편차"] = df["지역표준편차"].replace(0, 1e-6)
+    # # 표준편차가 0일 수 있으므로 안정적 계산
+    # df["지역표준편차"] = df["지역표준편차"].replace(0, 1e-6)
 
     # ---------------------------------------
     # 3) 개인별 Z-score 계산 (거래성사율)
@@ -113,12 +113,38 @@ def create_target(df: pd.DataFrame) -> pd.DataFrame:
     # print(df[["지역명", "거래성사율", "자격구분", "Performance_Zscore", "Qual_Zscore", "Zscore"]].head())
 
     # ---------------------------------------
-    # 4) 분위수 기반 A/B/C 등급 생성
+    # 3-1) 대표자구분명 기반 가중치 적용
+    # ---------------------------------------
+    print("\n⚖️ [2-1단계] 대표자구분명 기반 가중치 적용")
+    
+    # 대표자 자격에 따른 신뢰도 조정값
+    대표자구분_가중치 = {
+        '공인중개사': 0.0,       # 기본 (가장 일반적, 조정 없음)
+        '법인': 0.2,            # +0.2 가점 (조직 안정성)
+        '중개보조원': -0.1,      # -0.1 감점 (자격 수준 낮음)
+        '중개인': -0.3,          # -0.3 감점 (대표가 보조원은 이례적)
+    }
+    
+    # 대표자구분명이 있으면 가중치 적용 (모든 데이터에 대표자구분명이 있다고 가정)
+    df["대표자구분_조정값"] = df["대표자구분명"].map(대표자구분_가중치).fillna(0.0)
+    df["Zscore_조정"] = df["Zscore"] + df["대표자구분_조정값"]
+    
+    # 대표자구분명 분포 출력
+    if "대표자구분명" in df.columns:
+        print("   - 대표자구분명 분포:")
+        print(df["대표자구분명"].value_counts(dropna=False))
+    
+    print(f"   - 조정 전 Z-score 평균: {df['Zscore'].mean():.4f}")
+    print(f"   - 조정 후 Z-score 평균: {df['Zscore_조정'].mean():.4f}")
+
+    # ---------------------------------------
+    # 4) 분위수 기반 A/B/C 등급 생성 (조정된 Z-score 사용)
     # ---------------------------------------
     print("\n🏷 [3단계] A/B/C 등급 생성 (분위수 기반 30/40/30)")
 
-    q30 = df["Zscore"].quantile(0.30)
-    q70 = df["Zscore"].quantile(0.70)
+    # 조정된 Z-score를 기준으로 분위수 계산
+    q30 = df["Zscore_조정"].quantile(0.30)
+    q70 = df["Zscore_조정"].quantile(0.70)
 
     print(f"   - C 등급 상한(Z ≤): {q30:.4f}")
     print(f"   - B 등급 상한(Z ≤): {q70:.4f}")
@@ -131,7 +157,8 @@ def create_target(df: pd.DataFrame) -> pd.DataFrame:
         else:
             return "A"
 
-    df["신뢰도등급"] = df["Zscore"].apply(classify)
+    # 조정된 Z-score를 기준으로 등급 분류
+    df["신뢰도등급"] = df["Zscore_조정"].apply(classify)
 
     print("\n📌 등급 분포:")
     print(df["신뢰도등급"].value_counts(normalize=True).map(lambda x: round(x*100, 1)))
