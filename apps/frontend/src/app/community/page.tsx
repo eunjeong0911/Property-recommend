@@ -209,20 +209,20 @@ export default function CommunityPage() {
         prev.map((post) =>
           post.id === postId
             ? {
-                ...post,
-                isLiked: liked,
-                likes: like_count,
-              }
+              ...post,
+              isLiked: liked,
+              likes: like_count,
+            }
             : post
         )
       )
       setSelectedPost((prev) =>
         prev && prev.id === postId
           ? {
-              ...prev,
-              isLiked: liked,
-              likes: like_count,
-            }
+            ...prev,
+            isLiked: liked,
+            likes: like_count,
+          }
           : prev
       )
     } catch (toggleError) {
@@ -260,10 +260,10 @@ export default function CommunityPage() {
 
   const editingRegionData: RegionFilterValues | undefined = editingPost
     ? {
-        region: editingPost.region,
-        dong: editingPost.dong,
-        complexName: editingPost.complexName,
-      }
+      region: editingPost.region,
+      dong: editingPost.dong,
+      complexName: editingPost.complexName,
+    }
     : undefined
 
   const writeModalTitle = editingPost
@@ -274,14 +274,14 @@ export default function CommunityPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8">
-        <CommunityTab activeTab={activeTab} onTabChange={setActiveTab} />
-
-        <div className="flex justify-end mb-6">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8 flex flex-col">
+        <div className="flex items-center justify-between mb-4">
+          <CommunityTab activeTab={activeTab} onTabChange={setActiveTab} />
           <Button variant="primary" onClick={handleWriteClick}>
             글쓰기
           </Button>
         </div>
+        <div className="w-full h-[2px] bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 mb-6"></div>
 
         {activeTab === 'region' && (
           <RegionFilter onFilterChange={handleFilterChange} />
@@ -294,7 +294,7 @@ export default function CommunityPage() {
         )}
 
         {isLoading ? (
-          <div className="py-20 text-center text-slate-500">게시글을 불러오는 중입니다...</div>
+          <div className="flex-1 flex items-center justify-center text-slate-500">게시글을 불러오는 중입니다...</div>
         ) : (
           <Pagination
             items={filteredPosts}

@@ -63,14 +63,14 @@ export default function Pagination<T>({
     if (totalPages <= maxVisible) {
       return Array.from({ length: totalPages }, (_, i) => i + 1)
     }
-    
+
     let start = Math.max(1, currentPage - 2)
     let end = Math.min(totalPages, start + maxVisible - 1)
-    
+
     if (end - start < maxVisible - 1) {
       start = Math.max(1, end - maxVisible + 1)
     }
-    
+
     return Array.from({ length: end - start + 1 }, (_, i) => start + i)
   }
 
@@ -81,8 +81,8 @@ export default function Pagination<T>({
   const visiblePages = getVisiblePages()
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-4">
+    <div className="flex-1 flex flex-col">
+      <div className="flex-1 space-y-4 mb-6">
         {currentItems.data.map((item, offset) =>
           renderItem(item, currentItems.startIndex + offset)
         )}
@@ -145,8 +145,8 @@ export default function Pagination<T>({
               className={`
                 w-9 h-9 rounded-xl text-sm font-semibold transition-all duration-200
                 ${page === currentPage
-                  ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-500/30 scale-105'
-                  : 'text-slate-600 hover:bg-blue-50 hover:text-blue-600'
+                  ? 'bg-[#16375B] text-white shadow-lg shadow-[#16375B]/30 scale-105'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-[#16375B]'
                 }
               `}
             >
@@ -202,10 +202,10 @@ export default function Pagination<T>({
       </div>
 
       {/* 페이지 정보 */}
-      <div className="text-center">
+      <div className="text-center mt-4">
         <span className="text-sm text-slate-500">
           총 <span className="font-semibold text-slate-700">{items.length}</span>개 중{' '}
-          <span className="font-semibold text-blue-600">{currentPage}</span> / {totalPages} 페이지
+          <span className="font-semibold text-[#16375B]">{currentPage}</span> / {totalPages} 페이지
         </span>
       </div>
     </div>

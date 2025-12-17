@@ -101,63 +101,94 @@ export default function RegionFilter({
   }
 
   return (
-    <div className="bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md rounded-2xl border-2 border-white/40 shadow-lg p-4 mb-6">
-      {showTitle && <h3 className="text-base font-semibold text-slate-800 mb-3">지역 필터</h3>}
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 mb-6">
+      {showTitle && (
+        <h3 className="text-lg font-bold text-slate-900 mb-4">지역 필터</h3>
+      )}
 
-      <div className={`grid grid-cols-1 md:grid-cols-3 gap-3 ${showButtons ? 'mb-3' : ''}`}>
+      <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 ${showButtons ? 'mb-4' : ''}`}>
+        {/* 자치구 선택 */}
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1.5">
+          <label className="block text-sm font-semibold text-slate-700 mb-2">
             자치구
           </label>
-          <select
-            value={region}
-            onChange={(e) => handleRegionChange(e.target.value)}
-            className="w-full px-3 py-2 border border-white/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/60 backdrop-blur-sm text-slate-700"
-          >
-            <option value="">전체</option>
-            {Object.keys(SEOUL_DONGS).map((regionName) => (
-              <option key={regionName} value={regionName}>
-                {regionName}
-              </option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              value={region}
+              onChange={(e) => handleRegionChange(e.target.value)}
+              className="w-full px-4 py-2.5 pr-10 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#16375B] focus:border-transparent bg-white text-slate-700 appearance-none cursor-pointer transition-all hover:border-[#16375B]/30"
+            >
+              <option value="">전체</option>
+              {Object.keys(SEOUL_DONGS).map((regionName) => (
+                <option key={regionName} value={regionName}>
+                  {regionName}
+                </option>
+              ))}
+            </select>
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+              <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
         </div>
 
+        {/* 행정동 선택 */}
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1.5">
+          <label className="block text-sm font-semibold text-slate-700 mb-2">
             행정동
           </label>
-          <select
-            value={dong}
-            onChange={(e) => handleDongChange(e.target.value)}
-            className="w-full px-3 py-2 border border-white/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/60 backdrop-blur-sm text-slate-700 disabled:bg-white/30 disabled:text-slate-400"
-            disabled={!region}
-          >
-            <option value="">전체</option>
-            {dongOptions.map((dongName) => (
-              <option key={dongName} value={dongName}>
-                {dongName}
-              </option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              value={dong}
+              onChange={(e) => handleDongChange(e.target.value)}
+              className="w-full px-4 py-2.5 pr-10 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#16375B] focus:border-transparent bg-white text-slate-700 appearance-none cursor-pointer transition-all hover:border-[#16375B]/30 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed disabled:hover:border-slate-200"
+              disabled={!region}
+            >
+              <option value="">전체</option>
+              {dongOptions.map((dongName) => (
+                <option key={dongName} value={dongName}>
+                  {dongName}
+                </option>
+              ))}
+            </select>
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+              <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
         </div>
 
+        {/* 단지명 입력 */}
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1.5">
+          <label className="block text-sm font-semibold text-slate-700 mb-2">
             단지명
           </label>
-          <input
-            type="text"
-            value={complexName}
-            onChange={(e) => handleComplexNameChange(e.target.value)}
-            placeholder="단지명 입력"
-            className="w-full px-3 py-2 border border-white/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/60 backdrop-blur-sm text-slate-700 placeholder-slate-400"
-          />
+          <div className="relative">
+            <input
+              type="text"
+              value={complexName}
+              onChange={(e) => handleComplexNameChange(e.target.value)}
+              placeholder="단지명 입력"
+              className="w-full px-4 py-2.5 pr-10 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#16375B] focus:border-transparent bg-white text-slate-700 placeholder-slate-400 transition-all hover:border-[#16375B]/30"
+            />
+            {complexName && (
+              <button
+                onClick={() => handleComplexNameChange('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
       {showButtons && (
-        <div className="flex justify-end gap-3">
+        <div className="flex justify-end gap-3 pt-2">
           <Button variant="secondary" onClick={handleResetFilter}>
             초기화
           </Button>
