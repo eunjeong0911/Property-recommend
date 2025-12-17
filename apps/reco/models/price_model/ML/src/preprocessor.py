@@ -550,40 +550,40 @@ class PriceDataPreprocessor:
                 .transform("mean")
             )
 
-        # 15-1. 동용도_희소도_구간 생성 (동 내 용도별 매물 비율 기준)
-        print("15-1. 동용도_희소도_구간 생성 중...")
+        # # 15-1. 동용도_희소도_구간 생성 (동 내 용도별 매물 비율 기준)
+        # print("15-1. 동용도_희소도_구간 생성 중...")
 
-        # 동 전체 매물 수, 동×용도 매물 수 (train 기준)
-        dong_total = df_train.groupby("법정동명").size().rename("동_전체매물수")
-        dong_usage = df_train.groupby(["법정동명", "건물용도"]).size().rename("동용도_매물수")
+        # # 동 전체 매물 수, 동×용도 매물 수 (train 기준)
+        # dong_total = df_train.groupby("법정동명").size().rename("동_전체매물수")
+        # dong_usage = df_train.groupby(["법정동명", "건물용도"]).size().rename("동용도_매물수")
 
-        rarity_df = (
-            dong_usage
-            .reset_index()
-            .merge(dong_total.reset_index(), on="법정동명", how="left")
-        )
-        rarity_df["동용도_비율"] = rarity_df["동용도_매물수"] / rarity_df["동_전체매물수"]
+        # rarity_df = (
+        #     dong_usage
+        #     .reset_index()
+        #     .merge(dong_total.reset_index(), on="법정동명", how="left")
+        # )
+        # rarity_df["동용도_비율"] = rarity_df["동용도_매물수"] / rarity_df["동_전체매물수"]
 
-        # 비율 기준 희소도 구간 (앞에서 확인한 thresholds 그대로 사용)
-        def rarity_label(p: float) -> str:
-            if p <= 0.03:
-                return "매우희소"
-            if p <= 0.10:
-                return "희소"
-            if p <= 0.30:
-                return "보통"
-            if p <= 0.60:
-                return "다수"
-            return "과밀"
+        # # 비율 기준 희소도 구간 (앞에서 확인한 thresholds 그대로 사용)
+        # def rarity_label(p: float) -> str:
+        #     if p <= 0.03:
+        #         return "매우희소"
+        #     if p <= 0.10:
+        #         return "희소"
+        #     if p <= 0.30:
+        #         return "보통"
+        #     if p <= 0.60:
+        #         return "다수"
+        #     return "과밀"
 
-        rarity_df["동용도_희소도_구간"] = rarity_df["동용도_비율"].apply(rarity_label)
+        # rarity_df["동용도_희소도_구간"] = rarity_df["동용도_비율"].apply(rarity_label)
 
-        # 매물 레벨로 매핑 (train/test 모두)
-        rarity_map = rarity_df.set_index(["법정동명", "건물용도"])["동용도_희소도_구간"]
+        # # 매물 레벨로 매핑 (train/test 모두)
+        # rarity_map = rarity_df.set_index(["법정동명", "건물용도"])["동용도_희소도_구간"]
 
-        for df in [df_train, df_test]:
-            keys = list(zip(df["법정동명"], df["건물용도"]))
-            df["동용도_희소도_구간"] = [rarity_map.get(k, "보통") for k in keys]
+        # for df in [df_train, df_test]:
+        #     keys = list(zip(df["법정동명"], df["건물용도"]))
+        #     df["동용도_희소도_구간"] = [rarity_map.get(k, "보통") for k in keys]
 
         # # 15-2. 동용도_공급국면 생성 (최근 매물 수 변화율 기준)
         # print("15-2. 동용도_공급국면 생성 중...")
@@ -736,7 +736,7 @@ class PriceDataPreprocessor:
             "자치구_월별_임대료수준_구간",
             "자치구_용도_월별_임대료_평균",
             "법정동_용도_월별_임대료_평균",
-            "동용도_희소도_구간",
+            # "동용도_희소도_구간",
             # "동용도_공급국면",
             "면적_x_건축연차",
             "자치구거래량_x_면적",
