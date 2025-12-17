@@ -185,8 +185,23 @@ export default function LandList({ filterParams, recommendedLandIds }: LandListP
     if (lands.length === 0) {
         return (
             <div className="bg-white border border-[var(--color-border-light)] rounded-xl p-8 shadow-[var(--shadow-md)] min-h-[400px] flex items-center justify-center">
-                <div className="text-center text-[var(--color-text-tertiary)]">
-                    <p>조건에 맞는 매물이 없습니다.</p>
+                <div className="text-center max-w-md">
+                    {/* 아이콘 */}
+                    <div className="mb-6 flex justify-center">
+                        <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="40" cy="40" r="40" fill="#F5F7FA" />
+                            <path d="M40 24L24 34V56H32V42H48V56H56V34L40 24Z" fill="#C5CDD8" />
+                        </svg>
+                    </div>
+
+                    {/* 메시지 */}
+                    <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mb-2">
+                        조건에 맞는 매물이 없습니다
+                    </h3>
+                    <p className="text-sm text-[var(--color-text-secondary)] mb-6">
+                        다른 조건으로 검색하거나<br />
+                        AI 챗봇에게 매물 추천을 받아보세요
+                    </p>
                 </div>
             </div>
         );

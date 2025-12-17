@@ -6,7 +6,12 @@ export async function fetchLands(params?: LandFilterParams): Promise<Land[]> {
     const queryParams = new URLSearchParams();
 
     if (params) {
-        if (params.region) queryParams.append('address', params.region);
+        // 자치구 + 행정동을 조합하여 address로 전달
+        let addressFilter = '';
+        if (params.region) addressFilter = params.region;
+        if (params.dong) addressFilter += (addressFilter ? ' ' : '') + params.dong;
+
+        if (addressFilter) queryParams.append('address', addressFilter);
         if (params.transaction_type) queryParams.append('deal_type', params.transaction_type);
         if (params.building_type) queryParams.append('building_type', params.building_type);
         if (params.search) queryParams.append('search', params.search);
