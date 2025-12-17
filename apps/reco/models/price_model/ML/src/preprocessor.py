@@ -182,18 +182,21 @@ class PriceDataPreprocessor:
 
         # 2. 자치구 권역
         print("2. 자치구 권역 생성 중...")
-        east = ["광진구", "중랑구", "동대문구", "성동구", "강동구", "송파구"]
-        west = ["은평구", "서대문구", "마포구", "강서구", "양천구", "영등포구", "구로구", "금천구"]
-        south = ["강남구", "서초구", "동작구", "관악구"]
+        east = ["광진구", "중랑구", "동대문구", "성동구", "강북구", "도봉구", "성북구", "노원구"]
+        west = ["은평구", "서대문구", "마포구"]
+        south = ["강서구", "양천구", "영등포구", "구로구", "금천구", "관악구", "동작구"]
+        city = ["종로구", "중구", "용산구"]
 
         def map_direction(gu):
             if gu in east:
-                return "동부"
+                return "동북"
             if gu in west:
-                return "서부"
+                return "서북"
             if gu in south:
-                return "남부"
-            return "북부"
+                return "서남"
+            if gu in city:
+                return "도심"
+            return "동남"
 
         df_train["구_권역"] = df_train["자치구명"].apply(map_direction)
         df_test["구_권역"] = df_test["자치구명"].apply(map_direction)
@@ -737,7 +740,7 @@ class PriceDataPreprocessor:
             # "동용도_공급국면",
             "면적_x_건축연차",
             "자치구거래량_x_면적",
-            "자치구_x_금리평균",
+            # "자치구_x_금리평균",
             # "계절_x_자치구",
             "보증금_지역대비",
         ]
