@@ -79,3 +79,4 @@ data
 .hypothesis
 
 shap_plots/
+eda_plots/
