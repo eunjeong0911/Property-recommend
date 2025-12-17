@@ -330,6 +330,22 @@ export default function CommunityPage() {
           onEdit={handleEditSelectedPost}
           onDelete={handleDeletePost}
           onToggleLike={handleToggleLike}
+          onCommentCountChange={(postId, newCount) => {
+            // 게시글 목록의 댓글 수 업데이트
+            setPosts(prev =>
+              prev.map(post =>
+                post.id === postId
+                  ? { ...post, comments: newCount }
+                  : post
+              )
+            )
+            // 선택된 게시글의 댓글 수도 업데이트
+            setSelectedPost(prev =>
+              prev && prev.id === postId
+                ? { ...prev, comments: newCount }
+                : prev
+            )
+          }}
         />
       )}
     </div>

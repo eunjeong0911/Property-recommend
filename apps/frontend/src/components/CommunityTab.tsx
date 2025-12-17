@@ -19,10 +19,7 @@ interface CommunityTabProps {
 }
 
 export default function CommunityTab({ activeTab, onTabChange }: CommunityTabProps) {
-  const { triggerEffect } = useParticleEffect()
-
   const handleTabChange = (tab: 'free' | 'region', event: React.MouseEvent<HTMLButtonElement>) => {
-    triggerEffect(event.currentTarget)
     onTabChange(tab)
   }
 

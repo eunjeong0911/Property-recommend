@@ -81,8 +81,8 @@ export default function Pagination<T>({
   const visiblePages = getVisiblePages()
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap -mx-2">
+    <div className="flex-1 flex flex-col">
+      <div className="flex-1 space-y-4 mb-6">
         {currentItems.data.map((item, offset) =>
           renderItem(item, currentItems.startIndex + offset)
         )}

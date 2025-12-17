@@ -45,7 +45,6 @@ interface CommunityCardProps {
 }
 
 export default function CommunityCard({ post, onClick, onToggleLike }: CommunityCardProps) {
-  const { triggerEffect } = useParticleEffect()
 
   // 날짜 포맷 함수
   const formatDate = (date: Date) => {
@@ -64,13 +63,11 @@ export default function CommunityCard({ post, onClick, onToggleLike }: Community
   }
 
   const handleCardClick = (event: MouseEvent<HTMLDivElement>) => {
-    triggerEffect(event.currentTarget as HTMLElement)
     onClick(post)
   }
 
   const handleLikeClick = (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation()
-    triggerEffect(event.currentTarget as HTMLElement)
     onToggleLike(post.id)
   }
 
@@ -93,7 +90,7 @@ export default function CommunityCard({ post, onClick, onToggleLike }: Community
           {post.region && (
             <div className="flex flex-wrap gap-2 mb-3">
               <span className="inline-flex items-center px-3 py-1 bg-[#16375B]/5 text-[#16375B] text-xs font-semibold rounded-full border border-[#16375B]/10">
-                📍 {post.region}
+                {post.region}
               </span>
               {post.dong && (
                 <span className="inline-flex items-center px-3 py-1 bg-[#16375B]/5 text-[#16375B] text-xs font-semibold rounded-full border border-[#16375B]/10">
@@ -102,7 +99,7 @@ export default function CommunityCard({ post, onClick, onToggleLike }: Community
               )}
               {post.complexName && (
                 <span className="inline-flex items-center px-3 py-1 bg-[#16375B]/5 text-[#16375B] text-xs font-semibold rounded-full border border-[#16375B]/10">
-                  🏢 {post.complexName}
+                  {post.complexName}
                 </span>
               )}
             </div>
@@ -149,8 +146,8 @@ export default function CommunityCard({ post, onClick, onToggleLike }: Community
               type="button"
               onClick={handleLikeClick}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${post.isLiked
-                  ? 'text-red-500 bg-red-50 hover:bg-red-100'
-                  : 'text-slate-400 hover:text-red-500 hover:bg-red-50'
+                ? 'text-red-500 bg-red-50 hover:bg-red-100'
+                : 'text-slate-400 hover:text-red-500 hover:bg-red-50'
                 }`}
               aria-pressed={post.isLiked}
               aria-label="좋아요"

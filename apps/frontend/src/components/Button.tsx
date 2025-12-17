@@ -34,11 +34,8 @@ export default function Button({
   type = 'button',
   className = ''
 }: ButtonProps) {
-  const { triggerEffect } = useParticleEffect()
-
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (!disabled) {
-      triggerEffect(e.currentTarget)
       onClick?.(e)
     }
   }

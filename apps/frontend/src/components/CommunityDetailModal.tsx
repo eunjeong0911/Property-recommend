@@ -20,7 +20,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Button from './Button'
-import { useParticleEffect } from '../hooks/useParticleEffect'
+import { fetchComments, createComment, updateComment, deleteComment } from '../api/communityApi'
 
 interface Comment {
   id: string
@@ -58,6 +58,7 @@ interface CommunityDetailModalProps {
   onEdit?: () => void
   onDelete?: () => void
   onToggleLike?: (postId: string) => void
+  onCommentCountChange?: (postId: string, newCount: number) => void
 }
 
 export default function CommunityDetailModal({
@@ -66,20 +67,20 @@ export default function CommunityDetailModal({
   onClose,
   onEdit,
   onDelete,
-  onToggleLike
+  onToggleLike,
+  onCommentCountChange
 }: CommunityDetailModalProps) {
   const [comments, setComments] = useState<Comment[]>([])
   const [newComment, setNewComment] = useState('')
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
   const [editingCommentContent, setEditingCommentContent] = useState('')
+  const [isLoadingComments, setIsLoadingComments] = useState(false)
   const commentsContainerRef = useRef<HTMLDivElement>(null)
-  const { triggerEffect } = useParticleEffect()
 
-  // 모달이 열릴 때 스크롤 방지
+  // 모달이 열릴 때 댓글 로드
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden'
-      // 임시 댓글 데이터 로드 (실제로는 API 호출)
       loadComments()
     } else {
       document.body.style.overflow = 'unset'
@@ -87,13 +88,33 @@ export default function CommunityDetailModal({
     return () => {
       document.body.style.overflow = 'unset'
     }
-  }, [isOpen])
+  }, [isOpen, post.id])
 
   // 댓글 로드 함수
-  const loadComments = () => {
-    // 실제로는 API 호출
-    // 빈 배열로 초기화 - 사용자가 작성한 댓글만 표시됨
-    setComments([])
+  const loadComments = async () => {
+    try {
+      setIsLoadingComments(true)
+      const data = await fetchComments(post.id)
+
+      // API 응답을 Comment 형태로 변환
+      const formattedComments: Comment[] = data.map((comment: any) => ({
+        id: comment.id.toString(),
+        author: {
+          name: comment.user?.username || '익명',
+          profileImage: comment.user?.profile_image
+        },
+        content: comment.content,
+        createdAt: new Date(comment.created_at),
+        isOwner: comment.is_owner || false
+      }))
+
+      setComments(formattedComments)
+    } catch (error) {
+      console.error('Failed to load comments:', error)
+      // 에러 시 빈 배열 유지
+    } finally {
+      setIsLoadingComments(false)
+    }
   }
 
   // 날짜 포맷 함수
@@ -113,50 +134,87 @@ export default function CommunityDetailModal({
   }
 
   // 댓글 작성
-  const handleAddComment = (e?: React.MouseEvent) => {
-    if (e) triggerEffect(e.currentTarget as HTMLElement)
+  const handleAddComment = async (e?: React.MouseEvent) => {
     if (!newComment.trim()) return
 
-    const comment: Comment = {
-      id: Date.now().toString(),
-      author: { name: '현재 사용자' },
-      content: newComment,
-      createdAt: new Date(),
-      isOwner: true
-    }
+    try {
+      const data = await createComment(post.id, newComment.trim())
 
-    setComments(prev => [...prev, comment])
-    setNewComment('')
+      // 새 댓글을 목록에 추가
+      const newCommentObj: Comment = {
+        id: data.id.toString(),
+        author: {
+          name: data.user?.username || '현재 사용자',
+          profileImage: data.user?.profile_image
+        },
+        content: data.content,
+        createdAt: new Date(data.created_at),
+        isOwner: true
+      }
+
+      setComments(prev => {
+        const newComments = [...prev, newCommentObj]
+        // 부모 컴포넌트에 댓글 수 업데이트 알림
+        onCommentCountChange?.(post.id, newComments.length)
+        return newComments
+      })
+      setNewComment('')
+
+      // 댓글 작성 후 스크롤을 맨 아래로
+      setTimeout(() => {
+        if (commentsContainerRef.current) {
+          commentsContainerRef.current.scrollTop = commentsContainerRef.current.scrollHeight
+        }
+      }, 100)
+    } catch (error) {
+      console.error('Failed to create comment:', error)
+      alert('댓글 작성에 실패했습니다.')
+    }
   }
 
   // 댓글 수정 시작
   const handleStartEditComment = (comment: Comment, e: React.MouseEvent) => {
-    triggerEffect(e.currentTarget as HTMLElement)
     setEditingCommentId(comment.id)
     setEditingCommentContent(comment.content)
   }
 
   // 댓글 수정 완료
-  const handleUpdateComment = (commentId: string, e: React.MouseEvent) => {
-    triggerEffect(e.currentTarget as HTMLElement)
+  const handleUpdateComment = async (commentId: string, e: React.MouseEvent) => {
     if (!editingCommentContent.trim()) return
 
-    setComments(prev =>
-      prev.map(comment =>
-        comment.id === commentId
-          ? { ...comment, content: editingCommentContent }
-          : comment
+    try {
+      await updateComment(post.id, commentId, editingCommentContent.trim())
+
+      setComments(prev =>
+        prev.map(comment =>
+          comment.id === commentId
+            ? { ...comment, content: editingCommentContent.trim() }
+            : comment
+        )
       )
-    )
-    setEditingCommentId(null)
-    setEditingCommentContent('')
+      setEditingCommentId(null)
+      setEditingCommentContent('')
+    } catch (error) {
+      console.error('Failed to update comment:', error)
+      alert('댓글 수정에 실패했습니다.')
+    }
   }
 
   // 댓글 삭제
-  const handleDeleteComment = (commentId: string, e: React.MouseEvent) => {
-    triggerEffect(e.currentTarget as HTMLElement)
-    if (confirm('댓글을 삭제하시겠습니까?')) {
-      setComments(prev => prev.filter(comment => comment.id !== commentId))
+  const handleDeleteComment = async (commentId: string, e: React.MouseEvent) => {
+    if (!confirm('댓글을 삭제하시겠습니까?')) return
+
+    try {
+      await deleteComment(post.id, commentId)
+      setComments(prev => {
+        const newComments = prev.filter(comment => comment.id !== commentId)
+        // 부모 컴포넌트에 댓글 수 업데이트 알림
+        onCommentCountChange?.(post.id, newComments.length)
+        return newComments
+      })
+    } catch (error) {
+      console.error('Failed to delete comment:', error)
+      alert('댓글 삭제에 실패했습니다.')
     }
   }
 
@@ -169,22 +227,19 @@ export default function CommunityDetailModal({
   }
 
   const handleClose = (e?: React.MouseEvent) => {
-    if (e) triggerEffect(e.currentTarget as HTMLElement)
     onClose()
   }
 
   const handleEditPost = (e?: React.MouseEvent<HTMLButtonElement>) => {
-    if (e) triggerEffect(e.currentTarget)
     onEdit?.()
   }
 
   const handleDeletePost = (e?: React.MouseEvent<HTMLButtonElement>) => {
-    if (e) triggerEffect(e.currentTarget)
     onDelete?.()
   }
 
   const handleLikePost = (e: React.MouseEvent<HTMLButtonElement>) => {
-    triggerEffect(e.currentTarget)
+    e.stopPropagation()
     onToggleLike?.(post.id)
   }
 
@@ -270,7 +325,7 @@ export default function CommunityDetailModal({
           {post.region && (
             <div className="mb-4 flex flex-wrap gap-2">
               <span className="inline-flex items-center px-3 py-1.5 bg-[#16375B]/5 text-[#16375B] text-xs font-semibold rounded-full border border-[#16375B]/10">
-                📍 {post.region}
+                {post.region}
               </span>
               {post.dong && (
                 <span className="inline-flex items-center px-3 py-1.5 bg-[#16375B]/5 text-[#16375B] text-xs font-semibold rounded-full border border-[#16375B]/10">
@@ -279,7 +334,7 @@ export default function CommunityDetailModal({
               )}
               {post.complexName && (
                 <span className="inline-flex items-center px-3 py-1.5 bg-[#16375B]/5 text-[#16375B] text-xs font-semibold rounded-full border border-[#16375B]/10">
-                  🏢 {post.complexName}
+                  {post.complexName}
                 </span>
               )}
             </div>
@@ -298,8 +353,8 @@ export default function CommunityDetailModal({
             <button
               onClick={handleLikePost}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${post.isLiked
-                  ? 'text-red-500 bg-red-50 hover:bg-red-100'
-                  : 'text-slate-500 hover:text-red-500 hover:bg-red-50'
+                ? 'text-red-500 bg-red-50 hover:bg-red-100'
+                : 'text-slate-500 hover:text-red-500 hover:bg-red-50'
                 }`}
             >
               <svg

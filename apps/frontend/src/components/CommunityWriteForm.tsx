@@ -45,6 +45,7 @@ export default function CommunityWriteForm({
     ...initialValues
   })
   const [errors, setErrors] = useState<Partial<Record<keyof typeof DEFAULT_VALUES, string>>>({})
+  const [hasSubmitted, setHasSubmitted] = useState(false)
 
   useEffect(() => {
     setFormValues({
@@ -52,6 +53,7 @@ export default function CommunityWriteForm({
       ...initialValues
     })
     setErrors({})
+    setHasSubmitted(false)
   }, [initialValues])
 
   const handleChange = (field: keyof typeof DEFAULT_VALUES, value: string) => {
@@ -59,10 +61,13 @@ export default function CommunityWriteForm({
       ...prev,
       [field]: value
     }))
-    setErrors((prev) => ({
-      ...prev,
-      [field]: undefined
-    }))
+    // 제출 후에만 실시간 유효성 검사
+    if (hasSubmitted) {
+      setErrors((prev) => ({
+        ...prev,
+        [field]: undefined
+      }))
+    }
   }
 
   const validate = () => {
@@ -81,6 +86,8 @@ export default function CommunityWriteForm({
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault()
+    setHasSubmitted(true)
+
     if (!validate()) {
       return
     }
@@ -93,8 +100,9 @@ export default function CommunityWriteForm({
     onSubmit(payload)
   }
 
-  const titleHelper = errors.title || (formValues.title.trim() === '' ? '제목을 입력해주세요.' : undefined)
-  const contentHelper = errors.content || (formValues.content.trim() === '' ? '내용을 입력해주세요.' : undefined)
+  // 제출 시도 후에만 에러 표시
+  const titleHelper = hasSubmitted && errors.title
+  const contentHelper = hasSubmitted && errors.content
 
   const isSubmitDisabled = !formValues.title.trim() || !formValues.content.trim()
 
@@ -109,7 +117,7 @@ export default function CommunityWriteForm({
           value={formValues.title}
           onChange={(e) => handleChange('title', e.target.value)}
           placeholder="제목을 입력해주세요."
-          className="w-full px-3 py-2 border border-white/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/60 backdrop-blur-sm placeholder-slate-400"
+          className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#16375B]/20 focus:border-[#16375B] bg-slate-50 placeholder-slate-400 text-slate-800"
           maxLength={TITLE_LIMIT}
         />
         <div className="flex justify-between items-center mt-1">
@@ -129,7 +137,7 @@ export default function CommunityWriteForm({
           onChange={(e) => handleChange('content', e.target.value)}
           placeholder="이웃과 함께 나누고 싶은 이야기를 자유롭게 작성해주세요."
           rows={8}
-          className="w-full px-3 py-2 border border-white/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none bg-white/60 backdrop-blur-sm placeholder-slate-400"
+          className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#16375B]/20 focus:border-[#16375B] resize-none bg-slate-50 placeholder-slate-400 text-slate-800"
           maxLength={CONTENT_LIMIT}
         />
         <div className="flex justify-between items-center mt-1">
