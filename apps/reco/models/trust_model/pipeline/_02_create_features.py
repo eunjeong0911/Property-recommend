@@ -37,6 +37,14 @@ def feature_engineering(df: pd.DataFrame):
     # 왜도(Skewness)가 심한 데이터는 로그 변환이 모델 성능에 도움됨
     df["등록매물_log"] = np.log1p(df["등록매물"])
     df["총거래활동량_log"] = np.log1p(df["거래완료"] + df["등록매물"])
+    
+    # 1인당 거래량 (효율성 지표)
+    # 총거래활동량_log - log(총_직원수) = log(거래량 / 직원수)
+    df["1인당_거래량_log"] = np.where(
+        df["총_직원수"] > 0,
+        df["총거래활동량_log"] - np.log1p(df["총_직원수"]),
+        0
+    )
 
     # ------------------------------------
     # 2. 인력 및 전문성 지표
@@ -46,6 +54,32 @@ def feature_engineering(df: pd.DataFrame):
     df["중개보조원_비율"] = np.where(df["총_직원수"] > 0, df["중개보조원수"] / df["총_직원수"], 0)
     df["중개인_비율"] = np.where(df["총_직원수"] > 0, df["중개인수"] / df["총_직원수"], 0)
     df["법인_비율"] = np.where(df["총_직원수"] > 0, df["법인수"] / df["총_직원수"], 0)
+    
+    # 자격증 보유 비율 계산
+    def calculate_cert_ratio(row):
+        """직원목록_JSON에서 자격증 보유 비율 계산"""
+        if pd.isna(row["직원목록_JSON"]) or row["총_직원수"] == 0:
+            return 0.0
+        
+        try:
+            import json
+            staff_list = json.loads(row["직원목록_JSON"])
+            if not staff_list:
+                return 0.0
+            
+            # 자격증 보유자 수 계산 (자격번호 또는 자격취득일이 있으면 자격증 보유)
+            cert_count = 0
+            for staff in staff_list:
+                has_cert_num = pd.notna(staff.get("자격번호"))
+                has_cert_date = pd.notna(staff.get("자격취득일"))
+                if has_cert_num or has_cert_date:
+                    cert_count += 1
+            
+            return cert_count / len(staff_list) if len(staff_list) > 0 else 0.0
+        except:
+            return 0.0
+    
+    df["자격증_보유비율"] = df.apply(calculate_cert_ratio, axis=1)
 
     # ------------------------------------
     # 3. 운영 경험 및 숙련도
@@ -83,7 +117,47 @@ def feature_engineering(df: pd.DataFrame):
     df["대표_중개보조원"] = (df["대표자구분명"] == "중개보조원").astype(int)
 
     # ------------------------------------
-    # 6. 상호작용 피처 (Interaction Features)
+    # 6. 지역 기반 피처
+    # ------------------------------------
+    # 지역별 경쟁 강도: 같은 지역 내 중개사무소 수
+    df["지역_경쟁강도"] = df.groupby("지역명")["등록번호"].transform("count")
+    
+    # 주소에서 층수 추출 (1층 여부)
+    def extract_floor_smart(address):
+        """
+        주소에서 층수 정보를 스마트하게 추출
+        1. 먼저 "N층" 패턴 찾기
+        2. 없으면 "N호" 패턴에서 첫 자리로 층수 추론
+        """
+        import re
+        addr_str = str(address)
+        
+        # 1. 지하 체크
+        if '지하' in addr_str or 'B1' in addr_str.upper() or 'B2' in addr_str.upper():
+            return -1
+        
+        # 2. "N층" 패턴 찾기
+        floor_match = re.search(r'(\d+)층', addr_str)
+        if floor_match:
+            return int(floor_match.group(1))
+        
+        # 3. "N호" 패턴에서 층수 추론
+        room_match = re.search(r'(\d{3,4})호', addr_str)
+        if room_match:
+            room_num = room_match.group(1)
+            # 3자리: 101 → 1층, 4자리: 1501 → 15층
+            if len(room_num) == 3:
+                return int(room_num[0])
+            elif len(room_num) == 4:
+                return int(room_num[:2])
+        
+        return None
+    
+    df["층수"] = df["주소"].apply(extract_floor_smart)
+    df["1층_여부"] = (df["층수"] == 1).astype(int)
+
+    # ------------------------------------
+    # 7. 상호작용 피처 (Interaction Features)
     # ------------------------------------
     # 활동량과 다른 피처들의 결합으로 더 정교한 평가
     df["활동량_경력_지수"] = df["총거래활동량_log"] * df["운영기간_년"]
@@ -98,11 +172,13 @@ def select_features(df: pd.DataFrame):
         # 1. 실적
         "등록매물_log", 
         "총거래활동량_log",
+        "1인당_거래량_log",  # 직원 1인당 거래 효율성
         
         # 2. 인력
         "총_직원수",
         # "공인중개사_비율",  # 제거: VIF 53.85, 중개보조원_비율과 -0.97 상관
         "중개보조원_비율",
+        "자격증_보유비율",  # 직원 중 자격증 보유자 비율
         # "중개인_비율",      # 제거: 분산 0.000936, 99.1%가 0
         # "법인_비율",        # 제거: 분산 0.003681, 97.4%가 0
         
@@ -121,7 +197,11 @@ def select_features(df: pd.DataFrame):
         # "대표_중개인",      # 제거: 분산 0.008498, 99.1%가 0
         # "대표_중개보조원",  # 제거: 분산 0.002849, 99.7%가 0
         
-        # 6. 상호작용 피처
+        # 6. 지역
+        "지역_경쟁강도",
+        "1층_여부",  # 주소에서 추출한 1층 여부
+        
+        # 7. 상호작용 피처
         # "활동량_경력_지수",    # 제거: VIF 12.71, 운영기간_년과 0.91 상관
         # "활동량_전문성_지수"   # 제거: VIF 14.07, 공인중개사_비율과 0.80 상관
     ]

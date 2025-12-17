@@ -107,6 +107,14 @@ def main():
     X_test_scaled = scaler.transform(X_test)
     print("   ✅ StandardScaler 적용 완료 (Train 기준)")
     
+    # 총거래활동량_log 피처의 가중치를 0.5배로 축소
+    feature_names = X_train.columns.tolist()
+    if "총거래활동량_log" in feature_names:
+        feature_idx = feature_names.index("총거래활동량_log")
+        X_train_scaled[:, feature_idx] *= 0.5
+        X_test_scaled[:, feature_idx] *= 0.5
+        print("   ✅ 총거래활동량_log 가중치 0.5배로 축소")
+    
     # 3) 모델 학습
     models = train_models(X_train_scaled, y_train, X_test_scaled, y_test)
     
