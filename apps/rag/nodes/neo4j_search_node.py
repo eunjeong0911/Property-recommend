@@ -689,6 +689,35 @@ def execute_query(location: str, analysis: Dict) -> List[Dict]:
 # 5. 메인 검색 함수 (Main Search Function)
 # -----------------------------------------------------------------------------
 
+def generate_search_steps(location: str, facilities: List[str]) -> List[str]:
+    """검색 의도에 따른 사용자 친화적 진행 메시지 생성"""
+    steps = []
+    
+    # 1. 위치 검색 메시지
+    if location:
+        steps.append(f"{location} 근처 매물 찾는 중...")
+    
+    # 2. 시설별 검색 메시지
+    facility_msg_map = {
+        "safety": "안전한 방(CCTV/치안) 찾는 중...",
+        "convenience": "가까운 편의점 찾는 중...",
+        "hospital": "가까운 병원 확인하는 중...",
+        "general_hospital": "종합병원 접근성 확인 중...",
+        "pharmacy": "근처 약국 찾는 중...",
+        "park": "산책하기 좋은 공원 찾는 중...",
+        "university": "대학교 통학 거리 계산 중...",
+        "subway": "역세권 매물 스캔 중..."
+    }
+    
+    for fac in facilities:
+        if fac in facility_msg_map:
+            steps.append(facility_msg_map[fac])
+        elif fac == "subway" and not location: # location이 없는데 subway만 있으면
+            steps.append("역세권 매물 스캔 중...")
+            
+    return steps
+
+
 def rule_based_search(state: RAGState) -> Dict:
     """
     규칙 기반 검색 (LLM 0회 호출)
@@ -714,11 +743,16 @@ def rule_based_search(state: RAGState) -> Dict:
     location = analysis['location']
     facilities = analysis['facilities']
     
+    # 검색 진행 상황 메시지 생성 (UI 표시용)
+    search_steps = generate_search_steps(location, facilities)
+    print(f"[Neo4j] 📋 Progress Steps: {search_steps}")
+    
     # 2. 위치가 없으면 검색 불가
     if not location:
         return {
             "graph_results": [],
-            "graph_summary": "어느 지역이나 지하철역 근처를 찾으시나요? (예: 홍대입구역, 강남역)"
+            "graph_summary": "어느 지역이나 지하철역 근처를 찾으시나요? (예: 홍대입구역, 강남역)",
+            "search_steps": search_steps or ["검색 조건을 확인 중입니다..."]
         }
     
     # 3. 캐시 확인 (단일 시설만, location_type 반영)
@@ -733,9 +767,13 @@ def rule_based_search(state: RAGState) -> Dict:
         if cached_results:
             elapsed = int((time.time() - start_time) * 1000)
             print(f"[Neo4j] ⚡ 캐시 히트! | 시간: {elapsed}ms")
+            
+            # 캐시된 경우에도 steps는 반환
             return {
                 "graph_results": cached_results,
-                "graph_summary": f"캐시된 검색 결과: {location} 근처 {cache_key}"
+                "graph_summary": f"캐시된 검색 결과: {location} 근처 {cache_key}",
+                "search_steps": search_steps,
+                "requested_facilities": facilities
             }
     
     # 4. 쿼리 실행
@@ -756,7 +794,8 @@ def rule_based_search(state: RAGState) -> Dict:
     return {
         "graph_results": results if isinstance(results, list) else [],
         "graph_summary": f"규칙 기반 검색 완료: {location} 근처 {facilities or ['기본']} 검색",
-        "requested_facilities": facilities  # 요청된 시설 목록 전달
+        "search_steps": search_steps,
+        "requested_facilities": facilities
     }
 
 
