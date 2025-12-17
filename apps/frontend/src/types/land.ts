@@ -7,6 +7,7 @@ export interface Land {
     deposit: number;
     monthly_rent: number;
     price: string; // Formatted price from backend
+    deal_type?: string; // 거래 유형 (월세, 전세 등)
     region?: string;
     transaction_type?: string;
     building_type?: string;
@@ -23,6 +24,16 @@ export interface Land {
     heating_method?: string;
     elevator?: string;
     description?: string;
+
+    // 가격 예측 정보
+    price_prediction?: {
+        prediction_class: number;
+        prediction_label: string;
+        prediction_label_korean: string;
+        probability_underpriced: number;
+        probability_fair: number;
+        probability_overpriced: number;
+    };
 
     // 중개업소 정보 (agent_info 대신 broker 사용)
     broker?: {

@@ -14,10 +14,6 @@ const Aurora = dynamic(() => import('@/components/Aurora'), {
     loading: () => <div className="w-full h-full bg-[#F0F8FF]" /> // 로딩 중 기본 배경색
 })
 
-const Chatbot = dynamic(() => import('@/components/Chatbot'), {
-    ssr: false, // 서버 사이드 렌더링 비활성화
-})
-
 const inter = Inter({ subsets: ['latin'] })
 
 export default function RootLayout({
@@ -39,7 +35,6 @@ export default function RootLayout({
                         <Header />
                         {children}
                         <Footer />
-                        {!isLoginPage && <Chatbot />}
                     </div>
                 </AuthProvider>
             </body>
