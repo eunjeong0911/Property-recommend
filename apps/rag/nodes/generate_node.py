@@ -106,9 +106,18 @@ def generate(state: RAGState) -> RAGState:
 
             # 2. General Facilities - 요청된 시설만 표시
             requested = state.get('requested_facilities', [])
-            fac_summary = []
             
-            # 요청된 시설이 있으면 해당 시설만, 없으면 전체 표시
+            # [Fallback] state에 정보가 없을 경우 질문에서 직접 추출 (TMI 방지)
+            if not requested and question:
+                q_temp = question.lower()
+                if any(k in q_temp for k in ['편의점', '마트', 'gs25', 'cu']): requested.append('convenience')
+                if any(k in q_temp for k in ['병원', '의료', '종합병원']): requested.append('hospital')
+                if any(k in q_temp for k in ['약국']): requested.append('pharmacy')
+                if any(k in q_temp for k in ['공원', '산책']): requested.append('park')
+                if any(k in q_temp for k in ['대학', '학교', '캠퍼스']): requested.append('university')
+                if any(k in q_temp for k in ['안전', '치안', 'cctv', '경찰']): requested.append('safety')
+                
+            fac_summary = []
             show_all = not requested
             
             if (show_all or 'hospital' in requested or 'general_hospital' in requested):
@@ -130,25 +139,23 @@ def generate(state: RAGState) -> RAGState:
 
             
             # 3. Safety Facilities (Dual Display)
-            # - CCTV/Bell: Count only
-            # - Police/Fire: Distance and time
             safe_summary = []
             
-            # Count-based facilities
-            cctv_count = result.get('cctv_count', 0)
-            bell_count = result.get('bell_count', 0)
-            if cctv_count > 0:
-                safe_summary.append(f"CCTV {cctv_count}개")
-            if bell_count > 0:
-                safe_summary.append(f"비상벨 {bell_count}개")
-            
-            # Distance-based facilities
-            police_details = result.get('police_details', [])
-            fire_details = result.get('fire_details', [])
-            if police_details:
-                safe_summary.append(f"경찰서: {format_details(police_details)}")
-            if fire_details:
-                safe_summary.append(f"소방서: {format_details(fire_details)}")
+            # 안전 정보는 'safety' 요청이 있거나 show_all일 때만 표시
+            if (show_all or 'safety' in requested):
+                cctv_count = result.get('cctv_count', 0)
+                bell_count = result.get('bell_count', 0)
+                if cctv_count > 0:
+                    safe_summary.append(f"CCTV {cctv_count}개")
+                if bell_count > 0:
+                    safe_summary.append(f"비상벨 {bell_count}개")
+                
+                police_details = result.get('police_details', [])
+                fire_details = result.get('fire_details', [])
+                if police_details:
+                    safe_summary.append(f"경찰서: {format_details(police_details)}")
+                if fire_details:
+                    safe_summary.append(f"소방서: {format_details(fire_details)}")
             
             merged['formatted_safety'] = " | ".join(safe_summary) if safe_summary else ""
             
@@ -223,7 +230,59 @@ def generate(state: RAGState) -> RAGState:
     # Select top 3 for display
     context_for_display = context[:3]
     print(f"[Generate] 📊 Showing top 3 out of {len(full_results)} total results")
-    print(f"[Generate] 🤖 Sending to LLM...\n")
+    
+    # ------------------------------------------------------------------
+    # [Input Diet] LLM 입력 데이터 최적화
+    # ------------------------------------------------------------------
+    slim_context = []
+    
+    for item in context_for_display:
+        new_item = item.copy()
+        
+        # 1. postgres_details 경량화 (White-listing)
+        details = item.get('postgres_details', {})
+        slim_details = {}
+        
+        whitelist_keys = ['address', 'trade_info', 'listing_info', 'floor_info', 'direction']
+        for k in whitelist_keys:
+            if k in details:
+                slim_details[k] = details[k]
+        
+        # 2. 가격 정보 Pre-formatting (토큰 절약)
+        deposit = details.get('parsed_deposit')
+        rent = details.get('parsed_rent')
+        jeonse = details.get('parsed_jeonse')
+        sale = details.get('parsed_sale')
+        
+        price_str = str(details.get('trade_info', '-'))
+        try:
+            trade_type = details.get('type')
+            if trade_type == '월세' and deposit is not None:
+                price_str = f"보증금 {deposit}/{rent}"
+            elif trade_type == '전세' and jeonse is not None:
+                price_str = f"전세 {jeonse}"
+            elif trade_type == '매매' and sale is not None:
+                price_str = f"매매 {sale}"
+            elif deposit is not None and rent is not None:
+                 price_str = f"{deposit}/{rent}"
+        except:
+            pass
+            
+        slim_details['formatted_price'] = price_str
+        new_item['postgres_details'] = slim_details
+        
+        # 3. 불필요한 중간 데이터 삭제
+        for key in ['poi_details', 'med_details', 'pharm_details', 'conv_details', 'park_details', 'edu_details', 'trans_details', 'police_details', 'fire_details']:
+             if key in new_item:
+                 del new_item[key]
+                 
+        slim_context.append(new_item)
+
+    # Input Size 로깅
+    import json
+    input_str = json.dumps(slim_context, ensure_ascii=False)
+    print(f"[Generate] 📉 Optimized Context Size: {len(str(context_for_display))} -> {len(input_str)} chars")
+    print(f"[Generate] 🤖 Sending to LLM (with Streaming Log)...\n")
 
     # 검색 컨텍스트 정보
     context_info = ""
@@ -239,35 +298,58 @@ def generate(state: RAGState) -> RAGState:
     # Simple generation using LLM
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
     
-    prompt = ChatPromptTemplate.from_template(
-        """부동산 AI. 검색된 매물만 소개 (가상 금지).
+    # ------------------------------------------------------------------
+    # [Parallel Generation] 병렬 생성 (분신술 전략)
+    # ------------------------------------------------------------------
+    # 1. 배치 입력 준비
+    batch_inputs = []
+    for i, item in enumerate(slim_context):
+        # 마지막 항목인지 확인
+        is_last = (i == len(slim_context) - 1)
+        
+        # 추가 질문 섹션 준비 (마지막 항목에만 포함)
+        followup_section = ""
+        if is_last:
+            followup_section = f"\n💬 추가질문 2개 제안\n질문: {question}"
+            
+        batch_inputs.append({
+            "rank": f"{i+1}순위",
+            "context_info": context_info if i == 0 else "", # 컨텍스트는 첫 번째만 줘도 충분하지만 다 줘도 무방
+            # LLM에게는 매물 하나만 리스트로 전달 (그래야 기존 포맷 유지 쉬움)
+            "context": [item], 
+            "followup_section": followup_section
+        })
+        
+    # 2. 단일 매물용 프롬프트 정의
+    single_prompt = ChatPromptTemplate.from_template(
+        """부동산 AI. 매물 1개 요약.
 {context_info}
-**검색결과**: {context}
+**매물**: {context}
 
-**포맷** (상위 3개):
-**1순위**
+**포맷**:
+**{rank}**
 - 주소: [postgres_details.address]
-- 가격: [postgres_details.trade_info]
+- 가격: [postgres_details.formatted_price]
 - 면적: [postgres_details.listing_info]
 - 역: [formatted_poi]
 - 시설: [formatted_infrastructure]
 - 안전: [formatted_safety] (있으면)
 👉 [detail_link]
-
-**2순위** / **3순위** - 동일 포맷
-
-💬 추가질문 2개 제안
-질문: {question}"""
+{followup_section}"""
     )
     
-    chain = prompt | llm | StrOutputParser()
+    chain = single_prompt | llm | StrOutputParser()
     
-    print("[Generate] 🤖 Generating final answer with GPT-4o...")
-    answer = chain.invoke({
-        "question": question, 
-        "context": context_for_display,
-        "context_info": context_info
-    })
+    print(f"[Generate] 🚀 Executing parallel batch generation (Workers: {len(batch_inputs)})...")
+    
+    # 3. 병렬 실행 (Batch)
+    from langchain_core.callbacks import StreamingStdOutCallbackHandler
+    
+    # batch 호출로 병렬 처리 (속도 3배 향상)
+    results = chain.batch(batch_inputs, config={'callbacks': [StreamingStdOutCallbackHandler()]})
+    
+    # 4. 결과 합치기
+    answer = "\n\n".join(results)
 
 
 
