@@ -25,12 +25,12 @@ def load_data():
     # 타겟 변수
     y = df["신뢰도등급"].copy()
     
-    # Feature 선택 (15개)
+    # Feature 선택 (12개)
     selected_features = [
         "거래완료_safe", "등록매물_safe", "총거래활동량",
-        "총_직원수", "공인중개사수", "공인중개사_비율", "중개보조원_비율",  # +1
-        "운영기간_년", "운영경험_지수", "숙련도_지수", "운영_안정성", "베테랑",  # +1
-        "대형사무소", "직책_다양성", "경력_규모_지수"  # +1
+        "총_직원수", "공인중개사수", "공인중개사_비율",
+        "운영기간_년", "운영경험_지수", "숙련도_지수", "운영_안정성",
+        "대형사무소", "직책_다양성"
     ]
     
     # 실제 존재하는 Feature만 필터링
@@ -55,92 +55,25 @@ def load_data():
 
 def train_models(X_train_scaled, y_train, X_test_scaled, y_test):
     """
-    5개 모델 + 앙상블 학습
+    LogisticRegression 모델 학습
     """
-    from sklearn.ensemble import RandomForestClassifier, VotingClassifier
-    from sklearn.svm import SVC
-    
-    # XGBoost, CatBoost 옵션 임포트
-    try:
-        from xgboost import XGBClassifier
-        HAS_XGB = True
-    except ImportError:
-        HAS_XGB = False
-        print("   ⚠️ XGBoost 미설치")
-    
-    try:
-        from catboost import CatBoostClassifier
-        HAS_CAT = True
-    except ImportError:
-        HAS_CAT = False
-        print("   ⚠️ CatBoost 미설치")
-    
-    print("\n🤖 모델 학습 시작 (5개 모델 + 앙상블)...")
+    print("\n🤖 모델 학습 시작...")
     
     models = {}
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-    total_models = 3 + (1 if HAS_XGB else 0) + (1 if HAS_CAT else 0)  # SVM 제거 (4→3)
-    current = 1
     
-    # 1. LogisticRegression (정규화 강화: C 낮춤)
-    print(f"\n[{current}/{total_models}] LogisticRegression 학습 중...")
-    lr_model = LogisticRegression(C=0.5, max_iter=1000, class_weight='balanced', random_state=42)
+    # LogisticRegression
+    print("\n[1/1] LogisticRegression 학습 중...")
+    lr_model = LogisticRegression(
+        C=1.0,
+        max_iter=1000,
+        class_weight='balanced',
+        random_state=42
+    )
     lr_model.fit(X_train_scaled, y_train)
     lr_scores = cross_val_score(lr_model, X_train_scaled, y_train, cv=cv, scoring='accuracy')
     models["LogisticRegression"] = lr_model
     print(f"   ✓ CV Score: {lr_scores.mean():.4f} (±{lr_scores.std():.4f})")
-    current += 1
-    
-    # 2. RandomForest (depth 5→4, 정규화 강화)
-    print(f"\n[{current}/{total_models}] RandomForest 학습 중...")
-    rf_model = RandomForestClassifier(
-        n_estimators=200, max_depth=4, min_samples_split=15, min_samples_leaf=5,
-        class_weight='balanced', random_state=42, n_jobs=-1
-    )
-    rf_model.fit(X_train_scaled, y_train)
-    rf_scores = cross_val_score(rf_model, X_train_scaled, y_train, cv=cv, scoring='accuracy')
-    models["RandomForest"] = rf_model
-    print(f"   ✓ CV Score: {rf_scores.mean():.4f} (±{rf_scores.std():.4f})")
-    current += 1
-    
-    # ❌ SVM 제거 (성능 낮음)
-    
-    # 3. XGBoost (depth 4→3, 정규화 강화)
-    if HAS_XGB:
-        print(f"\n[{current}/{total_models}] XGBoost 학습 중...")
-        xgb_model = XGBClassifier(
-            n_estimators=200, max_depth=3, learning_rate=0.05,
-            reg_lambda=2.0, reg_alpha=0.5, min_child_weight=3,
-            use_label_encoder=False, eval_metric='mlogloss', random_state=42, verbosity=0
-        )
-        xgb_model.fit(X_train_scaled, y_train)
-        xgb_scores = cross_val_score(xgb_model, X_train_scaled, y_train, cv=cv, scoring='accuracy')
-        models["XGBoost"] = xgb_model
-        print(f"   ✓ CV Score: {xgb_scores.mean():.4f} (±{xgb_scores.std():.4f})")
-        current += 1
-    
-    # 4. CatBoost (depth 4→3, 정규화 강화)
-    if HAS_CAT:
-        print(f"\n[{current}/{total_models}] CatBoost 학습 중...")
-        cat_model = CatBoostClassifier(
-            iterations=200, depth=3, learning_rate=0.05,
-            l2_leaf_reg=5.0, min_data_in_leaf=5,
-            auto_class_weights='Balanced', random_state=42, verbose=False
-        )
-        cat_model.fit(X_train_scaled, y_train)
-        cat_scores = cross_val_score(cat_model, X_train_scaled, y_train, cv=cv, scoring='accuracy')
-        models["CatBoost"] = cat_model
-        print(f"   ✓ CV Score: {cat_scores.mean():.4f} (±{cat_scores.std():.4f})")
-        current += 1
-    
-    # 5. Voting Ensemble (SVM 제외)
-    print(f"\n[{current}/{total_models}] VotingClassifier (앙상블) 학습 중...")
-    estimators = [(name, model) for name, model in models.items()]
-    ensemble = VotingClassifier(estimators=estimators, voting='soft')
-    ensemble.fit(X_train_scaled, y_train)
-    ens_scores = cross_val_score(ensemble, X_train_scaled, y_train, cv=cv, scoring='accuracy')
-    models["Ensemble"] = ensemble
-    print(f"   ✓ CV Score: {ens_scores.mean():.4f} (±{ens_scores.std():.4f})")
     
     print("\n✅ 모델 학습 완료!")
     return models
@@ -148,21 +81,15 @@ def train_models(X_train_scaled, y_train, X_test_scaled, y_test):
 
 def main():
     print("=" * 70)
-    print(" " * 20 + "모델 학습 (15개 Feature)")
+    print(" " * 20 + "모델 학습 (12개 Feature)")
     print("=" * 70)
 
     # 1) 데이터 로드
     X, y = load_data()
     
-    # 1.5) 라벨 인코딩 (XGBoost 호환)
-    from sklearn.preprocessing import LabelEncoder
-    le = LabelEncoder()
-    y_encoded = le.fit_transform(y)  # A→0, B→1, C→2
-    print(f"\n🏷 라벨 인코딩: {list(le.classes_)} → {list(range(len(le.classes_)))}")
-    
     # 2) Train/Test Split (80/20)
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y_encoded, test_size=0.2, random_state=42, stratify=y_encoded
+        X, y, test_size=0.2, random_state=42, stratify=y
     )
     
     print(f"\n📊 데이터 분할:")

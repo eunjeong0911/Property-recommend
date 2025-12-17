@@ -70,6 +70,30 @@ def group_by_office():
                 }
                 staff_list.append(staff_info)
         
+        # 대표자 구분명 찾기 (이름 일치 or 직위 '대표')
+        representative_name = office_info.get('대표자')
+        
+        rep_qualification = None
+        
+        # 1. 이름으로 찾기
+        if representative_name:
+            for staff in staff_list:
+                if staff.get('이름') == representative_name:
+                    rep_qualification = staff.get('구분명')
+                    break
+        
+        # 2. 직위로 찾기 (이름 매칭 실패 시)
+        if rep_qualification is None:
+             for staff in staff_list:
+                if staff.get('직위구분명') == '대표':
+                    rep_qualification = staff.get('구분명')
+                    break
+
+        if rep_qualification is None:
+            rep_qualification = "미등록"
+            
+        office_info['대표자구분명'] = rep_qualification
+        
         # 직원 수 집계
         office_info['총_직원수'] = len(staff_list)
         office_info['공인중개사수'] = sum(1 for s in staff_list if s.get('구분명') == '공인중개사')
@@ -82,22 +106,6 @@ def group_by_office():
         
         # 직원 이름 리스트 (쉼표로 구분)
         office_info['직원명단'] = ', '.join([s['이름'] for s in staff_list if s.get('이름')])
-        
-        # 자격구분 추출 (이름이 일치하거나 직위가 '대표'인 경우)
-        rep_qualification = None
-        for s in staff_list:
-            # 1순위: 이름이 대표자와 일치하는 경우
-            if s.get('이름') == office_info['대표자']:
-                rep_qualification = s.get('구분명')
-                break
-            # 2순위: 이름 일치가 없을 때 직위가 '대표'인 경우 (임시 저장)
-            elif s.get('직위구분명') == '대표' and rep_qualification is None:
-                rep_qualification = s.get('구분명')
-        
-        if rep_qualification is None:
-            rep_qualification = "미등록"
-
-        office_info['자격구분'] = rep_qualification
         
         office_data.append(office_info)
     

@@ -10,7 +10,11 @@ import pickle
 from pathlib import Path
 from sklearn.model_selection import train_test_split, StratifiedKFold, RandomizedSearchCV, cross_val_score
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, f1_score
+from sklearn.metrics import (
+    classification_report, confusion_matrix, 
+    accuracy_score, f1_score, precision_score, recall_score, 
+    roc_auc_score, log_loss
+)
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
 import warnings
 warnings.filterwarnings("ignore")
@@ -21,13 +25,16 @@ import _01_targer_engineering as target_engineering
 from _02_feature_engineering import main as feature_engineering
 
 
-def prepare_data():
+def prepare_data(filepath=None):
     """데이터 준비: 로드 → 타겟 생성 → 피처 생성"""
     print("=" * 70)
     print("🏠 중개사 신뢰도 모델 - 앙상블 분류 파이프라인")
     print("=" * 70)
     
-    raw_df = load_data()
+    if filepath:
+        raw_df = load_data(filepath)
+    else:
+        raw_df = load_data()
     df_with_target = target_engineering.main(raw_df)
     df_final, X, feature_names = feature_engineering(df_with_target)
     y = df_final["신뢰등급"].astype(int)
@@ -224,16 +231,25 @@ def train_ensemble(models_dict, X_train, y_train, X_test, y_test, cv):
     ensemble.fit(X_train, y_train)
     
     # 성능 평가
+    # 성능 평가
     y_train_pred = ensemble.predict(X_train)
     y_test_pred = ensemble.predict(X_test)
+    y_test_proba = ensemble.predict_proba(X_test)
     
     train_f1 = f1_score(y_train, y_train_pred, average='macro')
-    test_f1 = f1_score(y_test, y_test_pred, average='macro')
-    test_acc = accuracy_score(y_test, y_test_pred)
     
-    print(f"\n📊 앙상블 성능:")
-    print(f"   Train F1: {train_f1:.4f} / Test F1: {test_f1:.4f}")
-    print(f"   Test Accuracy: {test_acc:.4f}")
+    test_acc = accuracy_score(y_test, y_test_pred)
+    test_f1 = f1_score(y_test, y_test_pred, average='macro')
+    test_prec = precision_score(y_test, y_test_pred, average='macro')
+    test_rec = recall_score(y_test, y_test_pred, average='macro')
+    test_auc = roc_auc_score(y_test, y_test_proba, multi_class='ovr')
+    test_logloss = log_loss(y_test, y_test_proba)
+    
+    print(f"\n📊 앙상블 성능 상세:")
+    print(f"   Train F1 : {train_f1:.4f}")
+    print(f"   Test F1  : {test_f1:.4f}  | Acc  : {test_acc:.4f}")
+    print(f"   Prec     : {test_prec:.4f}  | Rec  : {test_rec:.4f}")
+    print(f"   ROC AUC  : {test_auc:.4f}  | Loss : {test_logloss:.4f}")
     
     # Classification Report
     class_names = ["하위", "중위", "상위"]
@@ -367,10 +383,25 @@ def main():
     if svm_model:
         results.append(("SVM", svm_model, svm_score))
     
+    print(f"\n   {'Model':<12} | {'CV F1':<7} | {'Test F1':<7} | {'Acc':<6} | {'Prec':<6} | {'Rec':<6} | {'AUC':<6}")
+    print("   " + "-" * 75)
+    
     for name, model, score in sorted(results, key=lambda x: x[2], reverse=True):
         test_pred = model.predict(X_test_scaled)
+        
+        # 확률 계산 (가능한 경우)
+        if hasattr(model, "predict_proba"):
+            test_proba = model.predict_proba(X_test_scaled)
+            auc = roc_auc_score(y_test, test_proba, multi_class='ovr')
+        else:
+            auc = 0.0
+            
         test_f1 = f1_score(y_test, test_pred, average='macro')
-        print(f"   {name:<15}: CV F1={score:.4f}, Test F1={test_f1:.4f}")
+        acc = accuracy_score(y_test, test_pred)
+        prec = precision_score(y_test, test_pred, average='macro')
+        rec = recall_score(y_test, test_pred, average='macro')
+        
+        print(f"   {name:<12} | {score:.4f}  | {test_f1:.4f}  | {acc:.4f} | {prec:.4f} | {rec:.4f} | {auc:.4f}")
     
     # 7. 최고 모델 선택
     best_name, best_model, best_cv_score = max(results, key=lambda x: x[2])
