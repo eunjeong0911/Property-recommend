@@ -78,4 +78,7 @@ data
 
 .hypothesis
 
+
 test_vector_db
+
+shap_plots/

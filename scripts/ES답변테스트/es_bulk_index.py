@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Generator, Tuple, Optional
 
 # Add project root to path
-sys.path.append(str(Path(__file__).parent.parent))
+sys.path.append(str(Path(__file__).parent.parent.parent))
 
 # Elasticsearch imports - optional for testing
 ES_AVAILABLE = False
