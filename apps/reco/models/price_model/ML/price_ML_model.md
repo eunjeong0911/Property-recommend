@@ -211,6 +211,16 @@ apply_model_to_json.py   # 피터팬 매물에 모델 적용
 | **비쌈(2)** | 936 | 3488 | **10147** |
 
 ![alt text](assets/ML_DL_혼동행렬.png)
+
+
+### 6.6 결론
+
+**⭐선택 모델: LightGBM**
+
+- 핵심 성능 우위: Test 기준 Accuracy, Precision, Recall, F1-macro 전부에서 1위
+- 일반화 성능: Train 0.8036 → Test 0.7327로,  Train/Test 차이가 적당하고 성능 수준도 가장 높음
+- 클래스별 예측 품질: Confusion Matrix를 보면 저렴(0), 적정(1), 비쌈(2) 세 클래스 모두에서 정분류 수가 많음
+
 ---
 
 ## 7. Shap
