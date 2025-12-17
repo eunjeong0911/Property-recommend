@@ -170,6 +170,15 @@ def show_feature_importance():
     if 'RandomForest' in models:
         rf_model = models['RandomForest']
         importance_data['RandomForest'] = rf_model.feature_importances_
+
+    # Logistic Regression
+    if 'LogisticRegression' in models:
+        lr_model = models['LogisticRegression']
+        # 다중 클래스일 경우 계수의 절대값 평균 사용
+        if lr_model.coef_.ndim == 2:
+            importance_data['LogisticRegression'] = np.mean(np.abs(lr_model.coef_), axis=0)
+        else:
+            importance_data['LogisticRegression'] = np.abs(lr_model.coef_)
     
     for model_name, importance in importance_data.items():
         print(f"\n--- {model_name} 피처 중요도 ---")
@@ -191,6 +200,19 @@ def show_feature_importance():
             plt.savefig(SAVE_DIR / '3_feature_importance.png', dpi=150)
             plt.close()
             print(f"\n📊 그래프 저장: {SAVE_DIR / '3_feature_importance.png'}")
+
+        # 시각화 (LogisticRegression 추가)
+        if model_name == 'LogisticRegression':
+            fig, ax = plt.subplots(figsize=(10, 8))
+            colors = plt.cm.viridis(np.linspace(0.3, 0.9, len(df)))
+            bars = ax.barh(df['Feature'], df['Importance'], color=colors)
+            ax.set_xlabel('중요도 (절대값 평균)', fontsize=12)
+            ax.set_title(f'{model_name} 피처 중요도', fontsize=14, fontweight='bold')
+            ax.invert_yaxis()
+            plt.tight_layout()
+            plt.savefig(SAVE_DIR / '3_LR_feature_importance.png', dpi=150)
+            plt.close()
+            print(f"\n📊 그래프 저장: {SAVE_DIR / '3_LR_feature_importance.png'}")
         
         df['Importance'] = df['Importance'].apply(lambda x: f"{x:.4f}")
         print(df.to_string(index=False))
@@ -308,6 +330,53 @@ def show_confusion_matrix_summary():
             print(f"실제{labels[i]}  {row[0]:>4}  {row[1]:>4}  {row[2]:>4}")
 
 
+
+def show_feature_target_correlation():
+    """피처-타겟 상관관계 히트맵"""
+    print("\n" + "=" * 60)
+    print(" " * 15 + "🔥 피처-타겟 상관관계 분석")
+    print("=" * 60)
+
+    import seaborn as sns
+    
+    # 데이터 로드
+    features_df = pd.read_csv(FEATURE_PATH)
+    target_df = pd.read_csv(TARGET_PATH)
+    
+    # 타겟 인코딩
+    target_map = {'A': 2, 'B': 1, 'C': 0}
+    if '신뢰도등급' in target_df.columns:
+        target_series = target_df['신뢰도등급'].map(target_map)
+    else:
+        print("⚠️ 타겟 컬럼('신뢰도등급')을 찾을 수 없습니다.")
+        return
+
+    # 데이터 결합
+    full_df = pd.concat([features_df, target_series.rename('Target(신뢰도)')], axis=1)
+    
+    # 숫자형 컬럼만 선택 (문자열 컬럼 제외)
+    full_df = full_df.select_dtypes(include=[np.number])
+
+    # 상관관계 계산
+    corr = full_df.corr(method='pearson')
+    
+    # 타겟과의 상관관계만 추출 및 정렬
+    target_corr = corr[['Target(신뢰도)']].sort_values(by='Target(신뢰도)', ascending=False)
+    
+    # 시각화
+    plt.figure(figsize=(6, 12))
+    sns.heatmap(target_corr, annot=True, cmap='RdBu_r', fmt='.2f', vmin=-1, vmax=1, cbar_kws={'label': '상관계수'})
+    plt.title('피처-타겟(신뢰도) 상관관계', fontsize=14, fontweight='bold')
+    plt.tight_layout()
+    plt.savefig(SAVE_DIR / '5_feature_target_correlation.png', dpi=150)
+    plt.close()
+    
+    print(f"\n📊 그래프 저장: {SAVE_DIR / '5_feature_target_correlation.png'}")
+    
+    print("\n[상관계수 Top 5]")
+    print(target_corr.head(6))  # 자기 자신 포함해서 상위 6개 출력
+
+
 def run_all_analysis():
     """전체 분석 실행"""
     print("\n" + "=" * 60)
@@ -317,6 +386,7 @@ def run_all_analysis():
     show_target_distribution()
     show_model_comparison()
     show_feature_importance()
+    show_feature_target_correlation()
     show_confusion_matrix_summary()
     show_shap_analysis()
     
@@ -327,7 +397,9 @@ def run_all_analysis():
     print("   - 1_target_distribution.png")
     print("   - 2_model_comparison.png")
     print("   - 3_feature_importance.png")
+    print("   - 3_LR_feature_importance.png (LogisticRegression)")
     print("   - 4_confusion_matrix.png")
+    print("   - 5_feature_target_correlation.png")
 
 
 if __name__ == "__main__":
