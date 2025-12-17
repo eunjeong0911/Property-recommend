@@ -63,14 +63,14 @@ export default function Pagination<T>({
     if (totalPages <= maxVisible) {
       return Array.from({ length: totalPages }, (_, i) => i + 1)
     }
-    
+
     let start = Math.max(1, currentPage - 2)
     let end = Math.min(totalPages, start + maxVisible - 1)
-    
+
     if (end - start < maxVisible - 1) {
       start = Math.max(1, end - maxVisible + 1)
     }
-    
+
     return Array.from({ length: end - start + 1 }, (_, i) => start + i)
   }
 
@@ -82,7 +82,7 @@ export default function Pagination<T>({
 
   return (
     <div className="space-y-6">
-      <div className="space-y-4">
+      <div className="flex flex-wrap -mx-2">
         {currentItems.data.map((item, offset) =>
           renderItem(item, currentItems.startIndex + offset)
         )}
