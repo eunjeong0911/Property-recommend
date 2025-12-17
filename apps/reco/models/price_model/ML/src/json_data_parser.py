@@ -17,6 +17,24 @@ class JSONDataParser:
         self.required_fields = [
             "매물번호", "매물_URL", "주소_정보", "거래_정보", "매물_정보"
         ]
+        
+        # 파일명 기반 건물용도 매핑
+        self.filename_to_building_type = {
+            # 아파트
+            "아파트": "아파트",
+            
+            # 오피스텔
+            "오피스텔": "오피스텔",
+            
+            # 연립다세대 (원룸, 투룸, 빌라, 연립, 다세대, 단독 등),
+            "원룸": "연립다세대",
+            "투룸": "연립다세대",
+            "원투룸": "연립다세대",
+            "빌라": "연립다세대",
+            "연립": "연립다세대",
+            "다세대": "연립다세대",
+            "단독": "연립다세대",
+        }
     
     def load_json_files(self, json_dir: str) -> List[Dict]:
         """
@@ -34,11 +52,17 @@ class JSONDataParser:
         # 모든 JSON 파일 로드
         for json_file in json_path.glob("*.json"):
             print(f"📂 로딩: {json_file.name}")
+            filename = json_file.stem  # 확장자 제외한 파일명
+            
             with open(json_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
                 if isinstance(data, list):
+                    # 각 아이템에 파일명 정보 추가
+                    for item in data:
+                        item['_source_filename'] = filename
                     all_data.extend(data)
                 else:
+                    data['_source_filename'] = filename
                     all_data.append(data)
         
         print(f"✅ 총 {len(all_data)}개 매물 로드 완료")
@@ -194,9 +218,9 @@ class JSONDataParser:
                 return None
         return None
     
-    def parse_building_type(self, building_type: str) -> str:
+    def parse_building_type(self, building_type: str, filename: str = None) -> str:
         """
-        건물용도 정규화 (부동산 실거래가 데이터 기준)
+        건물용도 정규화 (파일명 기반 우선, 건물용도 문자열 보조)
         
         CSV 학습 데이터는 3가지 카테고리만 존재:
         - 아파트: 공동주택 중 5개 층 이상
@@ -205,25 +229,36 @@ class JSONDataParser:
         
         Args:
             building_type: 원본 건축물용도
+            filename: JSON 파일명 (확장자 제외)
             
         Returns:
             정규화된 건물용도 ("아파트", "연립다세대", "오피스텔" 중 하나)
         """
+        # 1. 파일명 기반 매핑 (최우선)
+        if filename:
+            filename_lower = filename.lower()
+            
+            # 파일명에서 키워드 찾기
+            for keyword, mapped_type in self.filename_to_building_type.items():
+                if keyword in filename_lower:
+                    return mapped_type
+        
+        # 2. 건물용도 문자열 기반 매핑 (보조)
         if not building_type:
             return "연립다세대"  # 기본값
         
         # 대소문자 구분 없이 매칭하기 위해 소문자로 변환
         building_type_lower = building_type.lower()
         
-        # 1. 아파트 (공동주택 중 아파트)
-        if "아파트" in building_type_lower or "apt" in building_type_lower:
+        # 아파트 (공동주택 중 아파트)
+        if "아파트" in building_type_lower:
             return "아파트"
         
-        # 2. 오피스텔 (준주택, 업무시설)
-        if "오피스텔" in building_type_lower or "officetel" in building_type_lower or "업무시설" in building_type_lower:
+        # 오피스텔 (준주택, 업무시설)
+        if "오피스텔" in building_type_lower or "업무시설" in building_type_lower:
             return "오피스텔"
         
-        # 3. 연립다세대 (나머지 모든 주거용 건물)
+        # 연립다세대 (나머지 모든 주거용 건물)
         # - 공동주택 (아파트 제외): 연립주택, 다세대주택, 다가구주택
         # - 단독주택: 단독주택, 다중주택
         # - 원룸/투룸/빌라 등
@@ -305,7 +340,12 @@ class JSONDataParser:
                 임대면적 = self.parse_area(면적_str)
                 층 = self.parse_floor(층_str)
                 건축년도 = self.parse_year(건축년도_str)
-                건물용도 = self.parse_building_type(건물용도_str)
+                
+                # 파일명 정보 추출
+                source_filename = item.get("_source_filename", None)
+                
+                # 파일명 기반 건물용도 매핑
+                건물용도 = self.parse_building_type(건물용도_str, source_filename)
                 
                 # 필수 필드 검증
                 if not all([임대면적, 보증금_만원 is not None, 월세_만원 is not None]):

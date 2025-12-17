@@ -170,9 +170,8 @@ apply_model_to_json.py   # 피터팬 매물에 모델 적용
 | XGBoost | 0.6896 | 0.6894 | 0.6963 | 0.6868 | 0.6921 | 
 | LSTM | 0.6728 | 0.6762 | 0.6725 | 0.6737 | 0.6747 | - |
 
-![alt text](../assets/모델별성능지표.png)
-![alt text](../assets/모델별F1-score비교.png)
-
+![alt text](assets/모델별성능지표.png)
+![alt text](assets/모델별F1-score비교.png)
 ---
 
 ### 6.4 Train / Test 일반화 성능 비교 (F1-macro)
@@ -211,12 +210,11 @@ apply_model_to_json.py   # 피터팬 매물에 모델 적용
 | **적정(1)** | 4588 | **14001** | 4050 |
 | **비쌈(2)** | 1352 | 4848 | **14414** |
 
-![alt text](../assets/ML_DL_혼동행렬.png)
-
+![alt text](assets/ML_DL_혼동행렬.png)
 ---
 
 ## 7. Shap
-![alt text](../shap_plots/bar_test.png)
+![alt text](shap_plots/bar_test.png)
 
 > LightGBM 모델에서 각 피처가 가격 예측에 미치는 영향력을 보여주며, 세 가지 클래스(Class 0: 저가, Class 1: 고가, Class 2: 중가)별로 색상이 구분되어 있음
 
