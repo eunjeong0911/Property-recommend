@@ -79,4 +79,4 @@ data
 .hypothesis
 
 shap_plots/
-eda_plots/
+apps/reco/models/price_model/ML/eda_plots/
