@@ -18,7 +18,8 @@ plt.rcParams['axes.unicode_minus'] = False
 
 # 파일 경로
 TEMP_MODEL_PATH = "apps/reco/models/trust_model/save_models/temp_trained_models.pkl"
-FEATURE_DATA_PATH = "data/ML/office_features.csv"
+TRAIN_TARGET_PATH = "data/ML/trust/train_target.csv"
+TEST_TARGET_PATH = "data/ML/trust/test_target.csv"
 
 
 class ModelValidationAnalyzer:
@@ -45,11 +46,27 @@ class ModelValidationAnalyzer:
         self.feature_names = temp_data["feature_names"]
         
         # 피처 데이터 로드 (상관관계 분석용)
-        self.df_features = pd.read_csv(FEATURE_DATA_PATH, encoding="utf-8-sig")
+        # X_train, X_test (피처가 생성된 데이터)와 y_train, y_test (타겟) 로드
+        X_train = pd.read_csv("data/ML/trust/X_train.csv", encoding="utf-8-sig")
+        X_test = pd.read_csv("data/ML/trust/X_test.csv", encoding="utf-8-sig")
+        y_train = pd.read_csv("data/ML/trust/y_train.csv", encoding="utf-8-sig").squeeze()
+        y_test = pd.read_csv("data/ML/trust/y_test.csv", encoding="utf-8-sig").squeeze()
+        
+        # Train 데이터 결합
+        df_train_combined = X_train.copy()
+        df_train_combined['Target'] = y_train.values
+        
+        # Test 데이터 결합
+        df_test_combined = X_test.copy()
+        df_test_combined['Target'] = y_test.values
+        
+        # 전체 데이터 합치기
+        self.df_features = pd.concat([df_train_combined, df_test_combined], ignore_index=True)
         
         print(f"   ✅ 모델 로드 완료")
         print(f"   ✅ 테스트 데이터: {len(self.X_test)}개")
         print(f"   ✅ 피처 수: {len(self.feature_names)}개")
+        print(f"   ✅ 전체 데이터: {len(self.df_features)}개")
     
     def analyze_all(self):
         """전체 분석 실행"""
@@ -112,19 +129,21 @@ class ModelValidationAnalyzer:
         """피처-타겟 상관관계 히트맵"""
         print("\n📊 [2/2] 피처-타겟 상관관계 히트맵 생성 중...")
         
-        # 타겟을 숫자로 변환 (A=2, B=1, C=0)
-        target_mapping = {'A': 2, 'B': 1, 'C': 0}
-        self.df_features['신뢰도등급_숫자'] = self.df_features['신뢰도등급'].map(target_mapping)
+        # 타겟을 숫자로 변환 (0, 1, 2)
+        # 이미 Target은 0, 1, 2로 저장되어 있음
+        if 'Target' not in self.df_features.columns:
+            print("   ⚠️  Target 컬럼이 없습니다. 분석을 건너뜩니다.")
+            return
         
         # 피처와 타겟 선택
         feature_cols = self.feature_names
-        correlation_data = self.df_features[feature_cols + ['신뢰도등급_숫자']].copy()
+        correlation_data = self.df_features[feature_cols + ['Target']].copy()
         
         # 상관계수 계산
         correlation_matrix = correlation_data.corr()
         
         # 타겟과의 상관계수만 추출
-        target_correlation = correlation_matrix['신뢰도등급_숫자'].drop('신뢰도등급_숫자').sort_values(ascending=False)
+        target_correlation = correlation_matrix['Target'].drop('Target').sort_values(ascending=False)
         
         # 시각화 1: 막대 그래프
         plt.figure(figsize=(12, 10))
@@ -152,7 +171,7 @@ class ModelValidationAnalyzer:
         plt.figure(figsize=(16, 14))
         
         # 타겟 컬럼을 맨 아래로 이동
-        cols_order = feature_cols + ['신뢰도등급_숫자']
+        cols_order = feature_cols + ['Target']
         corr_reordered = correlation_matrix.loc[cols_order, cols_order]
         
         sns.heatmap(corr_reordered, annot=True, fmt='.2f', cmap='coolwarm', 
@@ -180,9 +199,10 @@ class ModelValidationAnalyzer:
         """운영기간 분포 분석"""
         print("\n📊 [3/3] 운영기간 분포 분석 중...")
         
-        # 운영기간_년 데이터 로드 (원본 데이터에서)
-        target_data_path = "data/ML/office_target.csv"
-        df_target = pd.read_csv(target_data_path, encoding="utf-8-sig")
+        # 운영기간_년 데이터 로드 (원본 데이터에서 - 등록일 정보 필요)
+        df_train_orig = pd.read_csv(TRAIN_TARGET_PATH, encoding="utf-8-sig")
+        df_test_orig = pd.read_csv(TEST_TARGET_PATH, encoding="utf-8-sig")
+        df_target = pd.concat([df_train_orig, df_test_orig], ignore_index=True)
         
         # 운영기간 계산
         df_target['등록일'] = pd.to_datetime(df_target['등록일'], errors='coerce')
@@ -234,14 +254,15 @@ class ModelValidationAnalyzer:
         ax2 = axes[1]
         
         # 등급별 데이터 준비
-        df_with_grade = df_target[['운영기간_년', '신뢰도등급']].dropna()
-        grade_order = ['C', 'B', 'A']
+        df_with_grade = df_target[['운영기간_년', 'Target']].dropna()
+        grade_order = [0, 1, 2]  # C, B, A
+        grade_labels = ['C', 'B', 'A']
         
         # 박스플롯
-        box_data = [df_with_grade[df_with_grade['신뢰도등급'] == grade]['운영기간_년'].values 
+        box_data = [df_with_grade[df_with_grade['Target'] == grade]['운영기간_년'].values 
                     for grade in grade_order]
         
-        bp = ax2.boxplot(box_data, labels=grade_order, patch_artist=True,
+        bp = ax2.boxplot(box_data, labels=grade_labels, patch_artist=True,
                         widths=0.6, showmeans=True,
                         meanprops=dict(marker='D', markerfacecolor='red', markersize=8))
         
@@ -259,8 +280,8 @@ class ModelValidationAnalyzer:
         ax2.grid(alpha=0.3, axis='y')
         
         # 등급별 평균 표시
-        for i, grade in enumerate(grade_order, 1):
-            grade_mean = df_with_grade[df_with_grade['신뢰도등급'] == grade]['운영기간_년'].mean()
+        for i, (grade, label) in enumerate(zip(grade_order, grade_labels), 1):
+            grade_mean = df_with_grade[df_with_grade['Target'] == grade]['운영기간_년'].mean()
             ax2.text(i, grade_mean, f'{grade_mean:.1f}년', 
                     ha='center', va='bottom', fontsize=10, fontweight='bold')
         
@@ -275,9 +296,10 @@ class ModelValidationAnalyzer:
         """대표자 구분 비율 분석"""
         print("\n📊 [4/4] 대표자 구분 비율 분석 중...")
         
-        # 타겟 데이터 로드
-        target_data_path = "data/ML/office_target.csv"
-        df_target = pd.read_csv(target_data_path, encoding="utf-8-sig")
+        # 타겟 데이터 로드 (대표자구분명 정보 필요)
+        df_train_orig = pd.read_csv(TRAIN_TARGET_PATH, encoding="utf-8-sig")
+        df_test_orig = pd.read_csv(TEST_TARGET_PATH, encoding="utf-8-sig")
+        df_target = pd.concat([df_train_orig, df_test_orig], ignore_index=True)
         
         # 대표자구분명 분포 계산
         rep_counts = df_target['대표자구분명'].value_counts()

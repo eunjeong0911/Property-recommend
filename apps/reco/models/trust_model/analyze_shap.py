@@ -149,7 +149,7 @@ def plot_manual_shap_importance(shap_values, feature_names, model):
             'importance': mean_abs_shap
         }).sort_values('importance', ascending=True)
         
-        # 전체 피처 표시 (16개)
+        # 전체 피처 표시
         top_n = len(importance_df)
         importance_df_top = importance_df
         
@@ -175,11 +175,11 @@ def plot_manual_shap_importance(shap_values, feature_names, model):
         print(f"   ✅ 저장: {output_path}")
         plt.close()
         
-        # 2) 전체 16개 Feature 출력
-        top_16 = importance_df.sort_values('importance', ascending=False)
-        print(f"\n   📋 {class_name}등급 - 전체 16개 Feature:")
+        # 2) 전체 Feature 출력
+        top_all = importance_df.sort_values('importance', ascending=False)
+        print(f"\n   📋 {class_name}등급 - 전체 {len(top_all)}개 Feature:")
         
-        for idx, row in top_16.iterrows():
+        for idx, row in top_all.iterrows():
             feature_name = row['feature']
             importance = row['importance']
             print(f"      {feature_name:30s}: {importance:.4f}")
