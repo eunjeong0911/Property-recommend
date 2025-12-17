@@ -39,6 +39,7 @@ interface ApiCommunityPost {
   content: string
   author_name?: string
   author_email?: string
+  author_profile_image?: string | null
   board_type: BoardType
   region?: string | null
   dong?: string | null
@@ -73,7 +74,10 @@ export default function CommunityPage() {
     (item: ApiCommunityPost): CommunityPost => ({
       id: String(item.id),
       boardType: item.board_type === 'region' ? 'region' : 'free',
-      author: { name: item.author_name || '사용자' },
+      author: {
+        name: item.author_name || '사용자',
+        profileImage: item.author_profile_image || undefined
+      },
       title: item.title,
       content: item.content,
       createdAt: new Date(item.created_at),
