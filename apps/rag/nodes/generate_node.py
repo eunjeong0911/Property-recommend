@@ -282,7 +282,7 @@ def generate(state: RAGState) -> RAGState:
     import json
     input_str = json.dumps(slim_context, ensure_ascii=False)
     print(f"[Generate] 📉 Optimized Context Size: {len(str(context_for_display))} -> {len(input_str)} chars")
-    print(f"[Generate] 🤖 Sending to LLM (with Streaming Log)...\n")
+    print(f"[Generate] 🤖 Sending to LLM (Parallel Batch)...\n")
 
     # 검색 컨텍스트 정보
     context_info = ""
@@ -343,10 +343,9 @@ def generate(state: RAGState) -> RAGState:
     print(f"[Generate] 🚀 Executing parallel batch generation (Workers: {len(batch_inputs)})...")
     
     # 3. 병렬 실행 (Batch)
-    from langchain_core.callbacks import StreamingStdOutCallbackHandler
     
     # batch 호출로 병렬 처리 (속도 3배 향상)
-    results = chain.batch(batch_inputs, config={'callbacks': [StreamingStdOutCallbackHandler()]})
+    results = chain.batch(batch_inputs)
     
     # 4. 결과 합치기
     answer = "\n\n".join(results)
