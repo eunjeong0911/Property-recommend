@@ -14,7 +14,6 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import TemperatureList from './TemperatureList';
 import { useParticleEffect } from '../hooks/useParticleEffect';
 
 interface LandImageProps {
@@ -39,7 +38,6 @@ export default function LandImage({
     const images = propImages && propImages.length > 0 ? propImages : [DEFAULT_PLACEHOLDER];
     const router = useRouter();
     const [liked, setLiked] = useState(isLiked);
-    const [isHovered, setIsHovered] = useState(false);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const { triggerEffect } = useParticleEffect();
 
@@ -80,8 +78,6 @@ export default function LandImage({
         <div className="relative cursor-pointer" onClick={handleClick}>
             <div
                 className="relative w-full aspect-square bg-gray-200 rounded-lg overflow-hidden group"
-                onMouseEnter={() => setIsHovered(true)}
-                onMouseLeave={() => setIsHovered(false)}
             >
                 <Image
                     src={images[currentImageIndex]}
@@ -136,13 +132,6 @@ export default function LandImage({
                 </button>
 
             </div>
-
-            {/* 온도 정보 - hover 시 표시 (이미지 왼쪽에 겹치게) */}
-            {isHovered && (
-                <div className="absolute left-0 top-8 -translate-x-[calc(100%-30px)] z-20 w-64">
-                    <TemperatureList />
-                </div>
-            )}
 
             {/* 가격 정보 */}
             <div className="mt-3 text-center">

@@ -59,9 +59,22 @@ const handler = NextAuth({
         async signIn({ user, account, profile }) {
             if (account?.provider === "google") {
                 try {
+                    // 서버 사이드 API 호출: 도커 환경에서는 backend:8000 사용
+                    const serverApiUrl = process.env.SERVER_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+                    const endpoint = `${serverApiUrl}/api/users/auth/google/`;
+
+                    console.log("=== Google Login Debug ===");
+                    console.log("Server API URL:", serverApiUrl);
+                    console.log("Endpoint:", endpoint);
+                    console.log("User data:", {
+                        email: user.email,
+                        name: user.name,
+                        googleId: account.providerAccountId
+                    });
+
                     // Django 백엔드 API 호출
                     const response = await axios.post(
-                        `${process.env.NEXT_PUBLIC_API_URL}/api/users/auth/google/`,
+                        endpoint,
                         {
                             email: user.email,
                             name: user.name,
@@ -69,6 +82,8 @@ const handler = NextAuth({
                             googleId: account.providerAccountId,
                         }
                     );
+
+                    console.log("Backend response:", response.status);
 
                     // 백엔드에서 받은 정보를 user 객체에 추가
                     user.accessToken = response.data.tokens.access;
@@ -85,10 +100,13 @@ const handler = NextAuth({
 
                     return true;
                 } catch (error) {
-                    console.error("Login failed:", error);
+                    console.error("=== Login Error ===");
+                    console.error("Error:", error);
                     if (axios.isAxiosError(error)) {
                         console.error("Response data:", error.response?.data);
                         console.error("Response status:", error.response?.status);
+                        console.error("Request URL:", error.config?.url);
+                        console.error("Request data:", error.config?.data);
                     }
                     return false;
                 }
