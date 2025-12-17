@@ -65,12 +65,52 @@ def create_target(df: pd.DataFrame) -> pd.DataFrame:
     # df["지역표준편차"] = df["지역표준편차"].replace(0, 1e-6)
 
     # ---------------------------------------
-    # 3) 개인별 Z-score 계산
+    # 3) 개인별 Z-score 계산 (거래성사율)
     # ---------------------------------------
-    df["Zscore"] = (df["거래성사율"] - df["지역평균"]) / df["지역표준편차"]
+    df["Performance_Zscore"] = (df["거래성사율"] - df["지역평균"]) / df["지역표준편차"]
+
+    # ---------------------------------------
+    # 4) 자격 가중치 적용 (법인 > 공인중개사 > 중개보조원 > 중개인 > 미등록)
+    # ---------------------------------------
+    # 데이터 서열 점수 매핑 (2점 만점)
+    # 법인: 2, 공인중개사: 1, 중개보조원: 0, 중개인: -1, 미등록: -2
+    qualification_map = {
+        "법인": 2,
+        "공인중개사": 1,
+        "중개보조원": 0,
+        "중개인": -1,
+        "미등록": -2
+    }
+    
+    # 대표자구분명이 없는 경우(NaN) '미등록' 처리
+    df["대표자구분명"] = df["대표자구분명"].fillna("미등록")
+    df["자격점수"] = df["대표자구분명"].map(qualification_map).fillna(-2)  # 매핑 안되는 값은 최소점수(-2)
+
+    # 자격점수 Z-score화 (정규화) - 전체 데이터 기준
+    qual_mean = df["자격점수"].mean()
+    qual_std = df["자격점수"].std()
+    
+    # 표준편차가 0인 경우 (자격이 모두 같은 경우) 처리
+    if qual_std == 0:
+        qual_std = 1
+        
+    df["Qual_Zscore"] = (df["자격점수"] - qual_mean) / qual_std
+
+    # ---------------------------------------
+    # 5) 최종 복합 Z-score 계산
+    # ---------------------------------------
+    # 성사율(실적) 80% + 자격(신뢰도) 20%
+    weight_perf = 0.8
+    weight_qual = 0.2
+    
+    df["Zscore"] = (df["Performance_Zscore"] * weight_perf) + (df["Qual_Zscore"] * weight_qual)
+
+    print("\n⚖️ [2.5단계] 자격 가중치 적용 완료")
+    print(f"   가중치 비율: 실적 {weight_perf*100}% + 자격 {weight_qual*100}%")
+    print(f"   자격점수 분포: {df['자격점수'].value_counts().sort_index().to_dict()}")
 
     # print("   - Z-score 예시:")
-    # print(df[["지역명", "거래성사율", "지역평균", "지역표준편차", "Zscore"]].head())
+    # print(df[["지역명", "거래성사율", "자격구분", "Performance_Zscore", "Qual_Zscore", "Zscore"]].head())
 
     # ---------------------------------------
     # 3-1) 대표자구분명 기반 가중치 적용
