@@ -1,6 +1,32 @@
 from rest_framework import serializers
-from .models import Land
+from .models import Land, LandBroker
+from .utils.price_utils import (
+    parse_korean_price,
+    format_price_in_manwon,
+    extract_deposit_from_deal_text,
+    extract_monthly_rent_from_deal_text,
+    get_price_display,
+    extract_area_pyeong,
+    extract_area_supply,
+    extract_area_exclusive,
+    extract_total_floors,
+)
 import random
+
+
+class BrokerSerializer(serializers.ModelSerializer):
+    """중개업소 시리얼라이저"""
+    id = serializers.IntegerField(source='landbroker_id')
+    trust_grade = serializers.CharField(source='trust_grade_display', read_only=True)
+    
+    class Meta:
+        model = LandBroker
+        fields = [
+            'id', 'office_name', 'representative', 'phone', 'address',
+            'registration_number', 'trust_score', 'trust_grade',
+            'trust_score_updated_at'
+        ]
+
 
 class LandSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='land_id')
@@ -29,7 +55,9 @@ class LandSerializer(serializers.ModelSerializer):
     heating_method = serializers.SerializerMethodField()
     elevator = serializers.SerializerMethodField()
     description = serializers.CharField()
-    agent_info = serializers.SerializerMethodField()
+    
+    # 중개업소 정보
+    broker = BrokerSerializer(source='landbroker', read_only=True)
 
     class Meta:
         model = Land
@@ -58,7 +86,7 @@ class LandSerializer(serializers.ModelSerializer):
             'heating_method',
             'elevator',
             'description',
-            'agent_info'
+            'broker'
         ]
 
     def get_title(self, obj):
@@ -67,11 +95,10 @@ class LandSerializer(serializers.ModelSerializer):
             building_form = obj.listing_info.get('건물형태', obj.building_type)
             area = obj.listing_info.get('전용/공급면적', '')
             if area:
-                # "30m2/38.68m2 (9.07평/11.7평)" 형식에서 평수만 추출
-                import re
-                match = re.search(r'\(([^)]+평)', area)
-                if match:
-                    area = match.group(1)
+                # 사전 컴파일된 정규식 사용
+                pyeong = extract_area_pyeong(area)
+                if pyeong:
+                    area = pyeong
             return f"{building_form} {area}".strip() or obj.land_num
         return obj.land_num
 
@@ -93,128 +120,24 @@ class LandSerializer(serializers.ModelSerializer):
         return round(random.uniform(30.0, 45.0), 1)
 
     def get_deposit(self, obj):
-        """보증금 추출"""
+        """보증금 추출 - price_utils 사용"""
+        deal_text = ''
         if obj.trade_info and isinstance(obj.trade_info, dict):
             deal_text = obj.trade_info.get('거래방식', '')
-            import re
-            
-            # 전세: "전세   1억 2,500만원"
-            if '전세' in deal_text:
-                match = re.search(r'전세\s+(\d+억\s*\d*,?\d*만원|\d+,?\d*만원|\d+억)', deal_text)
-                if match:
-                    return self._parse_korean_price(match.group(1))
-            
-            # 월세: "월세   2,500만원/104만원" 형식 (보증금/월세)
-            elif '월세' in deal_text:
-                match = re.search(r'월세\s+(\d+억\s*\d*,?\d*만원|\d+,?\d*만원|\d+억)/(\d+,?\d*만원)', deal_text)
-                if match:
-                    return self._parse_korean_price(match.group(1))
-            
-            # 매매: "매매   4억 5,000만원"
-            elif '매매' in deal_text:
-                match = re.search(r'매매\s+(\d+억\s*\d*,?\d*만원|\d+,?\d*만원|\d+억)', deal_text)
-                if match:
-                    return self._parse_korean_price(match.group(1))
         
-        # deal_type이 단기임대인 경우 (예: "단기임대   100만원/100만원")
-        if obj.deal_type and '단기임대' in obj.deal_type:
-            import re
-            match = re.search(r'(\d+,?\d*만원)/(\d+,?\d*만원)', obj.deal_type)
-            if match:
-                return self._parse_korean_price(match.group(1))
-        
-        return 0
+        return extract_deposit_from_deal_text(deal_text, obj.deal_type or '')
 
     def get_monthly_rent(self, obj):
-        """월세 추출"""
+        """월세 추출 - price_utils 사용"""
+        deal_text = ''
         if obj.trade_info and isinstance(obj.trade_info, dict):
             deal_text = obj.trade_info.get('거래방식', '')
-            import re
-            
-            # 월세: "월세   2,500만원/104만원" 형식
-            if '월세' in deal_text:
-                match = re.search(r'/(\d+,?\d*만원)', deal_text)
-                if match:
-                    return self._parse_korean_price(match.group(1))
         
-        # deal_type이 단기임대인 경우
-        if obj.deal_type and '단기임대' in obj.deal_type:
-            import re
-            match = re.search(r'/(\d+,?\d*만원)', obj.deal_type)
-            if match:
-                return self._parse_korean_price(match.group(1))
-        
-        return 0
+        return extract_monthly_rent_from_deal_text(deal_text, obj.deal_type or '')
 
-    def _parse_korean_price(self, price_str):
-        """한국어 가격 문자열을 숫자로 변환 (예: '1억 2,500만원' -> 125000000)"""
-        import re
-        price_str = price_str.replace(',', '').replace(' ', '')
-        
-        # 억 단위
-        eok_match = re.search(r'(\d+)억', price_str)
-        eok = int(eok_match.group(1)) * 100000000 if eok_match else 0
-        
-        # 만원 단위
-        man_match = re.search(r'(\d+)만원', price_str)
-        man = int(man_match.group(1)) * 10000 if man_match else 0
-        
-        return eok + man
-
-    def _format_price_in_manwon(self, amount):
-        """금액을 만원 단위로 포맷팅"""
-        if amount == 0:
-            return "0"
-        
-        manwon = amount // 10000
-        eok = manwon // 10000
-        remaining_manwon = manwon % 10000
-        
-        if eok > 0:
-            if remaining_manwon > 0:
-                return f"{eok}억 {remaining_manwon:,}만원"
-            else:
-                return f"{eok}억"
-        else:
-            return f"{remaining_manwon:,}만원"
-    
     def get_price(self, obj):
-        """가격 포맷팅 (만원 단위)"""
-        deal_type = obj.deal_type or ''
-        
-        # 단기임대는 deal_type에 이미 가격이 포함되어 있음
-        if '단기임대' in deal_type:
-            return deal_type
-        
-        # 매매
-        if deal_type == '매매':
-            deposit = self.get_deposit(obj)
-            if deposit > 0:
-                return f"매매 {self._format_price_in_manwon(deposit)}"
-            return '매매 (가격 미정)'
-        
-        # 전세
-        if deal_type == '전세':
-            deposit = self.get_deposit(obj)
-            if deposit > 0:
-                return f"전세 {self._format_price_in_manwon(deposit)}"
-            return '전세 (가격 미정)'
-        
-        # 월세
-        if deal_type == '월세':
-            deposit = self.get_deposit(obj)
-            monthly_rent = self.get_monthly_rent(obj)
-            if monthly_rent > 0:
-                return f"월세 {self._format_price_in_manwon(deposit)} / {self._format_price_in_manwon(monthly_rent)}"
-            return '월세 (가격 미정)'
-        
-        # 기타 (trade_info에서 직접 가져오기)
-        if obj.trade_info and isinstance(obj.trade_info, dict):
-            deal_text = obj.trade_info.get('거래방식', '')
-            if deal_text:
-                return deal_text
-        
-        return '가격 정보 없음'
+        """가격 포맷팅 (만원 단위) - price_utils 사용"""
+        return get_price_display(obj)
 
     def _get_listing_info_field(self, obj, field_name):
         """listing_info에서 필드 추출"""
@@ -231,26 +154,14 @@ class LandSerializer(serializers.ModelSerializer):
         return self._get_listing_info_field(obj, '방/욕실개수')
     
     def get_area_supply(self, obj):
-        """공급면적"""
+        """공급면적 - price_utils 사용"""
         area = self._get_listing_info_field(obj, '전용/공급면적')
-        if area and area != '-':
-            # "30m2/38.68m2 (9.07평/11.7평)" 형식에서 공급면적 추출
-            import re
-            match = re.search(r'/([^(]+)\(', area)
-            if match:
-                return match.group(1).strip()
-        return area
+        return extract_area_supply(area)
     
     def get_area_exclusive(self, obj):
-        """전용면적"""
+        """전용면적 - price_utils 사용"""
         area = self._get_listing_info_field(obj, '전용/공급면적')
-        if area and area != '-':
-            # "30m2/38.68m2 (9.07평/11.7평)" 형식에서 전용면적 추출
-            import re
-            match = re.search(r'(\d+\.?\d*m2)', area)
-            if match:
-                return match.group(1)
-        return area
+        return extract_area_exclusive(area)
     
     def get_direction(self, obj):
         """방향"""
@@ -277,24 +188,10 @@ class LandSerializer(serializers.ModelSerializer):
         return self._get_listing_info_field(obj, '난방방식')
     
     def get_elevator(self, obj):
-        """엘리베이터 (층수 정보에서 유추)"""
+        """엘리베이터 (층수 정보에서 유추) - price_utils 사용"""
         floor_info = self._get_listing_info_field(obj, '해당층/전체층')
-        if floor_info and floor_info != '-':
-            import re
-            match = re.search(r'/(\d+)층', floor_info)
-            if match:
-                total_floors = int(match.group(1))
-                return '있음' if total_floors >= 5 else '없음'
+        total_floors = extract_total_floors(floor_info)
+        if total_floors is not None:
+            return '있음' if total_floors >= 5 else '없음'
         return '-'
     
-    def get_agent_info(self, obj):
-        """중개사 정보"""
-        if obj.agent_info and isinstance(obj.agent_info, dict):
-            return obj.agent_info
-        # agent_info가 비어있으면 기본값 반환
-        return {
-            'name': '-',
-            'phone': '-',
-            'representative': '-',
-            'address': '-'
-        }

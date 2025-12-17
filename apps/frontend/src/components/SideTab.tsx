@@ -30,7 +30,7 @@ export default function SideTab() {
   }
 
   return (
-    <div className="bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md rounded-2xl border-2 border-white/40 shadow-lg p-4 w-64 h-fit">
+    <div className="bg-white rounded-2xl border-2 border-slate-200 shadow-lg p-4 w-64 h-fit">
       <div className="flex flex-col gap-2">
         {NAV_ITEMS.map(({ label, path }) => {
           const isActive = pathname === path
@@ -42,8 +42,8 @@ export default function SideTab() {
               className={`
                 px-6 py-3 font-medium text-sm rounded-xl transition-all duration-200 text-left border-2
                 ${isActive
-                  ? 'bg-blue-600 border-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.6)] ring-2 ring-blue-300'
-                  : 'bg-white/50 border-white/40 text-slate-600 hover:bg-white/80 hover:border-white/80'
+                  ? 'bg-slate-800 border-slate-700 text-white shadow-[0_0_15px_rgba(51,65,85,0.6)] ring-2 ring-slate-400'
+                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
                 }
               `}
             >

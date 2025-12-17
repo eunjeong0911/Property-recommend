@@ -75,3 +75,7 @@ logs/
 data
 
 .kiro
+
+.hypothesis
+
+shap_plots/

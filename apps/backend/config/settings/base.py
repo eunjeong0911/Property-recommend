@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     "apps.recommend",
     "apps.graph",
     "apps.community",
+    "apps.search",
 ]
 
 MIDDLEWARE = [
@@ -68,6 +69,9 @@ DATABASES = {
         "PASSWORD": os.getenv("POSTGRES_PASSWORD"),
         "HOST": os.getenv("POSTGRES_HOST"),
         "PORT": os.getenv("POSTGRES_PORT"),
+        # Connection pooling settings for performance optimization
+        "CONN_MAX_AGE": 60,  # Reuse connections for 60 seconds
+        "CONN_HEALTH_CHECKS": True,  # Verify connection health before reuse
     }
 }
 

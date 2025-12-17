@@ -98,7 +98,7 @@ export default function PreferenceRanking({
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto p-8 rounded-3xl border-2 border-white/40 bg-gradient-to-b from-sky-100/95 to-blue-200/95 backdrop-blur-xl shadow-2xl">
+    <div className="w-full max-w-4xl mx-auto p-8 rounded-3xl border-2 border-slate-200 bg-white shadow-lg">
       <h2 className="text-2xl font-bold mb-8 text-slate-800">매물 선호도 조사</h2>
 
       <div className="mb-10">
@@ -106,13 +106,13 @@ export default function PreferenceRanking({
           <span className="bg-blue-500 text-white font-bold rounded-full w-8 h-8 flex items-center justify-center mr-3 shadow-lg shadow-blue-500/30">01</span>
           <h3 className="text-lg font-bold text-slate-800">직업</h3>
         </div>
-        <div className="ml-11 p-6 border border-white/40 rounded-2xl bg-white/40 backdrop-blur-sm shadow-sm">
+        <div className="ml-11 p-6 border border-blue-200 rounded-2xl bg-blue-50 shadow-sm">
           <label className="block font-bold mb-2 text-slate-700">직업</label>
           <select
             value={job}
             onChange={handleJobChange}
             disabled={controlDisabled}
-            className="w-full max-w-xs p-2.5 border border-white/40 rounded-xl bg-white/60 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 disabled:bg-gray-100 disabled:text-gray-400"
+            className="w-full max-w-xs p-2.5 border border-blue-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 disabled:bg-gray-100 disabled:text-gray-400"
           >
             {jobOptions.map((option) => (
               <option key={option.value} value={option.value}>
@@ -130,10 +130,10 @@ export default function PreferenceRanking({
           <span className="ml-2 text-sm text-slate-500">* 우선순위는 매물 추천에 반영됩니다.</span>
         </div>
 
-        <div className="ml-11 overflow-x-auto rounded-2xl border border-white/40 bg-white/40 backdrop-blur-sm shadow-sm">
+        <div className="ml-11 overflow-x-auto rounded-2xl border border-blue-200 bg-blue-50 shadow-sm">
           <table className="w-full text-center border-collapse">
             <thead>
-              <tr className="border-b border-white/40 bg-white/20">
+              <tr className="border-b border-blue-200 bg-blue-100/50">
                 <th className="p-4 text-slate-700"></th>
                 {RANKS.map((rank) => (
                   <th key={rank} className="p-4 font-medium text-slate-700">
@@ -144,7 +144,7 @@ export default function PreferenceRanking({
             </thead>
             <tbody>
               {FEATURES.map((feature) => (
-                <tr key={feature} className="border-b border-white/40 last:border-b-0 hover:bg-white/30 transition-colors">
+                <tr key={feature} className="border-b border-blue-100 last:border-b-0 hover:bg-blue-100/50 transition-colors">
                   <td className="p-4 text-left font-medium text-slate-700">{feature}</td>
                   {RANKS.map((rank) => (
                     <td key={rank} className="p-4">
