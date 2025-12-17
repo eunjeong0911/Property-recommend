@@ -16,9 +16,13 @@ class SafetyImporter:
         df = df.dropna(subset=['WGS84위도', 'WGS84경도'])
         
         with self.driver.session() as session:
-            session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (c:CCTV) REQUIRE c.id IS UNIQUE")
-            session.run("CREATE POINT INDEX cctv_location_index IF NOT EXISTS FOR (c:CCTV) ON (c.location)")
+            try:
+                session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (c:CCTV) REQUIRE c.id IS UNIQUE")
+                session.run("CREATE POINT INDEX cctv_location_index IF NOT EXISTS FOR (c:CCTV) ON (c.location)")
+            except Exception as e:
+                print(f"Warning: Schema creation failed: {e}")
             
+
             query = """
             UNWIND $batch AS row
             MERGE (c:CCTV {id: row.id})
@@ -80,9 +84,13 @@ class SafetyImporter:
         df = df.dropna(subset=['WGS84위도', 'WGS84경도'])
         
         with self.driver.session() as session:
-            session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (b:EmergencyBell) REQUIRE b.id IS UNIQUE")
-            session.run("CREATE POINT INDEX bell_location_index IF NOT EXISTS FOR (b:EmergencyBell) ON (b.location)")
+            try:
+                session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (b:EmergencyBell) REQUIRE b.id IS UNIQUE")
+                session.run("CREATE POINT INDEX bell_location_index IF NOT EXISTS FOR (b:EmergencyBell) ON (b.location)")
+            except Exception as e:
+                print(f"Warning: Schema creation failed: {e}")
             
+
             query = """
             UNWIND $batch AS row
             MERGE (b:EmergencyBell {id: row.id})
