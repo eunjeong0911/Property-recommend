@@ -20,11 +20,8 @@ def generate(state: RAGState) -> RAGState:
     price_conditions = state.get("price_conditions", {})
     
     print(f"\n{'='*60}")
-    print(f"[Generate] 🚀 Starting answer generation...")
-    print(f"[Generate] 📝 Question: {question}")
-    print(f"[Generate] 📊 Graph results count: {len(graph_results) if isinstance(graph_results, list) else 1}")
-    print(f"[Generate] 🗄️  SQL results count: {len(sql_results)}")
-    print(f"{'='*60}\n")
+    print(f"[LLM] 🚀 답변 생성 시작")
+    print(f"{'='*60}")
     
     # Extract context list if nested
     if isinstance(graph_results, dict) and 'context' in graph_results:
@@ -107,20 +104,30 @@ def generate(state: RAGState) -> RAGState:
                  if not details_list: return []
                  return [d for d in details_list if d.get('name') not in poi_names]
 
-            # 2. General Facilities (Convenience, Hospital, Park, Education, Pharmacy)
+            # 2. General Facilities - 요청된 시설만 표시
+            requested = state.get('requested_facilities', [])
             fac_summary = []
-            if result.get('med_details'): fac_summary.append(f"의료(병원): {format_details(result['med_details'])}")
-            if result.get('pharm_details'): fac_summary.append(f"약국: {format_details(result['pharm_details'])}")
-            if result.get('gen_hosp_details'): fac_summary.append(f"의료(종합/대학병원): {format_details(result['gen_hosp_details'])}")
-            if result.get('conv_details'): fac_summary.append(f"편의: {format_details(result['conv_details'])}")
-            if result.get('park_details'): fac_summary.append(f"공원: {format_details(result['park_details'])}")
-            if result.get('edu_details'): fac_summary.append(f"교육: {format_details(result['edu_details'])}")
+            
+            # 요청된 시설이 있으면 해당 시설만, 없으면 전체 표시
+            show_all = not requested
+            
+            if (show_all or 'hospital' in requested or 'general_hospital' in requested):
+                if result.get('med_details'): fac_summary.append(f"의료(병원): {format_details(result['med_details'])}")
+                if result.get('pharm_details'): fac_summary.append(f"약국: {format_details(result['pharm_details'])}")
+                if result.get('gen_hosp_details'): fac_summary.append(f"의료(종합/대학병원): {format_details(result['gen_hosp_details'])}")
+            if (show_all or 'convenience' in requested):
+                if result.get('conv_details'): fac_summary.append(f"편의: {format_details(result['conv_details'])}")
+            if (show_all or 'park' in requested):
+                if result.get('park_details'): fac_summary.append(f"공원: {format_details(result['park_details'])}")
+            if (show_all or 'university' in requested):
+                if result.get('edu_details'): fac_summary.append(f"교육: {format_details(result['edu_details'])}")
             
             # [Fix]: Filter out transportation items that match the Anchor (POI) to avoid duplication
             filtered_trans = filter_poi(result.get('trans_details'))
             if filtered_trans: fac_summary.append(f"교통: {format_details(filtered_trans)}")
             
             merged['formatted_infrastructure'] = " | ".join(fac_summary)
+
             
             # 3. Safety Facilities (Dual Display)
             # - CCTV/Bell: Count only
@@ -155,6 +162,10 @@ def generate(state: RAGState) -> RAGState:
                 merged['detail_link'] = f"[📋 상세보기](/landDetail/{land_id})"
             else:
                 merged['detail_link'] = ""
+            
+            # 6. 외부 URL 제거 (LLM이 내부 링크만 사용하도록)
+            if 'url' in postgres_details:
+                del postgres_details['url']
 
             unique_results.append(merged)
     
@@ -228,7 +239,6 @@ def generate(state: RAGState) -> RAGState:
     # Simple generation using LLM
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
     
-    # [Optimized]: 프롬프트 압축 (~800 토큰 → ~400 토큰) - LLM 응답 50% 빨라짐
     prompt = ChatPromptTemplate.from_template(
         """부동산 AI. 검색된 매물만 소개 (가상 금지).
 {context_info}
@@ -255,10 +265,15 @@ def generate(state: RAGState) -> RAGState:
     print("[Generate] 🤖 Generating final answer with GPT-4o...")
     answer = chain.invoke({
         "question": question, 
-        "context": context_for_display,  # Only send top 3 to LLM
+        "context": context_for_display,
         "context_info": context_info
     })
-    print(f"[Generate] ✅ Answer generated:\n{answer}")
+
+
+
+    
+    llm_elapsed = int((time.time() - start_time) * 1000)
+    print(f"[LLM] ✅ 완료: {len(context)}개 매물 답변 | 시간: {llm_elapsed}ms")
     
     state["answer"] = answer
     state["full_results"] = full_results  # Store all results for Redis caching

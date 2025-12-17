@@ -1,13 +1,12 @@
 import os
-import json
-from typing import List, Optional, Dict
+import re
+from typing import List, Dict
 from langchain_community.graphs import Neo4jGraph
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
-from langchain_core.tools import tool
 from common.state import RAGState
 
-# Neo4j Connection (Lazy Loading)
+# =============================================================================
+# Neo4j 연결 (Lazy Loading)
+# =============================================================================
 _graph = None
 
 def get_graph():
@@ -20,288 +19,447 @@ def get_graph():
         )
     return _graph
 
-# --- Helper for common query structure ---
-def execute_hybrid_query(location_keyword: str, facility_labels: str, facility_rel: str, 
-                         facility_name_key: str, sort_strategy: str = "dist"):
+
+# =============================================================================
+# 규칙 기반 쿼리 빌더 (Rule-Based Query Builder)
+# =============================================================================
+# LLM 없이 사용자 질문을 분석하여 동적으로 Cypher 쿼리를 생성합니다.
+# 성능: 17,000ms (LLM Agent) → 150ms (규칙 기반)
+
+# -----------------------------------------------------------------------------
+# 1. 상수 및 키워드 사전 (Constants & Keyword Dictionaries)
+# -----------------------------------------------------------------------------
+
+# 스코어링 상수
+SCORE_MAX_DISTANCE = 5000       # 최대 거리 점수 기준 (m)
+SCORE_SUBWAY_BONUS = 500        # 지하철역 우선 보너스
+SCORE_SAFETY_MULTIPLIER = 100   # 안전시설 개당 점수
+
+# 시설 타입별 키워드 매핑
+FACILITY_KEYWORDS = {
+    "safety": ["안전", "치안", "cctv", "경찰", "소방", "비상벨", "안심", "범죄", 
+               "보안", "안전한", "치안 좋은", "안심귀가"],
+    "convenience": ["편의점", "마트", "gs25", "cu", "세븐일레븐", "이마트24",
+                    "편세권", "슬세권", "미니스톱", "씨유"],
+    "hospital": ["병원", "의원", "의료", "클리닉", "진료소"],
+    "general_hospital": ["종합병원", "대학병원", "대형병원", "상급병원"],
+    "pharmacy": ["약국", "약방"],
+    "park": ["공원", "산책", "녹지", "운동", "조깅", "숲"],
+    "university": ["대학교", "대학", "캠퍼스", "학교", "학세권"],
+    "subway": ["역", "지하철", "전철", "교통", "역세권", "메트로"]
+}
+
+# 시설 타입 → Neo4j 관계/라벨 매핑
+FACILITY_CONFIG = {
+    "subway": {
+        "relationship": "NEAR_SUBWAY",
+        "label": "SubwayStation",
+        "result_key": "trans_details"
+    },
+    "hospital": {
+        "relationship": "NEAR_HOSPITAL|NEAR_GENERAL_HOSPITAL",
+        "label": "Hospital",
+        "result_key": "med_details"
+    },
+    "general_hospital": {
+        "relationship": "NEAR_GENERAL_HOSPITAL",
+        "label": "GeneralHospital",
+        "result_key": "gen_hosp_details"
+    },
+    "pharmacy": {
+        "relationship": "NEAR_PHARMACY",
+        "label": "Pharmacy",
+        "result_key": "pharmacy_details"
+    },
+    "convenience": {
+        "relationship": "NEAR_CONVENIENCE",
+        "label": "Convenience",
+        "result_key": "conv_details"
+    },
+    "park": {
+        "relationship": "NEAR_PARK",
+        "label": "Park",
+        "result_key": "park_details"
+    },
+    "university": {
+        "relationship": "NEAR_COLLEGE",
+        "label": "College",
+        "result_key": "edu_details"
+    },
+    "safety": {
+        "relationship": "NEAR_CCTV|NEAR_BELL|NEAR_POLICE|NEAR_FIRE",
+        "label": "Safety",
+        "result_key": "safety_details"
+    }
+}
+
+# 주요 지하철역/지역명 패턴 (서울 전 노선 커버)
+LOCATION_PATTERNS = [
+    # 지하철역 (역 접미사 포함)
+    r"(홍대입구|강남|신촌|건대입구|잠실|여의도|이태원|합정|상수|망원|연남|성수|왕십리|"
+    r"신림|봉천|낙성대|사당|교대|서초|삼성|선릉|역삼|논현|신사|압구정|청담|"
+    r"명동|종로|종로3가|종로5가|동대문|혜화|대학로|을지로|을지로3가|을지로4가|시청|광화문|경복궁|안국|"
+    r"노원|도봉|수유|미아|길음|돈암|성신여대|한성대|창동|쌍문|"
+    r"구로|신도림|영등포|당산|선유도|문래|대림|가산|가산디지털단지|금천|"
+    r"마포|공덕|애오개|아현|충정로|서울역|용산|이촌|동작|"
+    r"천호|강동|암사|길동|둔촌|명일|고덕|상일동|"
+    r"을지로입구|신당|상왕십리|신설동|동묘앞|신정네거리|양천구청|도림천|"
+    r"고속터미널|남부터미널|약수|금호|옥수|압구정로데오|잠원|"
+    r"동대문역사문화공원|충무로|회현|숙대입구|삼각지|한강진|"
+    r"청구|신금호|행당|마장|답십리|장한평|"
+    r"녹사평|효창공원앞|대흥|광흥창|"
+    r"어린이대공원|군자|면목|사가정|용마산|중곡|상봉|"
+    r"남구로|신풍|보라매|신대방삼거리|장승배기|"
+    r"김포공항|마곡나루|가양|양천향교|염창|등촌|증미|신논현|언주|선정릉|삼성중앙|봉은사|종합운동장|"
+    r"양재|양재시민의숲|청계산입구|판교|정자)(?:역)?",
+    # 대학교
+    r"(서울대|연세대|고려대|이화여대|홍익대|건국대|한양대|성균관대|중앙대|경희대|"
+    r"서강대|숙명여대|동국대|국민대|세종대|한국외대|시립대|광운대|상명대|덕성여대|"
+    r"숭실대|가톨릭대|서울여대|한성대|삼육대|명지대|"
+    r"서울과기대|서울시립대|단국대|인하대|숭의여대|총신대|KC대|감리교신학대|"
+    r"서울교대|한예종|서울예대|추계예대)(?:학교)?(?:교)?",
+    # 일반 지역명
+    r"(신촌|홍대|이태원|강남|잠실|여의도|명동|종로|동대문|성수|"
+    r"마포|용산|영등포|구로|노원|송파|강동|관악|동작|서초|강서|양천|은평|"
+    r"도봉|강북|중랑|성북|광진|금천|구로디지털단지|"
+    r"목동|화곡|방화|개화|발산|등촌|마곡|상암|연희|연남동|"
+    r"청량리|회기|중화|상봉|망우|태릉입구|공릉|하계|중계|"
+    r"문정|가락|거여|마천|방이|오금|개롱|"
+    r"회현|남대문|후암|청파|원효로|한남|보광동|이태원동)"
+]
+
+
+# -----------------------------------------------------------------------------
+# 2. 질문 분석 함수 (Question Analysis Functions)
+# -----------------------------------------------------------------------------
+
+# 대학교 이름 패턴 (별도 정의 - 우선 매칭용)
+UNIVERSITY_PATTERN = (
+    r"(서울대|연세대|고려대|이화여대|홍익대|건국대|한양대|성균관대|중앙대|경희대|"
+    r"서강대|숙명여대|동국대|국민대|세종대|한국외대|시립대|광운대|상명대|덕성여대|"
+    r"숭실대|가톨릭대|서울여대|한성대|삼육대|명지대|"
+    r"서울과기대|서울시립대|단국대|인하대|숭의여대|총신대|KC대|감리교신학대|"
+    r"서울교대|한예종|서울예대|추계예대)(?:학교)?(?:교)?(?:근처|주변|앞)?"
+)
+
+# 대학교 의도 키워드
+UNIVERSITY_INTENT_KEYWORDS = ["대학", "학교", "캠퍼스", "학세권", "대학교"]
+
+
+def extract_location(question: str) -> tuple:
     """
-    Executes a standard "Anchor Location + Target Facility" query.
+    질문에서 위치 정보 추출 (정규식 기반)
     
-    Args:
-        location_keyword: User's location query (e.g. "Hongdae")
-        facility_labels: Neo4j labels for target facility (e.g. "Hospital:Pharmacy")
-        facility_rel: Relationship type to target (e.g. "NEAR_HOSPITAL|NEAR_PHARMACY")
-        facility_name_key: Key for formatting details (e.g. "med_details")
-        sort_strategy: "dist" (closest) or "count" (most connections)
+    Returns:
+        (location: str, location_type: str)
+        location_type: 'university', 'subway', 'region', ''
     """
+    # 1. 대학교 의도가 있는지 먼저 확인
+    has_university_intent = any(kw in question for kw in UNIVERSITY_INTENT_KEYWORDS)
     
-    # [Revert]: Removed Python-side sanitization (clean_keyword) per user request.
-    # We now handle matching logic purely in Cypher for robustness.
-    print(f"[Debug] Search: '{location_keyword}' | Facility: {facility_labels}")
+    # 2. 대학교 의도가 있으면 대학교 패턴 먼저 검사
+    if has_university_intent:
+        match = re.search(UNIVERSITY_PATTERN, question)
+        if match:
+            location = match.group(1)
+            print(f"[QueryBuilder] 📍 Location: {location} (university, intent detected)")
+            return location, "university"
     
-    # 1. Find Anchor Location (Subway, University, etc.)
-    # [Optimized]: Full-Text Index 사용으로 5-8초 → 0.5초 이하로 단축
-    # Full-Text Index는 CONTAINS보다 훨씬 빠름 (인덱스 활용)
-    # 
-    # 주의: Full-Text Index가 없으면 에러 발생
-    # 생성 방법: infra/neo4j/create_indexes.cypher 실행
-    anchor_match = """
-    CALL db.index.fulltext.queryNodes("location_search_fulltext", $keyword + "*") YIELD node AS anchor
-    WHERE (anchor:SubwayStation OR anchor:College OR anchor:Hospital OR anchor:GeneralHospital OR anchor:Park)
+    # 3. 대학교 패턴에서 정확히 매칭되는지 확인 (대학, 학교 접미사 포함된 경우)
+    uni_match = re.search(UNIVERSITY_PATTERN + r"(?=\s|$|근처|주변|앞|역)", question)
+    if uni_match:
+        location = uni_match.group(1)
+        print(f"[QueryBuilder] 📍 Location: {location} (university, exact match)")
+        return location, "university"
+    
+    # 4. 일반 패턴 순서대로 검사
+    for i, pattern in enumerate(LOCATION_PATTERNS):
+        match = re.search(pattern, question)
+        if match:
+            location = match.group(1)
+            # 패턴 인덱스로 타입 결정: 0=지하철, 1=대학교, 2=지역
+            if i == 0:
+                loc_type = "subway"
+            elif i == 1:
+                loc_type = "university"
+            else:
+                loc_type = "region"
+            print(f"[QueryBuilder] 📍 Location: {location} ({loc_type})")
+            return location, loc_type
+    
+    print("[QueryBuilder] ⚠️ No location found")
+    return "", ""
+
+
+def detect_facilities(question: str) -> Dict[str, bool]:
+    """질문에서 요청된 시설 타입들 감지 (키워드 매칭)"""
+    q = question.lower()
+    detected = {}
+    
+    for facility, keywords in FACILITY_KEYWORDS.items():
+        detected[facility] = any(kw in q for kw in keywords)
+    
+    return detected
+
+
+def analyze_question(question: str) -> Dict:
     """
+    질문 분석 - 위치와 시설 타입을 추출
     
-    # 2. Find Property connected to Anchor AND Target Facility
-    # We join directly to ensure only Connected Anchors are used.
-    core_query = f"""
-    {anchor_match}
-    MATCH (p:Property)-[r_anchor]-(anchor)
-    WHERE type(r_anchor) STARTS WITH 'NEAR_'
-    
-    MATCH (p)-[r_fac:{facility_rel}]->(target)
-    WHERE (
-        '{facility_labels}' = 'ANY' OR
-        any(label in labels(target) WHERE label IN split('{facility_labels}', ':'))
-    )
-    
-    // Prioritize SubwayStation anchors for distance calculation if multiple exist for the same property?
-    // No, usually a property is near ONE anchor relevant to the search.
-    
-    WITH p, anchor, r_anchor, target, r_fac
+    Returns:
+        {
+            'location': str,           # 추출된 위치
+            'location_type': str,      # 'university', 'subway', 'region', ''
+            'facilities': List[str],   # 감지된 시설 타입들
+            'search_type': str         # 'single', 'multi', 'default'
+        }
     """
+    location, location_type = extract_location(question)
+    facilities_dict = detect_facilities(question)
+    active_facilities = [f for f, active in facilities_dict.items() if active]
     
-    scoring = ""
-    if sort_strategy == "count":
-        # Safety strategy: Count connections
-        score_logic = """
-        WITH p, anchor, r_anchor, count(DISTINCT target) as fac_count, 
-             collect({name: target.name, dist: coalesce(toInteger(r_fac.distance), 9999), time: coalesce(toInteger(r_fac.walking_time), 9999)})[..5] as fac_details
-        WITH p, anchor, r_anchor, fac_count, fac_details, 
-             (fac_count * 300) as fac_score
-        """
+    # 대학교 위치인 경우 university 시설로 강제 추가 (학교 근처 검색 최적화)
+    if location_type == "university" and "university" not in active_facilities:
+        facilities_dict["university"] = True
+        active_facilities.append("university")
+        print(f"[QueryBuilder] 🎓 Added 'university' facility for location_type=university")
+    
+    # 검색 타입 결정
+    if len(active_facilities) >= 2:
+        search_type = "multi"
+    elif len(active_facilities) == 1:
+        search_type = "single"
     else:
-        # Distance strategy: Closest one wins
-        score_logic = """
-        WITH p, anchor, r_anchor, target, r_fac ORDER BY coalesce(toInteger(r_fac.distance), 99999) ASC
-        WITH p, anchor, r_anchor, count(DISTINCT target) as fac_count,
-             collect({name: target.name, dist: coalesce(toInteger(r_fac.distance), 9999), time: coalesce(toInteger(r_fac.walking_time), 9999)}) as all_details
-        WITH p, anchor, r_anchor, fac_count, all_details[..3] as fac_details,
-             CASE WHEN size(all_details) > 0 THEN (5000 - all_details[0].dist) ELSE 0 END as fac_score
-        """
-        
-    final_return = f"""
-    {score_logic}
+        search_type = "default"  # 지하철역 기본 검색
     
-    // Total Score = Anchor Proximity + Facility Score + Anchor Priority (Subway Bonus)
-    // [Fix]: Score Boost for SubwayStation to satisfy user preference for "Station" search
-    WITH p, anchor, r_anchor, fac_count, fac_details, fac_score, (5000 - coalesce(toInteger(r_anchor.distance), 5000)) as anchor_score,
-         CASE WHEN 'SubwayStation' IN labels(anchor) THEN 500 ELSE 0 END as priority_score
-         
-    WITH p, anchor, fac_count, fac_details, (anchor_score + fac_score + priority_score) as total_score,
-         {{name: anchor.name, dist: coalesce(toInteger(r_anchor.distance), 9999), time: coalesce(toInteger(r_anchor.walking_time), 9999)}} as anchor_info
+    print(f"[QueryBuilder] 🏷️ Facilities: {active_facilities}, Type: {search_type}")
     
-    RETURN p.id as id, total_score, 
-           [anchor_info] as poi_details,
-           fac_details as {facility_name_key}
-    ORDER BY total_score DESC LIMIT 50
-    """
-    
-    full_cypher = core_query + final_return
-    return get_graph().query(full_cypher, params={"keyword": location_keyword})
+    return {
+        'location': location,
+        'location_type': location_type,
+        'facilities': active_facilities,
+        'facilities_dict': facilities_dict,
+        'search_type': search_type
+    }
 
 
-# --- DOMAIN TOOLS (검색 도구) ---
-# LLM Agent가 사용자 질문을 분석하여 적절한 도구를 선택합니다.
 
-@tool  # 🚇 지하철역 근처 매물 검색
-def search_properties_near_subway(location_keyword: str):
-    """
-    Find properties near a specific Subway Station (Transportation).
-    Use this when user asks for "Subway", "Station", "Transport".
-    """
-    # For subway, Anchor IS the Target.
-    # We modify the query slightly: Finding properties connected to the Subway node.
-    query = """
-    MATCH (s:SubwayStation) WHERE (s.name CONTAINS $keyword OR $keyword CONTAINS s.name)
-    WITH s LIMIT 3
+# -----------------------------------------------------------------------------
+# 3. 동적 Cypher 쿼리 빌더 (Dynamic Cypher Query Builder)
+# -----------------------------------------------------------------------------
+
+def build_single_facility_query(facility_type: str) -> str:
+    """단일 시설 타입에 대한 Cypher 쿼리 생성"""
+    
+    config = FACILITY_CONFIG.get(facility_type)
+    if not config:
+        return build_subway_query()  # 기본값
+    
+    if facility_type == "subway":
+        return build_subway_query()
+    elif facility_type == "university":
+        return build_university_query()
+    elif facility_type == "safety":
+        return build_safety_query()
+    else:
+        return build_facility_query(
+            relationship=config["relationship"],
+            label=config["label"],
+            result_key=config["result_key"]
+        )
+
+
+def build_subway_query() -> str:
+    """지하철역 검색 Cypher 쿼리 (TEXT INDEX 활용)"""
+    return f"""
+    MATCH (s:SubwayStation)
+    WHERE s.name STARTS WITH $keyword OR s.name CONTAINS $keyword
+    WITH s LIMIT 5
+    
     MATCH (p:Property)-[r:NEAR_SUBWAY]->(s)
+    WITH p, s, r ORDER BY r.distance LIMIT 100
     
-    WITH p, s, r, (5000 - coalesce(toInteger(r.distance), 5000)) as total_score
+    WITH p, s, r, ({SCORE_MAX_DISTANCE} - coalesce(toInteger(r.distance), {SCORE_MAX_DISTANCE})) as total_score
     RETURN p.id as id, total_score,
-           collect({name: s.name, dist: coalesce(toInteger(r.distance), 9999), time: coalesce(toInteger(r.walking_time), 9999)}) as poi_details,
-           collect({name: s.name, dist: coalesce(toInteger(r.distance), 9999), time: coalesce(toInteger(r.walking_time), 9999)}) as trans_details
+           collect({{name: s.name, dist: coalesce(toInteger(r.distance), 9999), time: coalesce(toInteger(r.walking_time), 9999)}}) as poi_details
     ORDER BY total_score DESC LIMIT 50
     """
-    return get_graph().query(query, params={"keyword": location_keyword})
 
-@tool  # 🏥 병원/종합병원 근처 매물 검색 (general_only=True: 종합병원만)
-def search_properties_near_hospital(location_keyword: str, general_only: bool = False):
-    """
-    Find properties near Hospitals.
-    Args:
-        location_keyword: The location name (e.g. "Hongdae")
-        general_only: If True, searches ONLY 'GeneralHospital/UniversityHospital'. If False, searches all hospitals/pharmacies.
-    """
-    if general_only:
-        # Strict: GeneralHospital
-        return execute_hybrid_query(location_keyword, "GeneralHospital", "NEAR_GENERAL_HOSPITAL", "gen_hosp_details", "dist")
-    else:
-        # Broad: Hospital, GeneralHospital (EXCLUDE Pharmacy)
-        return execute_hybrid_query(location_keyword, "ANY", "NEAR_HOSPITAL|NEAR_GENERAL_HOSPITAL", "med_details", "dist")
 
-@tool  # 💊 약국 근처 매물 검색
-def search_properties_near_pharmacy(location_keyword: str):
-    """
-    Find properties near Pharmacies.
-    """
-    return execute_hybrid_query(location_keyword, "Pharmacy", "NEAR_PHARMACY", "pharmacy_details", "dist")
-
-@tool  # 🏪 편의점 근처 매물 검색 (슬세권)
-def search_properties_near_convenience(location_keyword: str):
-    """
-    Find properties near Convenience Stores.
-    """
-    return execute_hybrid_query(location_keyword, "Convenience", "NEAR_CONVENIENCE", "conv_details", "dist")
-
-@tool  # 🌳 공원 근처 매물 검색
-def search_properties_near_park(location_keyword: str):
-    """
-    Find properties near Parks or Walking areas.
-    """
-    return execute_hybrid_query(location_keyword, "Park", "NEAR_PARK", "park_details", "dist")
-
-@tool  # 🎓 대학교 근처 매물 검색 (학세권)
-def search_properties_near_university(location_keyword: str):
-    """
-    Find properties near Universities/Colleges.
-    Uses a specialized query that ONLY matches College nodes as anchors.
-    Returns: poi_details = nearby subway station, edu_details = searched university only
-    """
-    query = """
-    MATCH (anchor:College) 
-    WHERE (anchor.name CONTAINS $keyword OR $keyword CONTAINS anchor.name)
+def build_university_query() -> str:
+    """대학교 검색 Cypher 쿼리 (TEXT INDEX 활용)"""
+    return f"""
+    MATCH (anchor:College)
+    WHERE anchor.name STARTS WITH $keyword OR anchor.name CONTAINS $keyword
+    WITH anchor LIMIT 5
     
     MATCH (p:Property)-[r_anchor:NEAR_COLLEGE]->(anchor)
+    WITH p, anchor, r_anchor ORDER BY r_anchor.distance LIMIT 100
     
-    // 가장 가까운 지하철역 조회 (역 접근성용)
     OPTIONAL MATCH (p)-[r_sub:NEAR_SUBWAY]->(sub:SubwayStation)
+    WITH p, anchor, r_anchor, sub, r_sub
+    ORDER BY CASE WHEN r_sub IS NULL THEN 9999 ELSE r_sub.distance END
+    WITH p, anchor, r_anchor, head(collect(sub)) as closest_sub, head(collect(r_sub)) as closest_r_sub
     
-    WITH p, anchor, r_anchor, sub, r_sub,
-         (5000 - coalesce(toInteger(r_anchor.distance), 5000)) as total_score
+    WITH p, anchor, r_anchor, closest_sub, closest_r_sub,
+         ({SCORE_MAX_DISTANCE} - coalesce(toInteger(r_anchor.distance), {SCORE_MAX_DISTANCE})) as total_score
     
     RETURN p.id as id, total_score,
-           CASE WHEN sub IS NOT NULL 
-                THEN [{name: sub.name, dist: coalesce(toInteger(r_sub.distance), 9999), time: coalesce(toInteger(r_sub.walking_time), 9999)}]
+           CASE WHEN closest_sub IS NOT NULL 
+                THEN [{{name: closest_sub.name, dist: coalesce(toInteger(closest_r_sub.distance), 9999), time: coalesce(toInteger(closest_r_sub.walking_time), 9999)}}]
                 ELSE [] 
            END as poi_details,
-           [{name: anchor.name, dist: coalesce(toInteger(r_anchor.distance), 9999), time: coalesce(toInteger(r_anchor.walking_time), 9999)}] as edu_details
+           [{{name: anchor.name, dist: coalesce(toInteger(r_anchor.distance), 9999), time: coalesce(toInteger(r_anchor.walking_time), 9999)}}] as edu_details
     ORDER BY total_score DESC LIMIT 50
     """
-    print(f"[Debug] University Search: '{location_keyword}'")
-    return get_graph().query(query, params={"keyword": location_keyword})
 
 
-@tool  # 🛡️ 안전 시설 근처 매물 검색 (CCTV, 비상벨, 경찰서, 소방서)
-def search_properties_with_safety(location_keyword: str):
-    """
-    Find properties with GOOD SAFETY infrastructure.
-    Returns:
-    - CCTV/Bell counts (e.g., "CCTV 5개")
-    - Police/Fire distance and time (e.g., "경찰서 150m, 도보 2분")
-    """
-    query = """
-    MATCH (anchor) 
-    WHERE (anchor.name CONTAINS $keyword OR $keyword CONTAINS anchor.name)
-      AND (anchor:SubwayStation OR anchor:College OR anchor:Hospital OR anchor:GeneralHospital OR anchor:Park)
+def build_safety_query() -> str:
+    """안전 시설 검색 Cypher 쿼리 (TEXT INDEX 활용)"""
+    return f"""
+    MATCH (anchor)
+    WHERE (anchor:SubwayStation OR anchor:College OR anchor:Hospital OR anchor:GeneralHospital OR anchor:Park)
+      AND (anchor.name STARTS WITH $keyword OR anchor.name CONTAINS $keyword)
+    WITH anchor LIMIT 5
     
     MATCH (p:Property)-[r_anchor]-(anchor)
     WHERE type(r_anchor) STARTS WITH 'NEAR_'
+    WITH DISTINCT p, anchor, r_anchor
+    ORDER BY r_anchor.distance LIMIT 100
     
-    // Count-based: CCTV and Emergency Bell
-    OPTIONAL MATCH (p)-[:NEAR_CCTV]->(cctv)
-    OPTIONAL MATCH (p)-[:NEAR_BELL]->(bell)
+    CALL {{ WITH p RETURN count{{(p)-[:NEAR_CCTV]->()}} as cctv_count }}
+    CALL {{ WITH p RETURN count{{(p)-[:NEAR_BELL]->()}} as bell_count }}
+    CALL {{ 
+        WITH p 
+        OPTIONAL MATCH (p)-[r:NEAR_POLICE]->(police:PoliceStation)
+        RETURN collect({{name: police.name, dist: toInteger(r.distance), time: toInteger(r.walking_time)}})[..1] as police_list
+    }}
+    CALL {{
+        WITH p
+        OPTIONAL MATCH (p)-[r:NEAR_FIRE]->(fire:FireStation)
+        RETURN collect({{name: fire.name, dist: toInteger(r.distance), time: toInteger(r.walking_time)}})[..1] as fire_list
+    }}
     
-    // Distance-based: Police and Fire Station
-    OPTIONAL MATCH (p)-[r_police:NEAR_POLICE]->(police)
-    OPTIONAL MATCH (p)-[r_fire:NEAR_FIRE]->(fire)
-    
-    WITH p, anchor, r_anchor,
-         count(DISTINCT cctv) as cctv_count,
-         count(DISTINCT bell) as bell_count,
-         collect(DISTINCT {name: police.name, dist: coalesce(toInteger(r_police.distance), 9999), time: coalesce(toInteger(r_police.walking_time), 9999)})[..3] as police_list,
-         collect(DISTINCT {name: fire.name, dist: coalesce(toInteger(r_fire.distance), 9999), time: coalesce(toInteger(r_fire.walking_time), 9999)})[..3] as fire_list
-    
-    // Filter out null entries from police/fire lists
     WITH p, anchor, r_anchor, cctv_count, bell_count,
          [item in police_list WHERE item.name IS NOT NULL] as police_details,
          [item in fire_list WHERE item.name IS NOT NULL] as fire_details
     
-    // Score: Count-based (CCTV + Bell) + Distance-based (Police + Fire proximity) + Anchor proximity
     WITH p, anchor, r_anchor, cctv_count, bell_count, police_details, fire_details,
-         (cctv_count * 100 + bell_count * 100) as count_score,
-         CASE WHEN size(police_details) > 0 THEN (5000 - police_details[0].dist) ELSE 0 END as police_score,
-         CASE WHEN size(fire_details) > 0 THEN (5000 - fire_details[0].dist) ELSE 0 END as fire_score,
-         (5000 - coalesce(toInteger(r_anchor.distance), 5000)) as anchor_score,
-         CASE WHEN 'SubwayStation' IN labels(anchor) THEN 500 ELSE 0 END as priority_score
+         (cctv_count * {SCORE_SAFETY_MULTIPLIER} + bell_count * {SCORE_SAFETY_MULTIPLIER}) as count_score,
+         CASE WHEN size(police_details) > 0 THEN ({SCORE_MAX_DISTANCE} - coalesce(police_details[0].dist, {SCORE_MAX_DISTANCE})) ELSE 0 END as police_score,
+         CASE WHEN size(fire_details) > 0 THEN ({SCORE_MAX_DISTANCE} - coalesce(fire_details[0].dist, {SCORE_MAX_DISTANCE})) ELSE 0 END as fire_score,
+         ({SCORE_MAX_DISTANCE} - coalesce(toInteger(r_anchor.distance), {SCORE_MAX_DISTANCE})) as anchor_score,
+         CASE WHEN 'SubwayStation' IN labels(anchor) THEN {SCORE_SUBWAY_BONUS} ELSE 0 END as priority_score
     
     WITH p, anchor, cctv_count, bell_count, police_details, fire_details,
          (count_score + police_score + fire_score + anchor_score + priority_score) as total_score,
-         {name: anchor.name, dist: coalesce(toInteger(r_anchor.distance), 9999), time: coalesce(toInteger(r_anchor.walking_time), 9999)} as anchor_info
+         {{name: anchor.name, dist: coalesce(toInteger(r_anchor.distance), 9999), time: coalesce(toInteger(r_anchor.walking_time), 9999)}} as anchor_info
     
     RETURN p.id as id, total_score,
            [anchor_info] as poi_details,
            cctv_count, bell_count, police_details, fire_details
     ORDER BY total_score DESC LIMIT 50
     """
-    return get_graph().query(query, params={"keyword": location_keyword})
 
-@tool  # 🔍 다중 조건 매물 검색 (편의점+병원+안전 등 복합 조건)
-def search_properties_multi_criteria(
-    location_keyword: str,
-    convenience: bool = False,
-    hospital: bool = False,
-    pharmacy: bool = False,
-    safety: bool = False,
-    park: bool = False
-):
-    """
-    Find properties that satisfy MULTIPLE facility requirements simultaneously.
-    Use when user requests 2+ facility types (e.g., "convenience AND safety").
-    Returns properties that have ALL requested facilities nearby.
-    """
-    
-    # Base query: Find anchor and properties
-    query = """
-    MATCH (anchor) 
-    WHERE (anchor.name CONTAINS $keyword OR $keyword CONTAINS anchor.name)
-      AND (anchor:SubwayStation OR anchor:College OR anchor:Hospital OR anchor:GeneralHospital OR anchor:Park)
+
+def build_facility_query(relationship: str, label: str, result_key: str) -> str:
+    """일반 시설 검색 Cypher 쿼리 (TEXT INDEX 활용)"""
+    return f"""
+    MATCH (anchor)
+    WHERE (anchor:SubwayStation OR anchor:College OR anchor:Hospital OR anchor:GeneralHospital OR anchor:Park)
+      AND (anchor.name STARTS WITH $keyword OR anchor.name CONTAINS $keyword)
+    WITH anchor LIMIT 5
     
     MATCH (p:Property)-[r_anchor]-(anchor)
     WHERE type(r_anchor) STARTS WITH 'NEAR_'
     
-    // OPTIONAL MATCH for all possible facilities
-    OPTIONAL MATCH (p)-[r_conv:NEAR_CONVENIENCE]->(conv:Convenience)
-    OPTIONAL MATCH (p)-[r_hosp:NEAR_HOSPITAL|NEAR_GENERAL_HOSPITAL]->(hosp)
-    OPTIONAL MATCH (p)-[r_pharm:NEAR_PHARMACY]->(pharm:Pharmacy)
-    OPTIONAL MATCH (p)-[:NEAR_CCTV]->(cctv)
-    OPTIONAL MATCH (p)-[:NEAR_BELL]->(bell)
-    OPTIONAL MATCH (p)-[r_police:NEAR_POLICE]->(police)
-    OPTIONAL MATCH (p)-[r_fire:NEAR_FIRE]->(fire)
-    OPTIONAL MATCH (p)-[r_park:NEAR_PARK]->(park_node:Park)
+    MATCH (p)-[r_fac:{relationship}]->(target:{label})
     
-    WITH p, anchor, r_anchor,
-         count(DISTINCT conv) as conv_count,
-         collect(DISTINCT {name: conv.name, dist: coalesce(toInteger(r_conv.distance), 9999), time: coalesce(toInteger(r_conv.walking_time), 9999)})[..3] as conv_list,
-         count(DISTINCT hosp) as hosp_count,
-         collect(DISTINCT {name: hosp.name, dist: coalesce(toInteger(r_hosp.distance), 9999), time: coalesce(toInteger(r_hosp.walking_time), 9999)})[..3] as hosp_list,
-         count(DISTINCT pharm) as pharm_count,
-         collect(DISTINCT {name: pharm.name, dist: coalesce(toInteger(r_pharm.distance), 9999), time: coalesce(toInteger(r_pharm.walking_time), 9999)})[..3] as pharm_list,
-         count(DISTINCT cctv) as cctv_count,
-         count(DISTINCT bell) as bell_count,
-         collect(DISTINCT {name: police.name, dist: coalesce(toInteger(r_police.distance), 9999), time: coalesce(toInteger(r_police.walking_time), 9999)})[..3] as police_list,
-         collect(DISTINCT {name: fire.name, dist: coalesce(toInteger(r_fire.distance), 9999), time: coalesce(toInteger(r_fire.walking_time), 9999)})[..3] as fire_list,
-         count(DISTINCT park_node) as park_count,
-         collect(DISTINCT {name: park_node.name, dist: coalesce(toInteger(r_park.distance), 9999), time: coalesce(toInteger(r_park.walking_time), 9999)})[..3] as park_list
+    WITH p, anchor, r_anchor, target, r_fac ORDER BY coalesce(toInteger(r_fac.distance), 99999) ASC
+    WITH p, anchor, r_anchor, count(DISTINCT target) as fac_count,
+         collect({{name: target.name, dist: coalesce(toInteger(r_fac.distance), 9999), time: coalesce(toInteger(r_fac.walking_time), 9999)}}) as all_details
+    WITH p, anchor, r_anchor, fac_count, all_details[..3] as fac_details,
+         CASE WHEN size(all_details) > 0 THEN ({SCORE_MAX_DISTANCE} - all_details[0].dist) ELSE 0 END as fac_score
     
-    // Filter nulls
+    WITH p, anchor, r_anchor, fac_count, fac_details, fac_score, 
+         ({SCORE_MAX_DISTANCE} - coalesce(toInteger(r_anchor.distance), {SCORE_MAX_DISTANCE})) as anchor_score,
+         CASE WHEN 'SubwayStation' IN labels(anchor) THEN {SCORE_SUBWAY_BONUS} ELSE 0 END as priority_score
+         
+    WITH p, anchor, fac_count, fac_details, (anchor_score + fac_score + priority_score) as total_score,
+         {{name: anchor.name, dist: coalesce(toInteger(r_anchor.distance), 9999), time: coalesce(toInteger(r_anchor.walking_time), 9999)}} as anchor_info
+    
+    RETURN p.id as id, total_score, 
+           [anchor_info] as poi_details,
+           fac_details as {result_key}
+    ORDER BY total_score DESC LIMIT 50
+    """
+
+
+def build_multi_criteria_query() -> str:
+    """다중 조건 검색 Cypher 쿼리 (TEXT INDEX 활용)"""
+    return f"""
+    MATCH (anchor)
+    WHERE (anchor:SubwayStation OR anchor:College OR anchor:Hospital OR anchor:GeneralHospital OR anchor:Park)
+      AND (anchor.name STARTS WITH $keyword OR anchor.name CONTAINS $keyword)
+    WITH anchor LIMIT 5
+    
+    MATCH (p:Property)-[r_anchor]-(anchor)
+    WHERE type(r_anchor) STARTS WITH 'NEAR_'
+    WITH DISTINCT p, anchor, r_anchor
+    ORDER BY r_anchor.distance LIMIT 150
+    
+    CALL {{
+        WITH p
+        OPTIONAL MATCH (p)-[r:NEAR_CONVENIENCE]->(n:Convenience)
+        WITH n, r ORDER BY r.distance LIMIT 3
+        RETURN count(n) as conv_count,
+               collect({{name: n.name, dist: toInteger(r.distance), time: toInteger(r.walking_time)}}) as conv_list
+    }}
+    
+    CALL {{
+        WITH p
+        OPTIONAL MATCH (p)-[r:NEAR_HOSPITAL|NEAR_GENERAL_HOSPITAL]->(n)
+        WITH n, r ORDER BY r.distance LIMIT 3
+        RETURN count(n) as hosp_count,
+               collect({{name: n.name, dist: toInteger(r.distance), time: toInteger(r.walking_time)}}) as hosp_list
+    }}
+    
+    CALL {{
+        WITH p
+        OPTIONAL MATCH (p)-[r:NEAR_PHARMACY]->(n:Pharmacy)
+        WITH n, r ORDER BY r.distance LIMIT 3
+        RETURN count(n) as pharm_count,
+               collect({{name: n.name, dist: toInteger(r.distance), time: toInteger(r.walking_time)}}) as pharm_list
+    }}
+    
+    CALL {{
+        WITH p
+        RETURN count{{(p)-[:NEAR_CCTV]->()}} as cctv_count,
+               count{{(p)-[:NEAR_BELL]->()}} as bell_count
+    }}
+    
+    CALL {{
+        WITH p
+        OPTIONAL MATCH (p)-[r:NEAR_POLICE]->(n:PoliceStation)
+        WITH n, r ORDER BY r.distance LIMIT 1
+        RETURN collect({{name: n.name, dist: toInteger(r.distance), time: toInteger(r.walking_time)}}) as police_list
+    }}
+    
+    CALL {{
+        WITH p
+        OPTIONAL MATCH (p)-[r:NEAR_FIRE]->(n:FireStation)
+        WITH n, r ORDER BY r.distance LIMIT 1
+        RETURN collect({{name: n.name, dist: toInteger(r.distance), time: toInteger(r.walking_time)}}) as fire_list
+    }}
+    
+    CALL {{
+        WITH p
+        OPTIONAL MATCH (p)-[r:NEAR_PARK]->(n:Park)
+        WITH n, r ORDER BY r.distance LIMIT 3
+        RETURN count(n) as park_count,
+               collect({{name: n.name, dist: toInteger(r.distance), time: toInteger(r.walking_time)}}) as park_list
+    }}
+    
     WITH p, anchor, r_anchor,
          conv_count, [item in conv_list WHERE item.name IS NOT NULL] as conv_details,
          hosp_count, [item in hosp_list WHERE item.name IS NOT NULL] as hosp_details,
@@ -311,449 +469,308 @@ def search_properties_multi_criteria(
          [item in fire_list WHERE item.name IS NOT NULL] as fire_details,
          park_count, [item in park_list WHERE item.name IS NOT NULL] as park_details
     
-    // WHERE: Property must satisfy ALL requested conditions
     WHERE
         (NOT $need_conv OR conv_count > 0) AND
         (NOT $need_hosp OR hosp_count > 0) AND
         (NOT $need_pharm OR pharm_count > 0) AND
-        (NOT $need_safety OR (cctv_count + bell_count) > 0) AND
+        (NOT $need_safety OR (cctv_count + bell_count) > 0 OR size(police_list) > 0 OR size(fire_list) > 0) AND
         (NOT $need_park OR park_count > 0)
     
     WITH p, anchor, r_anchor,
          conv_details, hosp_details, pharm_details,
-         cctv_count, bell_count, police_details, fire_details,
-         park_details,
-         (5000 - coalesce(toInteger(r_anchor.distance), 5000)) as anchor_score,
-         CASE WHEN 'SubwayStation' IN labels(anchor) THEN 500 ELSE 0 END as priority_score
+         cctv_count, bell_count, police_details, fire_details, park_details,
+         ({SCORE_MAX_DISTANCE} - coalesce(toInteger(r_anchor.distance), {SCORE_MAX_DISTANCE})) as anchor_score,
+         CASE WHEN 'SubwayStation' IN labels(anchor) THEN {SCORE_SUBWAY_BONUS} ELSE 0 END as priority_score
     
-    WITH p, anchor, (anchor_score + priority_score) as total_score,
-         {name: anchor.name, dist: coalesce(toInteger(r_anchor.distance), 9999), time: coalesce(toInteger(r_anchor.walking_time), 9999)} as anchor_info,
+    WITH p, (anchor_score + priority_score) as total_score,
+         {{name: anchor.name, dist: toInteger(r_anchor.distance), time: toInteger(r_anchor.walking_time)}} as anchor_info,
          conv_details, hosp_details, pharm_details,
          cctv_count, bell_count, police_details, fire_details, park_details
     
     RETURN p.id as id, total_score,
            [anchor_info] as poi_details,
            conv_details, hosp_details as med_details, pharm_details as pharmacy_details,
-           cctv_count, bell_count, police_details, fire_details,
-           park_details
+           cctv_count, bell_count, police_details, fire_details, park_details
     ORDER BY total_score DESC LIMIT 50
     """
+
+
+def build_university_multi_query() -> str:
+    """대학교 전용 다중 조건 검색 Cypher 쿼리 (College만 앵커로 사용)"""
+    return f"""
+    MATCH (anchor:College)
+    WHERE anchor.name STARTS WITH $keyword OR anchor.name CONTAINS $keyword
+    WITH anchor LIMIT 5
     
-    params = {
-        "keyword": location_keyword,
-        "need_conv": convenience,
-        "need_hosp": hospital,
-        "need_pharm": pharmacy,
-        "need_safety": safety,
-        "need_park": park
-    }
+    MATCH (p:Property)-[r_anchor:NEAR_COLLEGE]->(anchor)
+    WITH DISTINCT p, anchor, r_anchor
+    ORDER BY r_anchor.distance LIMIT 150
     
-    return get_graph().query(query, params=params)
-
-# --- 규칙 기반 라우터 (Rule-Based Router) ---
-# LLM Agent를 대체하여 응답 속도 2-4초 개선
-
-import re
-
-# 시설 타입별 키워드 매핑
-FACILITY_KEYWORDS = {
-    "safety": ["안전", "치안", "cctv", "경찰", "소방", "비상벨", "안심", "범죄"],
-    "convenience": ["편의점", "마트", "gs25", "cu", "세븐일레븐", "이마트24"],
-    "hospital": ["병원", "의원", "의료", "클리닉"],
-    "general_hospital": ["종합병원", "대학병원", "대형병원"],
-    "pharmacy": ["약국", "약방"],
-    "park": ["공원", "산책", "녹지", "운동"],
-    "university": ["대학교", "대학", "캠퍼스", "학교"],
-    "subway": ["역", "지하철", "전철", "교통"]
-}
-
-# 주요 지하철역/지역명 패턴
-LOCATION_PATTERNS = [
-    # 지하철역 (역 접미사 포함)
-    r"(홍대입구|강남|신촌|건대입구|잠실|여의도|이태원|합정|상수|망원|연남|성수|왕십리|"
-    r"신림|봉천|낙성대|사당|교대|서초|삼성|선릉|역삼|논현|신사|압구정|청담|"
-    r"명동|종로|동대문|혜화|대학로|을지로|시청|광화문|경복궁|안국|"
-    r"노원|도봉|수유|미아|길음|돈암|성신여대|한성대|창동|쌍문|"
-    r"구로|신도림|영등포|당산|선유도|문래|대림|가산|금천|"
-    r"마포|공덕|애오개|아현|충정로|서울역|용산|이촌|동작|"
-    r"천호|강동|암사|길동|둔촌|명일|고덕|상일동)(?:역)?",
-    # 대학교
-    r"(서울대|연세대|고려대|이화여대|홍익대|건국대|한양대|성균관대|중앙대|경희대|"
-    r"서강대|숙명여대|동국대|국민대|세종대|한국외대|시립대|광운대|상명대|덕성여대|"
-    r"숭실대|가톨릭대|서울여대|한성대|삼육대|명지대)(?:학교)?(?:교)?",
-    # 일반 지역명
-    r"(신촌|홍대|이태원|강남|잠실|여의도|명동|종로|동대문|성수|"
-    r"마포|용산|영등포|구로|노원|송파|강동|관악|동작|서초|강서|양천|은평|"
-    r"도봉|강북|중랑|성북|광진|금천|구로디지털단지)"
-]
-
-def extract_location(question: str) -> str:
+    CALL {{
+        WITH p
+        OPTIONAL MATCH (p)-[r:NEAR_CONVENIENCE]->(n:Convenience)
+        WITH n, r ORDER BY r.distance LIMIT 3
+        RETURN count(n) as conv_count,
+               collect({{name: n.name, dist: toInteger(r.distance), time: toInteger(r.walking_time)}}) as conv_list
+    }}
+    
+    CALL {{
+        WITH p
+        OPTIONAL MATCH (p)-[r:NEAR_HOSPITAL|NEAR_GENERAL_HOSPITAL]->(n)
+        WITH n, r ORDER BY r.distance LIMIT 3
+        RETURN count(n) as hosp_count,
+               collect({{name: n.name, dist: toInteger(r.distance), time: toInteger(r.walking_time)}}) as hosp_list
+    }}
+    
+    CALL {{
+        WITH p
+        OPTIONAL MATCH (p)-[r:NEAR_PHARMACY]->(n:Pharmacy)
+        WITH n, r ORDER BY r.distance LIMIT 3
+        RETURN count(n) as pharm_count,
+               collect({{name: n.name, dist: toInteger(r.distance), time: toInteger(r.walking_time)}}) as pharm_list
+    }}
+    
+    CALL {{
+        WITH p
+        RETURN count{{(p)-[:NEAR_CCTV]->()}} as cctv_count,
+               count{{(p)-[:NEAR_BELL]->()}} as bell_count
+    }}
+    
+    CALL {{
+        WITH p
+        OPTIONAL MATCH (p)-[r:NEAR_POLICE]->(n:PoliceStation)
+        WITH n, r ORDER BY r.distance LIMIT 1
+        RETURN collect({{name: n.name, dist: toInteger(r.distance), time: toInteger(r.walking_time)}}) as police_list
+    }}
+    
+    CALL {{
+        WITH p
+        OPTIONAL MATCH (p)-[r:NEAR_FIRE]->(n:FireStation)
+        WITH n, r ORDER BY r.distance LIMIT 1
+        RETURN collect({{name: n.name, dist: toInteger(r.distance), time: toInteger(r.walking_time)}}) as fire_list
+    }}
+    
+    CALL {{
+        WITH p
+        OPTIONAL MATCH (p)-[r:NEAR_PARK]->(n:Park)
+        WITH n, r ORDER BY r.distance LIMIT 3
+        RETURN count(n) as park_count,
+               collect({{name: n.name, dist: toInteger(r.distance), time: toInteger(r.walking_time)}}) as park_list
+    }}
+    
+    // 추가: 가장 가까운 지하철역 정보
+    CALL {{
+        WITH p
+        OPTIONAL MATCH (p)-[r:NEAR_SUBWAY]->(s:SubwayStation)
+        WITH s, r ORDER BY r.distance LIMIT 1
+        RETURN collect({{name: s.name, dist: toInteger(r.distance), time: toInteger(r.walking_time)}}) as subway_list
+    }}
+    
+    WITH p, anchor, r_anchor,
+         conv_count, [item in conv_list WHERE item.name IS NOT NULL] as conv_details,
+         hosp_count, [item in hosp_list WHERE item.name IS NOT NULL] as hosp_details,
+         pharm_count, [item in pharm_list WHERE item.name IS NOT NULL] as pharm_details,
+         cctv_count, bell_count,
+         [item in police_list WHERE item.name IS NOT NULL] as police_details,
+         [item in fire_list WHERE item.name IS NOT NULL] as fire_details,
+         park_count, [item in park_list WHERE item.name IS NOT NULL] as park_details,
+         [item in subway_list WHERE item.name IS NOT NULL] as trans_details
+    
+    WHERE
+        (NOT $need_conv OR conv_count > 0) AND
+        (NOT $need_hosp OR hosp_count > 0) AND
+        (NOT $need_pharm OR pharm_count > 0) AND
+        (NOT $need_safety OR (cctv_count + bell_count) > 0 OR size(police_list) > 0 OR size(fire_list) > 0) AND
+        (NOT $need_park OR park_count > 0)
+    
+    WITH p, anchor, r_anchor,
+         conv_details, hosp_details, pharm_details,
+         cctv_count, bell_count, police_details, fire_details, park_details, trans_details,
+         ({SCORE_MAX_DISTANCE} - coalesce(toInteger(r_anchor.distance), {SCORE_MAX_DISTANCE})) as anchor_score
+    
+    WITH p, anchor_score as total_score,
+         {{name: anchor.name, dist: toInteger(r_anchor.distance), time: toInteger(r_anchor.walking_time)}} as edu_info,
+         conv_details, hosp_details, pharm_details,
+         cctv_count, bell_count, police_details, fire_details, park_details, trans_details
+    
+    RETURN p.id as id, total_score,
+           [edu_info] as edu_details,
+           trans_details as poi_details,
+           conv_details, hosp_details as med_details, pharm_details as pharmacy_details,
+           cctv_count, bell_count, police_details, fire_details, park_details
+    ORDER BY total_score DESC LIMIT 50
     """
-    질문에서 위치 정보 추출
+
+
+# -----------------------------------------------------------------------------
+# 4. 쿼리 실행 함수 (Query Execution)
+# -----------------------------------------------------------------------------
+
+def execute_query(location: str, analysis: Dict) -> List[Dict]:
+    """
+    분석 결과를 기반으로 적절한 Cypher 쿼리 실행
+    
+    Args:
+        location: 추출된 위치
+        analysis: analyze_question() 결과
     
     Returns:
-        추출된 위치명 (없으면 빈 문자열)
+        Neo4j 쿼리 결과 리스트
     """
-    for pattern in LOCATION_PATTERNS:
-        match = re.search(pattern, question)
-        if match:
-            location = match.group(1)
-            print(f"[Router] 📍 Location extracted: {location}")
-            return location
+    search_type = analysis['search_type']
+    facilities = analysis['facilities']
+    facilities_dict = analysis['facilities_dict']
+    location_type = analysis.get('location_type', '')
     
-    print("[Router] ⚠️ No location found in question")
-    return ""
+    try:
+        # 다중 시설 검색
+        if search_type == "multi":
+            print(f"[QueryBuilder] 🔀 Multi-criteria search: {facilities}")
+            
+            # 대학교 위치인 경우 대학교 전용 멀티 쿼리 사용
+            if location_type == "university":
+                print(f"[QueryBuilder] 🎓 Using university-anchor multi-criteria query")
+                query = build_university_multi_query()
+                params = {
+                    "keyword": location,
+                    "need_conv": facilities_dict.get("convenience", False),
+                    "need_hosp": facilities_dict.get("hospital", False) or facilities_dict.get("general_hospital", False),
+                    "need_pharm": facilities_dict.get("pharmacy", False),
+                    "need_safety": facilities_dict.get("safety", False),
+                    "need_park": facilities_dict.get("park", False)
+                }
+            else:
+                query = build_multi_criteria_query()
+                params = {
+                    "keyword": location,
+                    "need_conv": facilities_dict.get("convenience", False),
+                    "need_hosp": facilities_dict.get("hospital", False) or facilities_dict.get("general_hospital", False),
+                    "need_pharm": facilities_dict.get("pharmacy", False),
+                    "need_safety": facilities_dict.get("safety", False),
+                    "need_park": facilities_dict.get("park", False)
+                }
+            return get_graph().query(query, params=params)
+        
+        # 단일 시설 검색
+        elif search_type == "single":
+            facility_type = facilities[0]
+            
+            # 대학교 위치인 경우 university 쿼리 강제 사용
+            if location_type == "university":
+                print(f"[QueryBuilder] 🎓 University location detected - using university query")
+                query = build_university_query()
+                return get_graph().query(query, params={"keyword": location})
+            
+            # 시설 타입별 우선순위 조정
+            if facilities_dict.get("general_hospital"):
+                facility_type = "general_hospital"
+            
+            print(f"[QueryBuilder] 🔍 Single facility search: {facility_type}")
+            query = build_single_facility_query(facility_type)
+            return get_graph().query(query, params={"keyword": location})
+        
+        # 기본 검색 - location_type에 따라 분기
+        else:
+            if location_type == "university":
+                print(f"[QueryBuilder] 🎓 Default university search")
+                query = build_university_query()
+            else:
+                print(f"[QueryBuilder] 🚇 Default subway search")
+                query = build_subway_query()
+            return get_graph().query(query, params={"keyword": location})
+    
+    except Exception as e:
+        print(f"[QueryBuilder] ❌ Query execution error: {e}")
+        return []
 
-def detect_facilities(question: str) -> dict:
-    """
-    질문에서 요청된 시설 타입들 감지
-    
-    Returns:
-        {facility_type: True/False} 딕셔너리
-    """
-    q = question.lower()
-    detected = {}
-    
-    for facility, keywords in FACILITY_KEYWORDS.items():
-        detected[facility] = any(kw in q for kw in keywords)
-    
-    return detected
 
-def rule_based_search(state: RAGState):
+
+# -----------------------------------------------------------------------------
+# 5. 메인 검색 함수 (Main Search Function)
+# -----------------------------------------------------------------------------
+
+def rule_based_search(state: RAGState) -> Dict:
     """
-    규칙 기반 검색 라우터 (LLM Agent 대체)
+    규칙 기반 검색 (LLM 0회 호출)
     
-    기존 Agent의 프롬프트 로직을 Python 코드로 구현하여
-    LLM 호출 없이 즉시 적절한 검색 tool을 선택합니다.
-    
-    성능 개선: 2-4초 → ~50ms
-    위치 캐싱: 동일 위치 재검색 시 Neo4j 스킵
+    1. 질문 분석 (위치 + 시설 타입 추출)
+    2. 동적 Cypher 쿼리 생성
+    3. Neo4j 쿼리 실행
+    4. 결과 정제 및 반환
     """
+    import time
+    start_time = time.time()
+    
     # 위치 캐싱 import
     from common.redis_cache import get_location_cache, save_location_cache
     
     question = state["question"]
     print(f"\n{'='*60}")
-    print(f"[Router] 🚀 Rule-based search for: {question}")
+    print(f"[Neo4j] 🚀 검색 시작: {question}")
     print(f"{'='*60}\n")
     
-    # 1. 위치 추출
-    location = extract_location(question)
+    # 1. 질문 분석
+    analysis = analyze_question(question)
+    location = analysis['location']
+    facilities = analysis['facilities']
     
-    # 2. 시설 타입 감지
-    facilities = detect_facilities(question)
-    active_facilities = [f for f, active in facilities.items() if active]
-    print(f"[Router] 🏷️  Detected facilities: {active_facilities}")
-    
-    # 3. 위치가 없으면 검색 불가
+    # 2. 위치가 없으면 검색 불가
     if not location:
-        print("[Router] ❌ No location - cannot search")
         return {
             "graph_results": [],
             "graph_summary": "어느 지역이나 지하철역 근처를 찾으시나요? (예: 홍대입구역, 강남역)"
         }
     
-    # 4. 캐시된 시설 타입 결정 (단일 시설만 캐싱)
-    cache_facility_type = None
-    if len(active_facilities) == 1:
-        cache_facility_type = active_facilities[0]
-    elif len(active_facilities) == 0:
-        cache_facility_type = "subway"  # 기본값
-    # 다중 시설은 조합이 다양하므로 캐싱하지 않음
+    # 3. 캐시 확인 (단일 시설만, location_type 반영)
+    location_type = analysis.get('location_type', '')
+    cache_key = facilities[0] if len(facilities) == 1 else ("subway" if not facilities and location_type != "university" else None)
     
-    # 5. 위치 캐시 확인 (캐시 히트 시 Neo4j 쿼리 스킵!)
-    if cache_facility_type:
-        cached_results = get_location_cache(location, cache_facility_type)
+    # 대학교 검색인 경우 캐시 키에 university 접두사 추가
+    full_cache_key = f"{location_type}:{cache_key}" if location_type and cache_key else cache_key
+    
+    if full_cache_key:
+        cached_results = get_location_cache(location, full_cache_key)
         if cached_results:
-            print(f"[Router] ⚡ Using cached results (Neo4j skipped!)")
+            elapsed = int((time.time() - start_time) * 1000)
+            print(f"[Neo4j] ⚡ 캐시 히트! | 시간: {elapsed}ms")
             return {
                 "graph_results": cached_results,
-                "graph_summary": f"캐시된 검색 결과: {location} 근처 {cache_facility_type}"
+                "graph_summary": f"캐시된 검색 결과: {location} 근처 {cache_key}"
             }
     
-    # 6. 시설 개수에 따른 라우팅
-    facility_count = sum(1 for f in ["convenience", "hospital", "pharmacy", "safety", "park"] 
-                        if facilities.get(f))
+    # 4. 쿼리 실행
+    results = execute_query(location, analysis)
     
-    results = []
-    
-    try:
-        # 4.1 다중 시설 요청 (2개 이상)
-        if facility_count >= 2:
-            print(f"[Router] 🔀 Multi-criteria search: {active_facilities}")
-            results = search_properties_multi_criteria.invoke({
-                "location_keyword": location,
-                "convenience": facilities.get("convenience", False),
-                "hospital": facilities.get("hospital", False) or facilities.get("general_hospital", False),
-                "pharmacy": facilities.get("pharmacy", False),
-                "safety": facilities.get("safety", False),
-                "park": facilities.get("park", False)
-            })
-        
-        # 4.2 안전 시설 (최우선)
-        elif facilities.get("safety"):
-            print(f"[Router] 🛡️ Safety search at: {location}")
-            results = search_properties_with_safety.invoke({"location_keyword": location})
-        
-        # 4.3 편의점
-        elif facilities.get("convenience"):
-            print(f"[Router] 🏪 Convenience search at: {location}")
-            results = search_properties_near_convenience.invoke({"location_keyword": location})
-        
-        # 4.4 종합병원 (general_only=True)
-        elif facilities.get("general_hospital"):
-            print(f"[Router] 🏥 General Hospital search at: {location}")
-            results = search_properties_near_hospital.invoke({
-                "location_keyword": location,
-                "general_only": True
-            })
-        
-        # 4.5 일반 병원
-        elif facilities.get("hospital"):
-            print(f"[Router] 🏥 Hospital search at: {location}")
-            results = search_properties_near_hospital.invoke({
-                "location_keyword": location,
-                "general_only": False
-            })
-        
-        # 4.6 약국
-        elif facilities.get("pharmacy"):
-            print(f"[Router] 💊 Pharmacy search at: {location}")
-            results = search_properties_near_pharmacy.invoke({"location_keyword": location})
-        
-        # 4.7 공원
-        elif facilities.get("park"):
-            print(f"[Router] 🌳 Park search at: {location}")
-            results = search_properties_near_park.invoke({"location_keyword": location})
-        
-        # 4.8 대학교
-        elif facilities.get("university"):
-            print(f"[Router] 🎓 University search at: {location}")
-            results = search_properties_near_university.invoke({"location_keyword": location})
-        
-        # 4.9 지하철/역 또는 기본값
-        else:
-            print(f"[Router] 🚇 Subway/Default search at: {location}")
-            results = search_properties_near_subway.invoke({"location_keyword": location})
-        
-        print(f"[Router] ✅ Found {len(results) if isinstance(results, list) else 0} results")
-        
-    except Exception as e:
-        print(f"[Router] ❌ Search error: {e}")
-        results = []
-    
-    # 결과 중복 제거
+    # 5. 결과 중복 제거
     if isinstance(results, list):
         unique_props = {p.get('id'): p for p in results if isinstance(p, dict) and p.get('id')}
         results = list(unique_props.values())
     
-    # 7. 결과를 위치 캐시에 저장 (단일 시설만)
-    if cache_facility_type and results:
-        save_location_cache(location, cache_facility_type, results)
+    elapsed = int((time.time() - start_time) * 1000)
+    print(f"[Neo4j] ✅ 완료: {len(results)}개 결과 | 시간: {elapsed}ms")
+    
+    # 6. 캐시 저장 (단일 시설만, location_type 반영)
+    if full_cache_key and results:
+        save_location_cache(location, full_cache_key, results)
     
     return {
         "graph_results": results if isinstance(results, list) else [],
-        "graph_summary": f"규칙 기반 검색 완료: {location} 근처 {active_facilities or ['기본']} 검색"
+        "graph_summary": f"규칙 기반 검색 완료: {location} 근처 {facilities or ['기본']} 검색",
+        "requested_facilities": facilities  # 요청된 시설 목록 전달
     }
 
 
-# 기존 Agent 함수 (백업용으로 유지, 필요시 사용 가능)
-def search_with_agent(state: RAGState):
-    """
-    [DEPRECATED] LLM Agent 기반 검색 (백업용)
-    
-    규칙 기반 라우터(rule_based_search)로 대체되었습니다.
-    복잡한 자연어 해석이 필요한 경우에만 사용하세요.
-    """
-    question = state["question"]
-    print(f"[Agent] Starting search for: {question}")
-
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-    
-    tools = [
-        search_properties_near_subway,
-        search_properties_near_hospital,
-        search_properties_near_pharmacy,
-        search_properties_near_convenience,
-        search_properties_near_park,
-        search_properties_near_university,
-        search_properties_with_safety,
-        search_properties_multi_criteria
-    ]
-    llm_with_tools = llm.bind_tools(tools)
-
-    messages = [
-        SystemMessage(content="""You are a smart real estate assistant. Select the appropriate search tool based on the user's request."""),
-        HumanMessage(content=question)
-    ]
-
-    max_steps = 3  # 축소된 스텝
-    found_properties = []
-    
-    for step in range(max_steps):
-        try:
-            ai_msg = llm_with_tools.invoke(messages)
-            messages.append(ai_msg)
-
-            if not ai_msg.tool_calls:
-                break
-
-            for tool_call in ai_msg.tool_calls:
-                t_name = tool_call['name']
-                t_args = tool_call['args']
-                
-                tool_output = None
-                if t_name == "search_properties_near_subway":
-                    tool_output = search_properties_near_subway.invoke(t_args)
-                elif t_name == "search_properties_near_hospital":
-                    tool_output = search_properties_near_hospital.invoke(t_args)
-                elif t_name == "search_properties_near_pharmacy":
-                    tool_output = search_properties_near_pharmacy.invoke(t_args)
-                elif t_name == "search_properties_near_convenience":
-                    tool_output = search_properties_near_convenience.invoke(t_args)
-                elif t_name == "search_properties_near_park":
-                    tool_output = search_properties_near_park.invoke(t_args)
-                elif t_name == "search_properties_near_university":
-                    tool_output = search_properties_near_university.invoke(t_args)
-                elif t_name == "search_properties_with_safety":
-                    tool_output = search_properties_with_safety.invoke(t_args)
-                elif t_name == "search_properties_multi_criteria":
-                    tool_output = search_properties_multi_criteria.invoke(t_args)
-                
-                if isinstance(tool_output, list):
-                    found_properties.extend(tool_output)
-                
-                messages.append(ToolMessage(content=json.dumps(tool_output, default=str), tool_call_id=tool_call["id"]))
-        
-        except Exception as e:
-            print(f"[Agent] Error: {e}")
-            break
-
-    unique_props = {p['id']: p for p in found_properties}.values() if found_properties else []
-    
-    return {
-        "graph_results": list(unique_props),
-        "graph_summary": messages[-1].content if messages else ""
-    }
 
 
 # =============================================================================
-# 하이브리드 라우터 (Hybrid Router)
+# 진입점 (Entry Point)
 # =============================================================================
-# 간단한 쿼리 → 규칙 기반 라우터 (빠름, ~50ms)
-# 복잡한 쿼리 → LLM Agent (정확함, 2-4초)
 
-def analyze_query_complexity(question: str) -> dict:
+def search(state: RAGState) -> Dict:
     """
-    쿼리 복잡도를 분석하여 규칙 기반 vs Agent 선택
+    Neo4j 그래프 검색 - 순수 규칙 기반 (LLM 0회 호출)
     
-    Returns:
-        {
-            'is_complex': bool,
-            'reason': str,
-            'confidence': float (0-1)
-        }
+    동작: 질문에서 위치/시설 추출 → Cypher 쿼리 생성 → Neo4j 실행
+    성능: 17,000ms (LLM) → 150ms (규칙 기반)
     """
-    q = question.lower()
-    
-    # 1. 위치 추출 가능 여부
-    location = extract_location(question)
-    if not location:
-        return {
-            'is_complex': True,
-            'reason': '위치 미감지 - Agent가 문맥에서 추론 필요',
-            'confidence': 0.9
-        }
-    
-    # 2. 시설 타입 감지
-    facilities = detect_facilities(question)
-    active_facilities = [f for f, active in facilities.items() if active]
-    
-    # 3. 복잡한 자연어 패턴 감지
-    # [Optimized]: 시설 키워드가 있으면 선호도/예산 표현은 무시 (규칙 기반으로 처리 가능)
-    has_facility = len(active_facilities) > 0
-    
-    complex_patterns = [
-        # 비교 표현 (항상 복잡)
-        (r'(보다|더|가장|최고|덜|제일)', '비교 표현', True),
-        # 조건부 표현 (항상 복잡)
-        (r'(만약|경우|때문에|그래서|하지만|그런데)', '조건부 표현', True),
-        # 선호도 표현 - 시설 키워드 있으면 무시 ("치안 좋은" → safety 검색으로 처리)
-        (r'(좋은|좋을|좋게|싫은|원하는|원해|바라)', '선호도 표현', not has_facility),
-        # 복합 조건 (항상 복잡)
-        (r'(그리고|또는|이면서|동시에|둘 다)', '복합 조건', True),
-        # 예산 표현 - 시설 키워드 있으면 무시 ("저렴한" → 가격 필터로 처리)
-        (r'(예산|적당|합리적|저렴|비싸지|가성비)', '예산 복합 표현', not has_facility),
-        # 대화형/질문형 (항상 복잡)
-        (r'(뭐야\?|어때\?|있어\?|될까\?|할까\?)', '대화형 질문', True),
-    ]
-    
-    for pattern, reason, should_check in complex_patterns:
-        if should_check and re.search(pattern, q):
-            return {
-                'is_complex': True,
-                'reason': reason,
-                'confidence': 0.7
-            }
-    
-    # 4. 다중 시설 + 추가 조건 (3개 이상)
-    facility_count = len(active_facilities)
-    if facility_count >= 3:
-        return {
-            'is_complex': True,
-            'reason': f'다중 시설 요청 ({facility_count}개)',
-            'confidence': 0.8
-        }
-    
-    # 5. 질문 길이가 너무 길면 복잡할 가능성
-    if len(question) > 100:
-        return {
-            'is_complex': True,
-            'reason': '긴 질문 (100자 초과)',
-            'confidence': 0.6
-        }
-    
-    # 6. 시설도 없고 위치만 있는 경우 - 간단 (지하철역 기본 검색)
-    if facility_count == 0:
-        return {
-            'is_complex': False,
-            'reason': '기본 위치 검색',
-            'confidence': 0.95
-        }
-    
-    # 7. 단일/이중 시설 + 위치 = 간단
-    return {
-        'is_complex': False,
-        'reason': f'명확한 시설 검색 ({active_facilities})',
-        'confidence': 0.9
-    }
-
-
-def search(state: RAGState):
-    """
-    Neo4j 그래프 검색 - 하이브리드 라우터
-    
-    쿼리 복잡도에 따라 자동으로 최적의 방식 선택:
-    - 간단한 쿼리 → 규칙 기반 라우터 (빠름, ~50ms)
-    - 복잡한 쿼리 → LLM Agent (정확함, 2-4초)
-    """
-    question = state["question"]
-    
-    # 1. 쿼리 복잡도 분석
-    complexity = analyze_query_complexity(question)
-    
-    print(f"\n{'='*60}")
-    print(f"[Hybrid Router] 📊 Query analysis:")
-    print(f"[Hybrid Router]    Question: {question[:50]}...")
-    print(f"[Hybrid Router]    Complex: {complexity['is_complex']}")
-    print(f"[Hybrid Router]    Reason: {complexity['reason']}")
-    print(f"[Hybrid Router]    Confidence: {complexity['confidence']:.0%}")
-    print(f"{'='*60}\n")
-    
-    # 2. 복잡도에 따른 라우팅
-    if complexity['is_complex']:
-        print(f"[Hybrid Router] 🤖 Using LLM Agent (complex query)")
-        return search_with_agent(state)
-    else:
-        print(f"[Hybrid Router] ⚡ Using Rule-based Router (simple query)")
-        return rule_based_search(state)
+    return rule_based_search(state)

@@ -218,11 +218,11 @@ def search(state: RAGState) -> RAGState:
     PostgreSQL Land 테이블에서 상세 정보를 조회
     """
     import re
+    import time
+    start_time = time.time()
     
+    print(f"[SQL] 🚀 검색 시작")
     graph_results = state.get("graph_results", [])
-    
-    print(f"[SQL Search] graph_results type: {type(graph_results)}")
-    print(f"[SQL Search] graph_results RAW: {str(graph_results)[:2000]}")
     
     if not graph_results:
         state["sql_results"] = []
@@ -301,7 +301,6 @@ def search(state: RAGState) -> RAGState:
                 l.listing_info,
                 l.additional_options,
                 l.description,
-                l.agent_info,
                 l.like_count,
                 l.view_count,
                 'm' as distance_unit,
@@ -312,7 +311,7 @@ def search(state: RAGState) -> RAGState:
             GROUP BY l.land_id, l.land_num, l.building_type, l.address, l.deal_type,
                      l.deposit, l.monthly_rent, l.jeonse_price, l.sale_price, l.url,
                      l.trade_info, l.listing_info, l.additional_options, l.description,
-                     l.agent_info, l.like_count, l.view_count
+                     l.like_count, l.view_count
         """
         
         print(f"[SQL Search] 🔍 Executing PostgreSQL query with {len(land_nums)} IDs")
@@ -463,10 +462,11 @@ def search(state: RAGState) -> RAGState:
         cur.close()
         
         state["sql_results"] = filtered_results
+        elapsed = int((time.time() - start_time) * 1000)
         if price_conditions:
-            print(f"✓ PostgreSQL에서 {len(rows)}개 조회, 가격 필터링 후 {len(filtered_results)}개 ({filtered_count}개 제외)")
+            print(f"[SQL] ✅ 완료: {len(rows)}개 조회 → {len(filtered_results)}개 필터링 | 시간: {elapsed}ms")
         else:
-            print(f"✓ PostgreSQL에서 {len(filtered_results)}개 매물 상세정보 조회 완료")
+            print(f"[SQL] ✅ 완료: {len(filtered_results)}개 조회 | 시간: {elapsed}ms")
         
     except Exception as e:
         print(f"✗ PostgreSQL 조회 오류: {e}")
