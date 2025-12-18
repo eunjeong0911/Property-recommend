@@ -39,6 +39,7 @@ interface ApiCommunityPost {
   content: string
   author_name?: string
   author_email?: string
+  author_profile_image?: string | null
   board_type: BoardType
   region?: string | null
   dong?: string | null
@@ -46,6 +47,7 @@ interface ApiCommunityPost {
   like_count: number
   comment_count: number
   is_liked?: boolean
+  is_owner?: boolean
   created_at: string
   updated_at: string
 }
@@ -73,7 +75,10 @@ export default function CommunityPage() {
     (item: ApiCommunityPost): CommunityPost => ({
       id: String(item.id),
       boardType: item.board_type === 'region' ? 'region' : 'free',
-      author: { name: item.author_name || '사용자' },
+      author: {
+        name: item.author_name || '사용자',
+        profileImage: item.author_profile_image || undefined
+      },
       title: item.title,
       content: item.content,
       createdAt: new Date(item.created_at),
@@ -82,10 +87,10 @@ export default function CommunityPage() {
       region: item.region || undefined,
       dong: item.dong || undefined,
       complexName: item.complex_name || undefined,
-      isOwner: item.author_email === session?.user?.email,
-      isLiked: Boolean((item as any).is_liked),
+      isOwner: Boolean(item.is_owner),
+      isLiked: Boolean(item.is_liked),
     }),
-    [session?.user?.email]
+    []
   )
 
   const fetchPosts = useCallback(
@@ -209,20 +214,20 @@ export default function CommunityPage() {
         prev.map((post) =>
           post.id === postId
             ? {
-                ...post,
-                isLiked: liked,
-                likes: like_count,
-              }
+              ...post,
+              isLiked: liked,
+              likes: like_count,
+            }
             : post
         )
       )
       setSelectedPost((prev) =>
         prev && prev.id === postId
           ? {
-              ...prev,
-              isLiked: liked,
-              likes: like_count,
-            }
+            ...prev,
+            isLiked: liked,
+            likes: like_count,
+          }
           : prev
       )
     } catch (toggleError) {
@@ -260,10 +265,10 @@ export default function CommunityPage() {
 
   const editingRegionData: RegionFilterValues | undefined = editingPost
     ? {
-        region: editingPost.region,
-        dong: editingPost.dong,
-        complexName: editingPost.complexName,
-      }
+      region: editingPost.region,
+      dong: editingPost.dong,
+      complexName: editingPost.complexName,
+    }
     : undefined
 
   const writeModalTitle = editingPost
@@ -274,14 +279,14 @@ export default function CommunityPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8">
-        <CommunityTab activeTab={activeTab} onTabChange={setActiveTab} />
-
-        <div className="flex justify-end mb-6">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8 flex flex-col">
+        <div className="flex items-center justify-between mb-4">
+          <CommunityTab activeTab={activeTab} onTabChange={setActiveTab} />
           <Button variant="primary" onClick={handleWriteClick}>
             글쓰기
           </Button>
         </div>
+        <div className="w-full h-[2px] bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 mb-6"></div>
 
         {activeTab === 'region' && (
           <RegionFilter onFilterChange={handleFilterChange} />
@@ -294,7 +299,7 @@ export default function CommunityPage() {
         )}
 
         {isLoading ? (
-          <div className="py-20 text-center text-slate-500">게시글을 불러오는 중입니다...</div>
+          <div className="flex-1 flex items-center justify-center text-slate-500">게시글을 불러오는 중입니다...</div>
         ) : (
           <Pagination
             items={filteredPosts}
@@ -330,6 +335,22 @@ export default function CommunityPage() {
           onEdit={handleEditSelectedPost}
           onDelete={handleDeletePost}
           onToggleLike={handleToggleLike}
+          onCommentCountChange={(postId, newCount) => {
+            // 게시글 목록의 댓글 수 업데이트
+            setPosts(prev =>
+              prev.map(post =>
+                post.id === postId
+                  ? { ...post, comments: newCount }
+                  : post
+              )
+            )
+            // 선택된 게시글의 댓글 수도 업데이트
+            setSelectedPost(prev =>
+              prev && prev.id === postId
+                ? { ...prev, comments: newCount }
+                : prev
+            )
+          }}
         />
       )}
     </div>
