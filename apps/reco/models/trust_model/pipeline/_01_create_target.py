@@ -4,7 +4,7 @@
 - Train/Test Split 먼저 수행 (Data Leakage 방지)
 - Train 데이터 기준으로 지역별 통계(평균, 표준편차) 산출
 - Train 통계를 Test에도 적용하여 Z-Score 계산
-- 자격점수 가중치 적용하여 최종 점수 산출
+- 자격점수는 원본 그대로 사용 (범주형 데이터에 적합)
 - 점수 분포 기반 3등급(A/B/C) 분류
 """
 
@@ -39,9 +39,9 @@ def preprocess_basic(df: pd.DataFrame) -> pd.DataFrame:
     # 2. 자격점수 가중치
     qualification_weight = {
         "법인": 2.0,       # 가장 신뢰
-        "공인중개사": 1.0,  # 기본
-        "중개인": 0.5,     # 경험은 있으나 제약 있음
-        "중개보조원": -2.0, # 대표자가 될 수 없음 (부정적)
+        "공인중개사": 0.0,  # 기본
+        "중개보조원": -1.5, # 대표자가 될 수 없음 (부정적)
+        "중개인": -2.0  ,     # 경험은 있으나 제약 있음
     }
     df["자격점수"] = df["대표자구분명"].map(qualification_weight)
     
@@ -87,31 +87,32 @@ def apply_z_score(df: pd.DataFrame, regional_stats: pd.DataFrame) -> pd.DataFram
 def calculate_final_score(df: pd.DataFrame) -> pd.DataFrame:
     """
     최종 점수 계산
-    - Z-Score와 자격점수를 모두 정규화하여 동일한 스케일에서 결합
-    - Score = (성사율_Z * 0.7) + (자격점수_Z * 0.3)
+    - 성사율: 지역별 Z-Score 표준화
+    - 자격점수: 원본 그대로 사용 (범주형 데이터에 적합)
+    - Score = (성사율_Z * 0.7) + (자격점수 * 0.3)
+    
+    Args:
+        df: 입력 데이터프레임
+    
+    Returns:
+        pd.DataFrame: 신뢰도점수가 추가된 데이터프레임
     """
     # 1. 성사율 Z-Score 클리핑 (-3 ~ 3)
     df["지역별_성사율_Z"] = df["지역별_성사율_Z"].clip(-3, 3)
     
-    # 2. 자격점수 정규화 (Z-Score 변환)
-    qual_mean = df["자격점수"].mean()
-    qual_std = df["자격점수"].std()
-    
-    # 표준편차가 0인 경우 방지 (모든 값이 같은 경우)
-    if qual_std == 0:
-        df["자격점수_Z"] = 0
-    else:
-        df["자격점수_Z"] = (df["자격점수"] - qual_mean) / qual_std
-        df["자격점수_Z"] = df["자격점수_Z"].clip(-3, 3)
+    # 2. 자격점수는 원본 그대로 사용
+    # (이미 preprocess_basic에서 계산됨)
+    # 범주형 데이터이므로 Z-Score 변환 불필요
+    # 법인: +2.0, 공인중개사: 0.0, 중개보조원: -1.0, 중개인: -3.0
     
     # 3. 가중치 적용
     w_z = 0.7  # 성과(실력) 가중치
     w_q = 0.3  # 자격(신뢰) 가중치
     
-    df["신뢰도점수"] = (df["지역별_성사율_Z"] * w_z) + (df["자격점수_Z"] * w_q)
+    df["신뢰도점수"] = (df["지역별_성사율_Z"] * w_z) + (df["자격점수"] * w_q)
     
-    # 4. 임시 컬럼 제거
-    df = df.drop(columns=["자격점수_Z"])
+    print(f"   - 자격점수: 원본 사용 (법인: +2.0, 공인중개사: 0.0, 중개보조원: -1.0, 중개인: -3.0)")
+    print(f"   - 가중치: 성사율 {w_z*100:.0f}%, 자격 {w_q*100:.0f}%")
     
     return df
 
@@ -190,7 +191,8 @@ def main():
     train = apply_z_score(train, regional_stats)
     test = apply_z_score(test, regional_stats)
     
-    # 6. 최종 점수 계산
+    # 6. 최종 점수 계산 (자격점수 원본 사용)
+    print(f"\n🔢 [4단계] 최종 점수 계산")
     train = calculate_final_score(train)
     test = calculate_final_score(test)
     
