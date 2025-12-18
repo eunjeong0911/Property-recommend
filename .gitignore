@@ -79,3 +79,7 @@ data
 .hypothesis
 
 shap_plots/
+eda_outputs/
+comprehensive_eda.py
+analyze_feature_rationale_count2.py
+feature_analysis/
