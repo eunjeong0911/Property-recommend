@@ -47,6 +47,7 @@ interface ApiCommunityPost {
   like_count: number
   comment_count: number
   is_liked?: boolean
+  is_owner?: boolean
   created_at: string
   updated_at: string
 }
@@ -86,10 +87,10 @@ export default function CommunityPage() {
       region: item.region || undefined,
       dong: item.dong || undefined,
       complexName: item.complex_name || undefined,
-      isOwner: item.author_email === session?.user?.email,
-      isLiked: Boolean((item as any).is_liked),
+      isOwner: Boolean(item.is_owner),
+      isLiked: Boolean(item.is_liked),
     }),
-    [session?.user?.email]
+    []
   )
 
   const fetchPosts = useCallback(

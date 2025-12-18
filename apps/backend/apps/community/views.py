@@ -108,16 +108,46 @@ class CommunityCommentView(APIView):
         """게시글의 댓글 목록 조회"""
         post = get_object_or_404(CommunityPost, id=post_id, is_deleted=False)
         comments = post.comments.filter(is_deleted=False)
-        serializer = CommunityCommentSerializer(comments, many=True)
+        serializer = CommunityCommentSerializer(comments, many=True, context={'request': request})
         return Response(serializer.data)
 
     def post(self, request, post_id):
         """댓글 작성"""
         post = get_object_or_404(CommunityPost, id=post_id, is_deleted=False)
-        serializer = CommunityCommentSerializer(data=request.data)
+        serializer = CommunityCommentSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         serializer.save(user=request.user, post=post)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class CommunityCommentDetailView(APIView):
+    """
+    커뮤니티 댓글 수정 / 삭제
+    - PATCH: 댓글 수정 (작성자만)
+    - DELETE: 댓글 삭제 (작성자만, 소프트 삭제)
+    """
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, comment_id):
+        """댓글 수정"""
+        comment = get_object_or_404(CommunityComment, id=comment_id, is_deleted=False)
+        if comment.user != request.user:
+            raise PermissionDenied("작성자만 수정할 수 있습니다.")
+        
+        serializer = CommunityCommentSerializer(comment, data=request.data, partial=True, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+    def delete(self, request, comment_id):
+        """댓글 삭제 (소프트 삭제)"""
+        comment = get_object_or_404(CommunityComment, id=comment_id, is_deleted=False)
+        if comment.user != request.user:
+            raise PermissionDenied("작성자만 삭제할 수 있습니다.")
+        
+        comment.is_deleted = True
+        comment.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class CommunityPostLikeView(APIView):

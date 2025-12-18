@@ -100,8 +100,8 @@ export default function CommunityDetailModal({
       const formattedComments: Comment[] = data.map((comment: any) => ({
         id: comment.id.toString(),
         author: {
-          name: comment.user?.username || '익명',
-          profileImage: comment.user?.profile_image
+          name: comment.author_name || '익명',
+          profileImage: comment.author_profile_image
         },
         content: comment.content,
         createdAt: new Date(comment.created_at),
@@ -144,8 +144,8 @@ export default function CommunityDetailModal({
       const newCommentObj: Comment = {
         id: data.id.toString(),
         author: {
-          name: data.user?.username || '현재 사용자',
-          profileImage: data.user?.profile_image
+          name: data.author_name || '현재 사용자',
+          profileImage: data.author_profile_image
         },
         content: data.content,
         createdAt: new Date(data.created_at),
