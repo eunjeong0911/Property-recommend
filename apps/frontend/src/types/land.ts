@@ -47,14 +47,6 @@ export interface Land {
         trust_grade?: string;
         trust_score_updated_at?: string | null;
     };
-
-    radar_chart_data?: {
-        comfort: number;      // 주거 쾌적성
-        building: number;     // 건물 상태
-        amenities: number;    // 편의시설
-        management: number;   // 관리 효율성
-        safety: number;       // 안전/보안
-    };
 }
 
 export interface LandFilterParams {

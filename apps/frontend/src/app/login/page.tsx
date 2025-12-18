@@ -82,13 +82,6 @@ function LoginContent() {
                         </span>
                     </button>
 
-                    {/* 구분선 */}
-                    <div className="flex items-center gap-4 my-6">
-                        <div className="flex-1 h-px bg-slate-200"></div>
-                        <span className="text-sm text-slate-400">또는</span>
-                        <div className="flex-1 h-px bg-slate-200"></div>
-                    </div>
-
                     {/* 안내 문구 */}
                     <div className="text-center">
                         <p className="text-sm text-slate-500 mb-4">

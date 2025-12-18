@@ -16,7 +16,6 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Temperature from './Temperature';
-import RadarChart from './RadarChart';
 import { useParticleEffect } from '../hooks/useParticleEffect';
 import { Land } from '../types/land';
 import { fetchLandById } from '../api/landApi';
@@ -52,14 +51,6 @@ export default function LandDetail({ landId }: LandDetailProps) {
             loadLand();
         }
     }, [landId]);
-
-    // 디버깅용 로그
-    useEffect(() => {
-        if (land) {
-            console.log('Land data:', land);
-            console.log('Radar chart data:', land.radar_chart_data);
-        }
-    }, [land]);
 
     if (loading) {
         return (
@@ -192,14 +183,6 @@ export default function LandDetail({ landId }: LandDetailProps) {
                                 </div>
                             )}
                         </div>
-
-                        {/* 레이더 차트 */}
-                        {land.radar_chart_data && (
-                            <div className="mt-6 pt-6 border-t border-purple-200">
-                                <h4 className="text-md font-bold mb-4 text-slate-800">매물 종합 평가</h4>
-                                <RadarChart data={land.radar_chart_data} />
-                            </div>
-                        )}
                     </div>
                 </div>
 
