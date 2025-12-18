@@ -162,145 +162,15 @@ def print_summary_statistics(df_analysis):
         for qual, count in qual_dist.items():
             print(f"      - {qual:10s}: {count:3d}개 ({count/mask.sum()*100:5.1f}%)")
 
-def create_grade_change_matrix(df_analysis):
-    """
-    등급 변화 매트릭스 시각화
-    """
-    fig, axes = plt.subplots(2, 2, figsize=(16, 14))
-    fig.suptitle('자격점수 적용 전후 등급 변화 분석', fontsize=16, fontweight='bold')
-    
-    qualifications = ["법인", "공인중개사", "중개보조원", "중개인"]
-    grade_map = {0: "C", 1: "B", 2: "A"}
-    
-    for idx, qual in enumerate(qualifications):
-        row = idx // 2
-        col = idx % 2
-        ax = axes[row, col]
-        
-        mask = df_analysis["대표자구분명"] == qual
-        
-        if mask.sum() == 0:
-            ax.text(0.5, 0.5, f'{qual}\n데이터 없음', 
-                   ha='center', va='center', fontsize=14)
-            ax.set_title(f'{qual} (0개)', fontweight='bold')
-            continue
-        
-        # 혼동 행렬 생성
-        from sklearn.metrics import confusion_matrix
-        
-        cm = confusion_matrix(
-            df_analysis.loc[mask, "등급_성사율만"],
-            df_analysis.loc[mask, "등급_자격포함"],
-            labels=[0, 1, 2]
-        )
-        
-        # 히트맵
-        sns.heatmap(cm, annot=True, fmt='d', cmap='RdYlGn', 
-                   xticklabels=['C', 'B', 'A'],
-                   yticklabels=['C', 'B', 'A'],
-                   cbar_kws={'label': '중개사 수'},
-                   ax=ax, vmin=0, vmax=cm.max())
-        
-        ax.set_xlabel('자격포함 등급', fontsize=11, fontweight='bold')
-        ax.set_ylabel('성사율만 등급', fontsize=11, fontweight='bold')
-        ax.set_title(f'{qual} ({mask.sum()}개 중개사)', fontsize=12, fontweight='bold')
-        
-        # 대각선 강조 (등급 유지)
-        for i in range(3):
-            ax.add_patch(plt.Rectangle((i, i), 1, 1, fill=False, 
-                                      edgecolor='blue', lw=3))
-        
-        # 통계 추가
-        total = mask.sum()
-        upgraded = (df_analysis.loc[mask, "등급변화"] > 0).sum()
-        downgraded = (df_analysis.loc[mask, "등급변화"] < 0).sum()
-        maintained = (df_analysis.loc[mask, "등급변화"] == 0).sum()
-        
-        stats_text = f"상승: {upgraded}개 ({upgraded/total*100:.1f}%)\n"
-        stats_text += f"유지: {maintained}개 ({maintained/total*100:.1f}%)\n"
-        stats_text += f"하락: {downgraded}개 ({downgraded/total*100:.1f}%)"
-        
-        ax.text(0.02, 0.98, stats_text,
-               transform=ax.transAxes,
-               fontsize=9,
-               verticalalignment='top',
-               bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
-    
-    plt.tight_layout()
-    
-    # 저장
-    output_dir = Path("results/evidence")
-    output_dir.mkdir(parents=True, exist_ok=True)
-    plt.savefig(output_dir / "09_grade_change_matrix_by_qualification.png", dpi=300, bbox_inches='tight')
-    print(f"\n✅ 저장: {output_dir / '09_grade_change_matrix_by_qualification.png'}")
-    
-    plt.close()
+
 
 def create_detailed_comparison(df_analysis):
     """
-    상세 비교 시각화
+    자격별 등급 변화 비율 시각화
     """
-    fig, axes = plt.subplots(2, 2, figsize=(16, 12))
-    fig.suptitle('자격점수 적용 효과 상세 분석', fontsize=16, fontweight='bold')
-    
-    # 1. 전체 등급 변화 분포
-    ax1 = axes[0, 0]
-    
-    change_counts = df_analysis["등급변화"].value_counts().sort_index()
-    colors = ['#e74c3c' if x < 0 else '#95a5a6' if x == 0 else '#2ecc71' 
-             for x in change_counts.index]
-    
-    bars = ax1.bar(change_counts.index, change_counts.values, color=colors, 
-                   edgecolor='black', linewidth=1.5)
-    
-    for bar in bars:
-        height = bar.get_height()
-        ax1.text(bar.get_x() + bar.get_width()/2., height,
-                f'{int(height)}개',
-                ha='center', va='bottom', fontweight='bold')
-    
-    ax1.set_xlabel('등급 변화', fontsize=12, fontweight='bold')
-    ax1.set_ylabel('중개사 수', fontsize=12, fontweight='bold')
-    ax1.set_title('전체 등급 변화 분포', fontsize=13, fontweight='bold')
-    ax1.grid(axis='y', alpha=0.3)
-    ax1.set_xticks(change_counts.index)
-    ax1.set_xticklabels([f'{int(x):+d}' if x != 0 else '0' for x in change_counts.index])
-    
-    # 2. 자격별 평균 등급 변화
-    ax2 = axes[0, 1]
+    fig, ax = plt.subplots(figsize=(10, 6))
     
     qualifications = ["법인", "공인중개사", "중개보조원", "중개인"]
-    avg_changes = []
-    qual_labels = []
-    
-    for qual in qualifications:
-        mask = df_analysis["대표자구분명"] == qual
-        if mask.sum() > 0:
-            avg_change = df_analysis.loc[mask, "등급변화"].mean()
-            avg_changes.append(avg_change)
-            qual_labels.append(f"{qual}\n({mask.sum()}개)")
-    
-    colors = ['#2ecc71' if x > 0 else '#e74c3c' if x < 0 else '#95a5a6' 
-             for x in avg_changes]
-    
-    bars = ax2.bar(range(len(avg_changes)), avg_changes, color=colors, 
-                   edgecolor='black', linewidth=1.5)
-    
-    for i, (bar, val) in enumerate(zip(bars, avg_changes)):
-        ax2.text(bar.get_x() + bar.get_width()/2., val + (0.05 if val >= 0 else -0.05),
-                f'{val:+.3f}',
-                ha='center', va='bottom' if val >= 0 else 'top', 
-                fontweight='bold', fontsize=10)
-    
-    ax2.axhline(0, color='black', linestyle='--', linewidth=1, alpha=0.5)
-    ax2.set_ylabel('평균 등급 변화', fontsize=12, fontweight='bold')
-    ax2.set_title('자격별 평균 등급 변화', fontsize=13, fontweight='bold')
-    ax2.set_xticks(range(len(qual_labels)))
-    ax2.set_xticklabels(qual_labels, fontsize=10)
-    ax2.grid(axis='y', alpha=0.3)
-    
-    # 3. 자격별 등급 변화 비율 (스택 바)
-    ax3 = axes[1, 0]
     
     qual_data = []
     for qual in qualifications:
@@ -319,69 +189,43 @@ def create_detailed_comparison(df_analysis):
     x = np.arange(len(qualifications))
     width = 0.6
     
-    p1 = ax3.bar(x, qual_data[0], width, label='하락', color='#e74c3c', edgecolor='black')
-    p2 = ax3.bar(x, qual_data[1], width, bottom=qual_data[0], 
+    p1 = ax.bar(x, qual_data[0], width, label='하락', color='#e74c3c', edgecolor='black')
+    p2 = ax.bar(x, qual_data[1], width, bottom=qual_data[0], 
                 label='유지', color='#95a5a6', edgecolor='black')
-    p3 = ax3.bar(x, qual_data[2], width, bottom=qual_data[0]+qual_data[1], 
+    p3 = ax.bar(x, qual_data[2], width, bottom=qual_data[0]+qual_data[1], 
                 label='상승', color='#2ecc71', edgecolor='black')
     
     # 값 표시
     for i in range(len(qualifications)):
         if qual_data[0][i] > 5:
-            ax3.text(i, qual_data[0][i]/2, f'{qual_data[0][i]:.1f}%', 
+            ax.text(i, qual_data[0][i]/2, f'{qual_data[0][i]:.1f}%', 
                     ha='center', va='center', fontweight='bold', fontsize=9)
         if qual_data[1][i] > 5:
-            ax3.text(i, qual_data[0][i] + qual_data[1][i]/2, f'{qual_data[1][i]:.1f}%', 
+            ax.text(i, qual_data[0][i] + qual_data[1][i]/2, f'{qual_data[1][i]:.1f}%', 
                     ha='center', va='center', fontweight='bold', fontsize=9)
         if qual_data[2][i] > 5:
-            ax3.text(i, qual_data[0][i] + qual_data[1][i] + qual_data[2][i]/2, 
+            ax.text(i, qual_data[0][i] + qual_data[1][i] + qual_data[2][i]/2, 
                     f'{qual_data[2][i]:.1f}%', 
                     ha='center', va='center', fontweight='bold', fontsize=9)
     
-    ax3.set_ylabel('비율 (%)', fontsize=12, fontweight='bold')
-    ax3.set_title('자격별 등급 변화 비율', fontsize=13, fontweight='bold')
-    ax3.set_xticks(x)
-    ax3.set_xticklabels(qualifications)
-    ax3.legend(loc='upper right')
-    ax3.grid(axis='y', alpha=0.3)
-    
-    # 4. 산점도: 점수 변화
-    ax4 = axes[1, 1]
-    
-    qual_colors = {
-        "법인": '#2ecc71',
-        "공인중개사": '#3498db',
-        "중개보조원": '#f39c12',
-        "중개인": '#e74c3c'
-    }
-    
-    for qual, color in qual_colors.items():
-        mask = df_analysis["대표자구분명"] == qual
-        if mask.sum() > 0:
-            ax4.scatter(df_analysis.loc[mask, "점수_성사율만"],
-                       df_analysis.loc[mask, "점수_자격포함"],
-                       c=color, label=f'{qual} ({mask.sum()}개)',
-                       alpha=0.6, s=80, edgecolors='black', linewidth=0.5)
-    
-    # 대각선 (y=x)
-    min_val = min(df_analysis["점수_성사율만"].min(), df_analysis["점수_자격포함"].min())
-    max_val = max(df_analysis["점수_성사율만"].max(), df_analysis["점수_자격포함"].max())
-    ax4.plot([min_val, max_val], [min_val, max_val], 'k--', alpha=0.5, linewidth=2, label='y=x (변화없음)')
-    
-    ax4.set_xlabel('성사율만 점수', fontsize=12, fontweight='bold')
-    ax4.set_ylabel('자격포함 점수', fontsize=12, fontweight='bold')
-    ax4.set_title('점수 변화 (대각선 위=상승, 아래=하락)', fontsize=13, fontweight='bold')
-    ax4.legend(loc='upper left', fontsize=9)
-    ax4.grid(True, alpha=0.3)
+    ax.set_ylabel('비율 (%)', fontsize=12, fontweight='bold')
+    ax.set_title('자격별 등급 변화 비율', fontsize=13, fontweight='bold')
+    ax.set_xticks(x)
+    ax.set_xticklabels(qualifications)
+    ax.legend(loc='upper right')
+    ax.grid(axis='y', alpha=0.3)
     
     plt.tight_layout()
     
     # 저장
-    output_dir = Path("results/evidence")
+    script_dir = Path(__file__).parent
+    output_dir = script_dir / "results"
+    output_dir.mkdir(parents=True, exist_ok=True)
     plt.savefig(output_dir / "10_detailed_grade_change_analysis.png", dpi=300, bbox_inches='tight')
     print(f"✅ 저장: {output_dir / '10_detailed_grade_change_analysis.png'}")
     
     plt.close()
+
 
 def export_detailed_table(df_analysis):
     """
@@ -409,7 +253,9 @@ def export_detailed_table(df_analysis):
     df_export = df_export.sort_values("등급변화", ascending=False)
     
     # 저장
-    output_dir = Path("results/evidence")
+    script_dir = Path(__file__).parent
+    output_dir = script_dir / "results"
+    output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "grade_change_details.csv"
     df_export.to_csv(output_path, index=False, encoding="utf-8-sig")
     
@@ -433,7 +279,6 @@ def main():
     print("\n📈 시각화 생성 중...")
     
     # 시각화
-    create_grade_change_matrix(df_analysis)
     create_detailed_comparison(df_analysis)
     
     # 상세 테이블 저장
@@ -441,8 +286,7 @@ def main():
     
     print("\n" + "=" * 60)
     print("✅ 분석 완료!")
-    print("📁 저장 위치: results/evidence/")
-    print("   - 09_grade_change_matrix_by_qualification.png")
+    print("📁 저장 위치: analysis/results/")
     print("   - 10_detailed_grade_change_analysis.png")
     print("   - grade_change_details.csv")
     print("=" * 60)

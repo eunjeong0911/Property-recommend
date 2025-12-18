@@ -15,7 +15,7 @@ plt.rcParams['font.family'] = 'Malgun Gothic'
 plt.rcParams['axes.unicode_minus'] = False
 
 # 결과 저장 디렉토리
-output_dir = Path("apps/reco/models/trust_model/results/presentation")
+output_dir = Path("apps/reco/models/trust_model/analysis/results")
 output_dir.mkdir(parents=True, exist_ok=True)
 
 print("=" * 100)

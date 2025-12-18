@@ -17,7 +17,7 @@ plt.rcParams['font.family'] = 'Malgun Gothic'
 plt.rcParams['axes.unicode_minus'] = False
 
 # 파일 경로
-TEMP_MODEL_PATH = "apps/reco/models/trust_model/save_models/temp_trained_models.pkl"
+TEMP_MODEL_PATH = "apps/reco/models/trust_model/model/temp_trained_models.pkl"
 TRAIN_TARGET_PATH = "data/ML/trust/train_target.csv"
 TEST_TARGET_PATH = "data/ML/trust/test_target.csv"
 
@@ -26,7 +26,7 @@ class ModelValidationAnalyzer:
     """모델 검증 분석 클래스"""
     
     def __init__(self):
-        self.results_dir = Path("apps/reco/models/trust_model/results/validation")
+        self.results_dir = Path("apps/reco/models/trust_model/analysis/results")
         self.results_dir.mkdir(parents=True, exist_ok=True)
         
         # 데이터 로드

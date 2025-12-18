@@ -119,7 +119,7 @@ def create_comparison_plot(df):
     plt.tight_layout()
     
     # 저장
-    output_dir = Path("results/evidence")
+    output_dir = Path("apps/reco/models/trust_model/analysis/results")
     output_dir.mkdir(parents=True, exist_ok=True)
     plt.savefig(output_dir / "05_qualification_weight_comparison.png", dpi=300, bbox_inches='tight')
     print(f"✅ 저장: {output_dir / '05_qualification_weight_comparison.png'}")
@@ -202,7 +202,7 @@ def create_overall_comparison_plot(df):
     plt.tight_layout()
     
     # 저장
-    output_dir = Path("results/evidence")
+    output_dir = Path("apps/reco/models/trust_model/analysis/results")
     plt.savefig(output_dir / "06_overall_qualification_comparison.png", dpi=300, bbox_inches='tight')
     print(f"✅ 저장: {output_dir / '06_overall_qualification_comparison.png'}")
     
@@ -279,7 +279,7 @@ def create_qualification_distribution(df):
     plt.tight_layout()
     
     # 저장
-    output_dir = Path("results/evidence")
+    output_dir = Path("apps/reco/models/trust_model/analysis/results")
     plt.savefig(output_dir / "07_qualification_score_distribution.png", dpi=300, bbox_inches='tight')
     print(f"✅ 저장: {output_dir / '07_qualification_score_distribution.png'}")
     
@@ -428,7 +428,7 @@ def create_grade_change_table(df):
     plt.tight_layout()
     
     # 저장
-    output_dir = Path("results/evidence")
+    output_dir = Path("apps/reco/models/trust_model/analysis/results")
     plt.savefig(output_dir / "08_grade_change_table_by_qualification.png", dpi=300, bbox_inches='tight')
     print(f"✅ 저장: {output_dir / '08_grade_change_table_by_qualification.png'}")
     

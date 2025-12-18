@@ -15,7 +15,7 @@ plt.rcParams['font.family'] = 'Malgun Gothic'
 plt.rcParams['axes.unicode_minus'] = False
 
 # 결과 저장 디렉토리
-output_dir = Path("apps/reco/models/trust_model/results/presentation")
+output_dir = Path("apps/reco/models/trust_model/analysis/results")
 output_dir.mkdir(parents=True, exist_ok=True)
 
 print("=" * 100)
@@ -67,8 +67,8 @@ sns.heatmap(corr_matrix,
 ax.set_title('피처 간 상관관계 히트맵', fontsize=16, fontweight='bold', pad=20)
 
 plt.tight_layout()
-plt.savefig(output_dir / '06_feature_correlation_heatmap.png', dpi=300, bbox_inches='tight')
-print(f"✅ 저장: {output_dir / '06_feature_correlation_heatmap.png'}")
+plt.savefig(output_dir / 'feature_correlation_heatmap.png', dpi=300, bbox_inches='tight')
+print(f"✅ 저장: {output_dir / 'feature_correlation_heatmap.png'}")
 plt.close()
 
 # ============================================================================
@@ -141,8 +141,8 @@ for i, (v, bar) in enumerate(zip(target_corr.values, bars)):
     ax.text(v, i, f' {v:+.3f}', va='center', fontsize=9, fontweight='bold')
 
 plt.tight_layout()
-plt.savefig(output_dir / '07_target_correlation.png', dpi=300, bbox_inches='tight')
-print(f"✅ 저장: {output_dir / '07_target_correlation.png'}")
+plt.savefig(output_dir / 'target_correlation.png', dpi=300, bbox_inches='tight')
+print(f"✅ 저장: {output_dir / 'target_correlation.png'}")
 plt.close()
 
 print(f"\nTarget과의 상관관계 (상위 5개):")
@@ -204,8 +204,8 @@ if len(feature_groups) < 6:
     axes[-1].remove()
 
 plt.tight_layout()
-plt.savefig(output_dir / '08_group_correlation.png', dpi=300, bbox_inches='tight')
-print(f"✅ 저장: {output_dir / '08_group_correlation.png'}")
+plt.savefig(output_dir / 'group_correlation.png', dpi=300, bbox_inches='tight')
+print(f"✅ 저장: {output_dir / 'group_correlation.png'}")
 plt.close()
 
 # ============================================================================
@@ -217,9 +217,9 @@ print("피처 상관관계 분석 완료!")
 print("=" * 100)
 print(f"\n📁 결과 저장 위치: {output_dir}")
 print(f"\n생성된 파일:")
-print(f"  1. 06_feature_correlation_heatmap.png - 전체 피처 상관관계")
-print(f"  2. 07_target_correlation.png - Target과의 상관관계")
-print(f"  3. 08_group_correlation.png - 그룹별 상관관계")
+print(f"  1. feature_correlation_heatmap.png - 전체 피처 상관관계")
+print(f"  2. target_correlation.png - Target과의 상관관계")
+print(f"  3. group_correlation.png - 그룹별 상관관계")
 
 print("\n📊 주요 발견:")
 print(f"  - 전체 피처 수: {len(X_train.columns)}개")

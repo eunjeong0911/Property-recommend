@@ -89,7 +89,7 @@ def create_scatter_plot(df):
     plt.tight_layout()
     
     # 저장
-    output_dir = Path("results/evidence")
+    output_dir = Path("apps/reco/models/trust_model/analysis/results")
     output_dir.mkdir(parents=True, exist_ok=True)
     plt.savefig(output_dir / "01_scatter_listings_vs_transactions.png", dpi=300, bbox_inches='tight')
     print(f"✅ 저장: {output_dir / '01_scatter_listings_vs_transactions.png'}")
@@ -167,7 +167,7 @@ def create_grade_comparison(df):
     plt.tight_layout()
     
     # 저장
-    output_dir = Path("results/evidence")
+    output_dir = Path("apps/reco/models/trust_model/analysis/results")
     plt.savefig(output_dir / "02_grade_comparison.png", dpi=300, bbox_inches='tight')
     print(f"✅ 저장: {output_dir / '02_grade_comparison.png'}")
     
@@ -254,7 +254,7 @@ def create_pattern_visualization(df):
     plt.tight_layout()
     
     # 저장
-    output_dir = Path("results/evidence")
+    output_dir = Path("apps/reco/models/trust_model/analysis/results")
     plt.savefig(output_dir / "03_quadrant_analysis.png", dpi=300, bbox_inches='tight')
     print(f"✅ 저장: {output_dir / '03_quadrant_analysis.png'}")
     
@@ -299,7 +299,7 @@ def create_correlation_heatmap(df):
     plt.tight_layout()
     
     # 저장
-    output_dir = Path("results/evidence")
+    output_dir = Path("apps/reco/models/trust_model/analysis/results")
     plt.savefig(output_dir / "04_correlation_heatmap.png", dpi=300, bbox_inches='tight')
     print(f"✅ 저장: {output_dir / '04_correlation_heatmap.png'}")
     

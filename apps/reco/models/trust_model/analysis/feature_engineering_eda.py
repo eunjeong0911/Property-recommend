@@ -25,7 +25,7 @@ plt.rcParams['font.family'] = 'Malgun Gothic'
 plt.rcParams['axes.unicode_minus'] = False
 
 # 결과 저장 디렉토리
-output_dir = Path("apps/reco/models/trust_model/results/eda")
+output_dir = Path("apps/reco/models/trust_model/analysis/results")
 output_dir.mkdir(parents=True, exist_ok=True)
 
 # 데이터 로드

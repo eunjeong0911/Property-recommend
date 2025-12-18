@@ -342,40 +342,53 @@ model = LogisticRegression(
 ```
 apps/reco/models/trust_model/
 ├── 📂 data_preprocessing/          # 데이터 전처리
-│   ├── _00_load_Landbroker.py
-│   ├── _01_load_broker.py
-│   ├── _02_load_brokerOffice.py
-│   ├── _03_merge_all_brokers.py
-│   ├── _04_clean_broker.py
-│   └── _05_group_by_office.py
+│   ├── _00_load_Landbroker.py     # 크롤링 데이터 로드
+│   ├── _01_load_broker.py         # V-WORLD 중개업자 정보 로드
+│   ├── _02_load_brokerOffice.py   # V-WORLD 중개업소 정보 로드
+│   ├── _03_merge_all_brokers.py   # 데이터 통합 (3단계 매칭)
+│   ├── _04_clean_broker.py        # 데이터 클렌징
+│   └── _05_group_by_office.py     # 중개사무소별 집계
 │
 ├── 📂 pipeline/                    # 모델 파이프라인 (데이터 누수 방지)
 │   ├── _00_load_data.py           # 데이터 로드 및 기본 클렌징
-│   ├── _01_create_target.py       # Train/Test Split
-│   ├── _02_create_features.py     # Train 기준 Z-score 계산 및 Feature 생성
-│   ├── _03_train.py               # 모델 학습
+│   ├── _01_create_target.py       # Train/Test Split + Target 생성
+│   ├── _02_create_features.py     # Train 기준 Feature 생성
+│   ├── _03_train.py               # 모델 학습 (GridSearchCV)
 │   ├── _04_eval.py                # 모델 평가
-│   └── _05_save_model.py          # 모델 저장
+│   └── _05_save_model.py          # 최종 모델 저장
 │
-├── 📂 results/                     # 분석 결과
-│   ├── validation/                # 검증 차트 (17개)
-│   └── shap_importance_*.png      # SHAP 분석 결과
+├── 📂 analysis/                    # 분석 스크립트 (11개)
+│   ├── analyze_shap.py                        # SHAP 피처 중요도 분석
+│   ├── analyze_grade_changes.py               # 자격별 등급 변화 분석
+│   ├── feature_engineering_eda.py             # 피처 엔지니어링 EDA
+│   ├── feature_correlation_analysis.py        # 피처 상관관계 분석
+│   ├── model_validation_analysis.py           # 모델 검증 (혼동행렬, 상관관계)
+│   ├── operating_period_statistics.py         # 운영기간 통계 분석
+│   ├── target_distribution_analysis.py        # 타겟 생성 과정 시각화
+│   ├── presentation_materials.py              # 발표용 종합 분석
+│   ├── visualize_qualification_weight.py      # 자격점수 가중치 효과
+│   ├── visualize_transaction_rate_evidence.py # 거래성사율 근거 시각화
+│   └── results/                               # 분석 결과 저장
 │
-├── 📂 save_models/                 # 학습된 모델
-│   └── temp_trained_models.pkl
+├── 📂 model/                       # 학습된 모델
+│   ├── final_trust_model.pkl      # 최종 배포 모델
+│   ├── temp_trained_models.pkl    # 전체 학습 결과
+│   └── model_eval_results.csv     # 평가 결과
 │
-├── 📄 analyze_shap.py                # SHAP 분석 스크립트
-├── 📄 run_all.py                     # 전체 파이프라인 실행
-├── 📄 model_validation_analysis.py   # 모델 검증 분석, EDA(현재 주피터로 되었는 것들 추가 예정)
-└── 📄 README.md                      # 이 문서
+├── 📂 notebooks/                   # Jupyter 노트북
+│   └── trust_model_analysis.ipynb
+│
+├── 📄 run_all.py                   # 전체 파이프라인 실행
+└── 📄 README.md                    # 이 문서
 ```
 
 ---
 
 ## 🚀 실행 방법
 
-### 데이터 수집 및 전처리 실행
+### 1️⃣ 데이터 수집 및 전처리
 ```bash
+# 순서대로 실행
 python apps/reco/models/trust_model/data_preprocessing/_00_load_Landbroker.py
 python apps/reco/models/trust_model/data_preprocessing/_01_load_broker.py
 python apps/reco/models/trust_model/data_preprocessing/_02_load_brokerOffice.py
@@ -383,20 +396,146 @@ python apps/reco/models/trust_model/data_preprocessing/_03_merge_all_brokers.py
 python apps/reco/models/trust_model/data_preprocessing/_04_clean_broker.py
 python apps/reco/models/trust_model/data_preprocessing/_05_group_by_office.py
 ```
-→ 파일 순서대로 실행
 
-### 1️⃣ 전체 파이프라인 실행 (학습)
+### 2️⃣ 전체 파이프라인 실행 (학습)
 ```bash
 python apps/reco/models/trust_model/run_all.py
 ```
+→ 데이터 로드 → Target 생성 → Feature 생성 → 학습 → 평가 → 모델 저장
 
 ### 3️⃣ 분석 실행
+
+#### 📊 기본 분석
 ```bash
-# SHAP 분석
-python apps/reco/models/trust_model/analyze_shap.py
+# SHAP 피처 중요도 분석
+python apps/reco/models/trust_model/analysis/analyze_shap.py
+
+# 모델 검증 분석 (혼동행렬, 상관관계 히트맵)
+python apps/reco/models/trust_model/analysis/model_validation_analysis.py
+
+# 피처 엔지니어링 근거 EDA
+python apps/reco/models/trust_model/analysis/feature_engineering_eda.py
 ```
 
+#### 📈 심화 분석
 ```bash
-# 모델 검증 분석, EDA(현재 주피터로 되었는 것들 추가 예정)
-python apps/reco/models/trust_model/model_validation_analysis.py
+# 타겟 생성 과정 시각화
+python apps/reco/models/trust_model/analysis/target_distribution_analysis.py
+
+# 자격점수 가중치 적용 효과
+python apps/reco/models/trust_model/analysis/visualize_qualification_weight.py
+
+# 거래성사율 근거 시각화
+python apps/reco/models/trust_model/analysis/visualize_transaction_rate_evidence.py
+
+# 자격별 등급 변화 분석
+python apps/reco/models/trust_model/analysis/analyze_grade_changes.py
+
+# 운영기간 통계 분석
+python apps/reco/models/trust_model/analysis/operating_period_statistics.py
+
+# 피처 상관관계 분석
+python apps/reco/models/trust_model/analysis/feature_correlation_analysis.py
 ```
+
+#### 🎯 발표 자료 생성
+```bash
+# 종합 분석 자료 (5개 차트)
+python apps/reco/models/trust_model/analysis/presentation_materials.py
+```
+
+### 4️⃣ 예측 실행
+```bash
+# DB의 모든 중개사에 대해 신뢰도 등급 예측
+python scripts/trust_prediction/predict_trust_scores.py
+```
+
+---
+
+## 📊 분석 결과물
+
+### 생성되는 시각화 파일 (총 20개 이상)
+
+**analysis/results/** 디렉토리에 저장:
+
+1. **타겟 분석** (2개)
+   - `00_target_distribution.png` - 타겟 생성 과정
+   - `00_target_zscore_comparison.png` - 등급별 Z-Score 비교
+
+2. **모델 성능** (5개)
+   - `01_model_performance.png` - 종합 성능 분석
+   - `01_confusion_matrix.png` - 혼동 행렬
+   - `02_feature_importance.png` - 피처 중요도
+   - `03_grade_comparison.png` - 등급별 특성 비교
+   - `04_error_analysis.png` - 예측 오류 분석
+
+3. **피처 분석** (7개)
+   - `01_transaction_analysis.png` - 거래 지표 분석
+   - `02_certification_analysis.png` - 자격증 분석
+   - `03_experience_analysis.png` - 경험 분석
+   - `04_organization_analysis.png` - 조직 구조 분석
+   - `05_location_analysis.png` - 지역 분석
+   - `02_feature_target_correlation_bar.png` - 피처-타겟 상관관계
+   - `03_feature_correlation_heatmap.png` - 피처 간 상관관계
+
+4. **자격점수 효과** (4개)
+   - `05_qualification_weight_comparison.png` - 자격별 비교
+   - `06_overall_qualification_comparison.png` - 전체 비교
+   - `07_qualification_score_distribution.png` - 자격점수 분포
+   - `08_grade_change_table_by_qualification.png` - 등급 변화 표
+
+5. **거래성사율 근거** (4개)
+   - `01_scatter_listings_vs_transactions.png` - 산점도
+   - `02_grade_comparison.png` - 등급별 비교
+   - `03_quadrant_analysis.png` - 사분면 분석
+   - `04_correlation_heatmap.png` - 상관관계
+
+6. **SHAP 분석** (3개)
+   - `shap_importance_0.png` - C등급 피처 중요도
+   - `shap_importance_1.png` - B등급 피처 중요도
+   - `shap_importance_2.png` - A등급 피처 중요도
+
+7. **기타** (2개)
+   - `10_detailed_grade_change_analysis.png` - 등급 변화 상세
+   - `grade_change_details.csv` - 등급 변화 데이터
+
+---
+
+## 🎯 주요 개선 사항
+
+### ✅ 데이터 누수 방지
+- Train/Test Split 후 Train 데이터 기준으로만 통계 계산
+- Test 데이터는 Train 통계를 사용하여 변환
+
+### ✅ 피처 엔지니어링
+- 로그 변환으로 왜도 해소 (3.96 → 0.14)
+- 14개 피처로 신뢰도 예측 (거래, 인력, 경험, 조직, 자격)
+
+### ✅ 하이퍼파라미터 최적화
+- GridSearchCV로 144개 조합 탐색
+- CV 정확도 68.93% → 83.21% (14.28%p 향상)
+
+### ✅ 종합 분석 도구
+- 11개 분석 스크립트로 모델 해석 가능성 확보
+- 20개 이상의 시각화 자료 자동 생성
+
+---
+
+## 📝 향후 개선 계획
+
+1. **데이터 확장**
+   - 네이버 부동산, 직방, 다방 등 추가 플랫폼 데이터 수집
+   - 리뷰, 평점 등 사용자 피드백 데이터 통합
+
+2. **피처 추가**
+   - 지역별 경쟁 강도 (실제 계산)
+   - 시간대별 거래 패턴
+   - 전문 분야 (아파트, 오피스텔 등)
+
+3. **모델 개선**
+   - 앙상블 모델 (XGBoost, CatBoost) 테스트
+   - 딥러닝 모델 (TabNet) 실험
+
+4. **배포 최적화**
+   - 모델 경량화 (ONNX 변환)
+   - 실시간 예측 API 구축
