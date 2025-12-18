@@ -64,9 +64,10 @@ export default function Profile({
   const displayName = name || email || '사용자'
 
   return (
-    <div className="w-full max-w-4xl mx-auto p-8 rounded-3xl border-2 border-slate-200 bg-white shadow-lg mb-6">
+    <div className="w-full max-w-4xl mx-auto p-8 rounded-2xl border border-slate-200 bg-white shadow-sm mb-6">
       <div className="flex flex-col items-center mb-6">
-        <div className="w-24 h-24 rounded-full bg-white/40 border-2 border-white/60 flex items-center justify-center overflow-hidden mb-4 shadow-md">
+        {/* 프로필 이미지 */}
+        <div className="relative w-28 h-28 rounded-full bg-gradient-to-br from-[#16375B] to-[#2a4a6f] flex items-center justify-center overflow-hidden mb-5 shadow-lg ring-4 ring-white">
           {previewImage ? (
             <img
               src={previewImage}
@@ -75,25 +76,34 @@ export default function Profile({
             />
           ) : (
             <svg
-              className="w-16 h-16 text-white/60"
+              className="w-14 h-14 text-white"
               fill="currentColor"
               viewBox="0 0 20 20"
             >
               <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
             </svg>
           )}
+          {isUploading && (
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+              <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          )}
         </div>
 
+        {/* 사용자 정보 */}
         <div className="text-center">
-          <h3 className="text-2xl font-bold text-gray-800 mb-1">
+          <h3 className="text-2xl font-bold text-slate-900 mb-2">
             {displayName}
           </h3>
           {email && (
-            <p className="text-sm text-gray-500">{email}</p>
+            <p className="text-sm text-slate-500 bg-slate-50 px-4 py-1.5 rounded-full inline-block">
+              {email}
+            </p>
           )}
         </div>
       </div>
 
+      {/* 버튼 그룹 */}
       <div className="flex justify-center gap-3">
         <input
           ref={fileInputRef}

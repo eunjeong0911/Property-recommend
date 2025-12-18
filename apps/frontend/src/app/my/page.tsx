@@ -7,6 +7,7 @@ import SideTab from '@/components/SideTab'
 import Profile from '@/components/Profile'
 import PreferenceRanking from '@/components/PreferenceRanking'
 import Button from '@/components/Button'
+import LoadingSpinner from '@/components/LoadingSpinner'
 import axiosInstance from '@/lib/axios'
 import type { PreferenceSummary, PreferenceSurveyPayload, UserProfile } from '@/types/user'
 
@@ -148,8 +149,9 @@ export default function MyPage() {
 
   if (status === 'loading' || isLoading) {
     return (
-      <div className="max-w-5xl mx-auto px-4 py-16 text-center text-slate-500">
-        마이페이지 정보를 불러오고 있습니다...
+      <div className="max-w-5xl mx-auto px-4 py-8">
+        <SideTab />
+        <LoadingSpinner message="마이페이지 정보를 불러오고 있습니다..." />
       </div>
     )
   }
@@ -160,41 +162,49 @@ export default function MyPage() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
-      <div className="flex gap-6">
-        <SideTab />
-        <div className="flex-1">
-          {error && (
-            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {error}
-            </div>
-          )}
-          <Profile
-            name={profileName}
-            email={profileEmail}
-            image={profileImage}
-            onLogout={handleLogout}
-            isLoggingOut={isLoggingOut}
-            onChangeProfileImage={handleProfileImageChange}
-            isUpdatingProfileImage={isUpdatingProfileImage}
-          />
-          <PreferenceRanking
-            onSubmit={handlePreferenceSubmit}
-            initialJob={preference?.job || profile?.job_type || null}
-            initialPriorities={preference?.priorities}
-            submitLabel="선호도 저장"
-            isSubmitting={isSavingPreference}
-          />
-          <div className="w-full max-w-4xl mx-auto mt-8 flex justify-center">
-            <Button
-              variant="danger"
-              size="lg"
-              onClick={handleDeleteAccount}
-              disabled={isDeletingAccount}
-              className="min-w-[200px]"
-            >
-              {isDeletingAccount ? '계정 삭제 중...' : '계정 삭제'}
-            </Button>
+      {/* 가로 탭 */}
+      <SideTab />
+
+      {/* 메인 컨텐츠 */}
+      <div>
+        {error && (
+          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
           </div>
+        )}
+        <Profile
+          name={profileName}
+          email={profileEmail}
+          image={profileImage}
+          onLogout={handleLogout}
+          isLoggingOut={isLoggingOut}
+          onChangeProfileImage={handleProfileImageChange}
+          isUpdatingProfileImage={isUpdatingProfileImage}
+        />
+        <PreferenceRanking
+          onSubmit={handlePreferenceSubmit}
+          initialJob={preference?.job || profile?.job_type || null}
+          initialPriorities={preference?.priorities}
+          submitLabel="선호도 저장"
+          isSubmitting={isSavingPreference}
+        />
+        <div className="w-full max-w-4xl mx-auto mt-6 flex justify-end px-2">
+          <button
+            onClick={handleDeleteAccount}
+            disabled={isDeletingAccount}
+            className="text-sm text-slate-400 hover:text-red-500 hover:underline transition-colors duration-200 flex items-center gap-1"
+          >
+            {isDeletingAccount ? (
+              '계정 삭제 중...'
+            ) : (
+              <>
+                <span>계정 탈퇴</span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>

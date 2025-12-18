@@ -28,13 +28,12 @@ export default function RootLayout({
         <html lang="ko">
             <body className={inter.className}>
                 <AuthProvider>
-                    <div className="fixed inset-0 -z-10 bg-[#F0F8FF]">
-                        {/* <Aurora speed={0.5} /> */}
-                    </div>
-                    <div className="relative z-10">
-                        <Header />
-                        {children}
-                        <Footer />
+                    <div className="min-h-screen bg-[#F0F8FF]">
+                        <div className="relative z-10">
+                            <Header />
+                            {children}
+                            <Footer />
+                        </div>
                     </div>
                 </AuthProvider>
             </body>
