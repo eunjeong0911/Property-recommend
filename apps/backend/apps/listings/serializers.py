@@ -223,3 +223,8 @@ class LandSerializer(serializers.ModelSerializer):
             print(f"Error fetching price classification: {e}")
         return None
     
+    def get_radar_chart_data(self, obj):
+        """레이더 차트 데이터 생성"""
+        from .utils.radar_utils import get_radar_chart_data
+        return get_radar_chart_data(obj)
+
