@@ -46,20 +46,22 @@ JSON_FILES = [
 
 def get_es_client(host: str = None) -> Elasticsearch:
     """
-    Elasticsearch 클라이언트 생성
+    OpenSearch 클라이언트 생성 (AWS OpenSearch Service 호환)
     
     Args:
-        host: ES 호스트 URL (기본값: 환경변수 또는 localhost:9200)
+        host: OpenSearch 호스트 URL (기본값: 환경변수 또는 localhost:9200)
     
     Returns:
-        Elasticsearch 클라이언트
+        Elasticsearch 클라이언트 (OpenSearch 호환)
     """
     if host is None:
-        host = os.environ.get("ELASTICSEARCH_HOST", "localhost")
+        # OpenSearch 환경변수 우선, ES 환경변수 fallback
+        host = os.environ.get("OPENSEARCH_HOST") or os.environ.get("ELASTICSEARCH_HOST", "localhost")
     
     # Handle both hostname and full URL
     if not host.startswith("http"):
-        host = f"http://{host}:9200"
+        port = os.environ.get("OPENSEARCH_PORT") or os.environ.get("ELASTICSEARCH_PORT", "9200")
+        host = f"http://{host}:{port}"
     
     return Elasticsearch(hosts=[host], request_timeout=30)
 
@@ -185,7 +187,10 @@ def create_index_if_not_exists(es: Elasticsearch, mapping_path: str = None) -> b
     
     # Load mapping from file
     if mapping_path is None:
-        mapping_path = Path(__file__).parent.parent / "infra" / "elasticsearch" / "mappings" / "listings.json"
+        # OpenSearch 매핑 파일 우선, ES 매핑 파일 fallback
+        mapping_path = Path(__file__).parent.parent.parent / "infra" / "opensearch" / "mappings" / "listings.json"
+        if not mapping_path.exists():
+            mapping_path = Path(__file__).parent.parent.parent / "infra" / "elasticsearch" / "mappings" / "listings.json"
     
     mapping_path = Path(mapping_path)
     if mapping_path.exists():

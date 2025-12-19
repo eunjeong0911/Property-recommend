@@ -84,6 +84,9 @@ md
 
 .hypothesis
 
+
+test_vector_db
+
 shap_plots/
 eda_outputs/
 comprehensive_eda.py

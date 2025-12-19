@@ -24,7 +24,7 @@ from pathlib import Path
 
 import requests
 
-# 프로젝트 루트 경로 추가
+# 프로젝트 루트 경로 추가 (scripts/ES답변테스트 -> scripts -> 프로젝트루트)
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -34,6 +34,8 @@ env_path = PROJECT_ROOT / ".env"
 if env_path.exists():
     load_dotenv(env_path)
     print(f"✅ .env 파일 로드됨: {env_path}")
+else:
+    print(f"⚠️ .env 파일 없음: {env_path}")
 
 # ES 인덱스 이름 (환경변수 또는 기본값)
 ES_INDEX_NAME = os.getenv("ES_INDEX_NAME", "realestate_listings")
@@ -182,10 +184,19 @@ def get_es_client() -> SimpleESClient:
     return SimpleESClient(host, port)
 
 
-def get_embedding_service():
-    """EmbeddingService 인스턴스 반환"""
-    from libs.clients.embedding_service import EmbeddingService
-    return EmbeddingService.get_instance()
+def get_embedding(text: str) -> list:
+    """OpenAI 임베딩 생성"""
+    from openai import OpenAI
+    
+    api_key = os.getenv("OPENAI_API_KEY", "")
+    model = os.getenv("EMBEDDING_MODEL", "text-embedding-3-large")
+    
+    client = OpenAI(api_key=api_key)
+    response = client.embeddings.create(
+        model=model,
+        input=text
+    )
+    return response.data[0].embedding
 
 
 def show_stats():
@@ -252,8 +263,7 @@ def search_and_print(query: str, top_k: int = 10, min_score: float = 0.3, full_t
         if mode in ["vector", "hybrid"]:
             print("⏳ 쿼리 임베딩 생성 중...")
             start_embed = time.time()
-            embedding_service = get_embedding_service()
-            query_embedding = embedding_service.embed_text(query)
+            query_embedding = get_embedding(query)
             embed_time = (time.time() - start_embed) * 1000
             print(f"✅ 임베딩 완료 ({embed_time:.0f}ms)")
         
@@ -282,8 +292,8 @@ def search_and_print(query: str, top_k: int = 10, min_score: float = 0.3, full_t
                 query=query,
                 query_vector=query_embedding,
                 k=top_k,
-                keyword_boost=0.4,
-                vector_boost=0.6,
+                keyword_boost=0.6,
+                vector_boost=0.4,
                 source=["search_text", "land_num", "주소_정보", "style_tags"]
             )
         
@@ -472,12 +482,12 @@ def main():
     )
     parser.add_argument("query", nargs="?", help="검색 쿼리")
     parser.add_argument("--stats", action="store_true", help="임베딩 통계 출력")
-    parser.add_argument("--top-k", type=int, default=10, help="결과 개수 (기본값: 10)")
+    parser.add_argument("--top-k", type=int, default=3, help="결과 개수 (기본값: 3)")
     parser.add_argument("--min-score", type=float, default=0.3, help="최소 유사도 점수 (기본값: 0.3)")
     parser.add_argument("-i", "--interactive", action="store_true", help="대화형 모드")
-    parser.add_argument("--full", "-f", action="store_true", help="청크 전문 보기")
-    parser.add_argument("--mode", "-m", choices=["vector", "keyword", "hybrid"], default="vector",
-                       help="검색 모드: vector(벡터), keyword(키워드), hybrid(하이브리드)")
+    parser.add_argument("--full", "-f", action="store_true", default=True, help="청크 전문 보기 (기본값: True)")
+    parser.add_argument("--mode", "-m", choices=["vector", "keyword", "hybrid"], default="hybrid",
+                       help="검색 모드: vector(벡터), keyword(키워드), hybrid(하이브리드) (기본값: hybrid)")
     
     args = parser.parse_args()
     
