@@ -267,7 +267,6 @@ export default function Comparison({ lands, land1, land2 }: ComparisonProps) {
       {/* AI 비교 분석 영역 */}
       <div className="bg-white rounded-2xl p-8 border-2 border-gray-200 shadow-lg">
         <h3 className="text-2xl font-bold mb-6 flex items-center gap-3">
-          <span className="text-3xl">🤖</span>
           <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
             AI 비교 분석
           </span>
@@ -289,35 +288,39 @@ export default function Comparison({ lands, land1, land2 }: ComparisonProps) {
         )}
 
         {!loading && !error && comparisonResult && (
-          <div className="prose prose-lg max-w-none">
+          <div className="prose prose-sm max-w-none leading-relaxed">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{
-                // 테이블 스타일링
+                // 테이블 스타일링 - 컴팩트
                 table: ({ node, ...props }) => (
-                  <div className="overflow-x-auto my-6">
-                    <table className="min-w-full border-collapse border border-gray-300" {...props} />
+                  <div className="overflow-x-auto my-4">
+                    <table className="min-w-full border-collapse border border-gray-300 text-sm" {...props} />
                   </div>
                 ),
                 thead: ({ node, ...props }) => (
                   <thead className="bg-blue-100" {...props} />
                 ),
                 th: ({ node, ...props }) => (
-                  <th className="border border-gray-300 px-4 py-3 text-left font-bold text-gray-700" {...props} />
+                  <th className="border border-gray-300 px-3 py-2 text-left font-bold text-gray-700 whitespace-nowrap" {...props} />
                 ),
                 td: ({ node, ...props }) => (
-                  <td className="border border-gray-300 px-4 py-3" {...props} />
+                  <td className="border border-gray-300 px-3 py-2 whitespace-nowrap" {...props} />
                 ),
-                // 헤딩 스타일링
+                // 헤딩 스타일링 - 컴팩트
                 h2: ({ node, ...props }) => (
-                  <h2 className="text-2xl font-bold mt-8 mb-4 text-gray-800 border-b-2 border-blue-300 pb-2" {...props} />
+                  <h2 className="text-xl font-bold mt-5 mb-2 text-gray-800 border-b border-blue-300 pb-1" {...props} />
                 ),
                 h3: ({ node, ...props }) => (
-                  <h3 className="text-xl font-bold mt-6 mb-3 text-gray-700" {...props} />
+                  <h3 className="text-lg font-bold mt-4 mb-2 text-gray-700" {...props} />
                 ),
-                // 리스트 스타일링
+                // 문단 - 컴팩트
+                p: ({ node, ...props }) => (
+                  <p className="my-1 text-gray-700 leading-snug" {...props} />
+                ),
+                // 리스트 스타일링 - 컴팩트
                 ul: ({ node, ...props }) => (
-                  <ul className="list-disc list-inside space-y-2 my-4" {...props} />
+                  <ul className="list-disc list-inside space-y-1 my-2 text-sm" {...props} />
                 ),
                 li: ({ node, ...props }) => (
                   <li className="text-gray-700" {...props} />
@@ -326,9 +329,9 @@ export default function Comparison({ lands, land1, land2 }: ComparisonProps) {
                 strong: ({ node, ...props }) => (
                   <strong className="font-bold text-blue-700" {...props} />
                 ),
-                // 수평선
+                // 수평선 - 컴팩트
                 hr: ({ node, ...props }) => (
-                  <hr className="my-6 border-t-2 border-gray-300" {...props} />
+                  <hr className="my-4 border-t border-gray-300" {...props} />
                 ),
               }}
             >
