@@ -1,15 +1,34 @@
-"""Redis Cache for Cumulative Query Data Storage"""
+"""Redis Cache for Cumulative Query Data Storage
+
+Environment Variables (Requirements 3.3):
+- REDIS_URL: Full Redis connection URL (production, e.g., redis://host:port/db)
+- REDIS_HOST: Redis host (development, default: redis)
+- REDIS_PORT: Redis port (development, default: 6379)
+"""
 import redis
 import json
 import os
 
+
 def get_redis_client():
-    return redis.Redis(
-        host=os.getenv("REDIS_HOST", "redis"),
-        port=int(os.getenv("REDIS_PORT", 6379)),
-        db=0,
-        decode_responses=True
-    )
+    """Get Redis client with support for both REDIS_URL and individual env vars.
+    
+    In production (AWS ElastiCache), use REDIS_URL.
+    In development (Docker), use REDIS_HOST and REDIS_PORT.
+    """
+    redis_url = os.getenv("REDIS_URL")
+    
+    if redis_url:
+        # Production: Use REDIS_URL (e.g., redis://elasticache-endpoint:6379/0)
+        return redis.from_url(redis_url, decode_responses=True)
+    else:
+        # Development: Use individual environment variables
+        return redis.Redis(
+            host=os.getenv("REDIS_HOST", "redis"),
+            port=int(os.getenv("REDIS_PORT", 6379)),
+            db=0,
+            decode_responses=True
+        )
 
 def save_search_context(session_id: str, property_ids: list, facility_type: str = None, graph_results: list = None, ttl: int = 7200):
     """

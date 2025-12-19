@@ -35,27 +35,31 @@ ES_INDEX_NAME = "realestate_listings"
 _es_client: Optional[Elasticsearch] = None
 
 
-def get_es_client() -> Elasticsearch:
-    """ES 클라이언트 인스턴스 반환 (싱글톤)"""
+def get_opensearch_client() -> Elasticsearch:
+    """OpenSearch 클라이언트 인스턴스 반환 (싱글톤)
+    
+    AWS OpenSearch Service와 호환되는 클라이언트 설정
+    """
     global _es_client
     if _es_client is None:
-        es_host = os.getenv("ELASTICSEARCH_HOST", "elasticsearch")
-        es_port = os.getenv("ELASTICSEARCH_PORT", "9200")
-        es_url = f"http://{es_host}:{es_port}"
+        # OpenSearch 환경변수 우선, ES 환경변수 fallback
+        os_host = os.getenv("OPENSEARCH_HOST") or os.getenv("ELASTICSEARCH_HOST", "opensearch")
+        os_port = os.getenv("OPENSEARCH_PORT") or os.getenv("ELASTICSEARCH_PORT", "9200")
+        os_url = f"http://{os_host}:{os_port}"
         
         try:
             _es_client = Elasticsearch(
-                hosts=[es_url],
+                hosts=[os_url],
                 timeout=30,
                 max_retries=3,
                 retry_on_timeout=True
             )
             if _es_client.ping():
-                logger.info(f"[ES Node] Connected to Elasticsearch: {es_url}")
+                logger.info(f"[OpenSearch] Connected to: {os_url}")
             else:
-                logger.warning(f"[ES Node] Elasticsearch ping failed: {es_url}")
+                logger.warning(f"[OpenSearch] Ping failed: {os_url}")
         except Exception as e:
-            logger.error(f"[ES Node] Failed to connect to Elasticsearch: {e}")
+            logger.error(f"[OpenSearch] Failed to connect: {e}")
             raise
     
     return _es_client
@@ -158,7 +162,7 @@ def search_with_es(
         return empty_result
     
     try:
-        es = get_es_client()
+        es = get_opensearch_client()
         
         # 쿼리 빌드
         query = build_hybrid_query(
@@ -287,6 +291,28 @@ def get_embedding_service():
     return _embedding_service
 
 
+def build_knn_query(query_vector: List[float], k: int = 20) -> Dict[str, Any]:
+    """OpenSearch k-NN 쿼리 빌드
+    
+    OpenSearch k-NN DSL 형식으로 쿼리 생성
+    
+    Args:
+        query_vector: 쿼리 임베딩 벡터
+        k: 반환할 최대 결과 개수
+    
+    Returns:
+        OpenSearch k-NN 쿼리 딕셔너리
+    """
+    return {
+        "knn": {
+            "embedding": {
+                "vector": query_vector,
+                "k": k
+            }
+        }
+    }
+
+
 def hybrid_search(
     query: str,
     query_embedding: List[float],
@@ -294,12 +320,13 @@ def hybrid_search(
     keyword_boost: float = 0.4,
     vector_boost: float = 0.6
 ) -> List[Dict]:
-    """ES 키워드 + 벡터 하이브리드 검색 (단일 쿼리)
+    """ES 키워드 + 벡터 하이브리드 검색 (OpenSearch k-NN DSL 형식)
     
     Requirements:
     - 4.1: ES의 kNN 쿼리와 bool 쿼리를 단일 요청으로 결합
     - 4.2: 키워드 점수와 벡터 점수를 boost 파라미터로 가중치 조합
     - 4.3: 기본값으로 keyword:0.4, vector:0.6 비율 사용
+    - 2.2: OpenSearch k-NN DSL 형식 사용
     
     Args:
         query: 검색 쿼리 텍스트
@@ -317,31 +344,36 @@ def hybrid_search(
     if not query_embedding:
         return []
     
-    es = get_es_client()
+    es = get_opensearch_client()
     
     try:
-        # ES 하이브리드 검색: kNN + bool 쿼리 단일 요청 (Requirements 4.1)
+        # OpenSearch 하이브리드 검색: k-NN + bool 쿼리 결합 (Requirements 4.1, 2.2)
+        # OpenSearch k-NN DSL 형식 사용
         result = es.search(
             index="listings",
             query={
                 "bool": {
                     "should": [
+                        # 키워드 검색 (Requirements 4.2)
                         {
                             "multi_match": {
                                 "query": query,
                                 "fields": ["search_text^2", "주소_정보.전체주소"],
                                 "boost": keyword_boost
                             }
+                        },
+                        # OpenSearch k-NN 쿼리 (Requirements 2.2)
+                        {
+                            "knn": {
+                                "embedding": {
+                                    "vector": query_embedding,
+                                    "k": top_k,
+                                    "boost": vector_boost
+                                }
+                            }
                         }
                     ]
                 }
-            },
-            knn={
-                "field": "embedding",
-                "query_vector": query_embedding,
-                "k": top_k,
-                "num_candidates": top_k * 2,
-                "boost": vector_boost
             },
             size=top_k,
             _source=["search_text", "land_num", "주소_정보"]
