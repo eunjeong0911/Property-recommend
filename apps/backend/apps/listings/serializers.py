@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Land, LandBroker
+from .models import Land, LandBroker, PriceClassificationResult
 from .utils.price_utils import (
     parse_korean_price,
     format_price_in_manwon,
@@ -25,6 +25,20 @@ class BrokerSerializer(serializers.ModelSerializer):
             'id', 'office_name', 'representative', 'phone', 'address',
             'registration_number', 'trust_score', 'trust_grade',
             'trust_score_updated_at'
+        ]
+
+
+class PriceClassificationSerializer(serializers.ModelSerializer):
+    """가격 분류 시리얼라이저"""
+    class Meta:
+        model = PriceClassificationResult
+        fields = [
+            'prediction_class',
+            'prediction_label',
+            'prediction_label_korean',
+            'probability_underpriced',
+            'probability_fair',
+            'probability_overpriced'
         ]
 
 
@@ -58,6 +72,9 @@ class LandSerializer(serializers.ModelSerializer):
     
     # 중개업소 정보
     broker = BrokerSerializer(source='landbroker', read_only=True)
+    
+    # 가격 분류 정보
+    price_prediction = serializers.SerializerMethodField()
 
     class Meta:
         model = Land
@@ -86,7 +103,8 @@ class LandSerializer(serializers.ModelSerializer):
             'heating_method',
             'elevator',
             'description',
-            'broker'
+            'broker',
+            'price_prediction'
         ]
 
     def get_title(self, obj):
@@ -194,4 +212,14 @@ class LandSerializer(serializers.ModelSerializer):
         if total_floors is not None:
             return '있음' if total_floors >= 5 else '없음'
         return '-'
+    
+    def get_price_prediction(self, obj):
+        """가격 분류 정보 조회"""
+        try:
+            price_class = PriceClassificationResult.objects.filter(land_num=obj.land_num).first()
+            if price_class:
+                return PriceClassificationSerializer(price_class).data
+        except Exception as e:
+            print(f"Error fetching price classification: {e}")
+        return None
     
