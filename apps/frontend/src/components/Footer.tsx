@@ -54,7 +54,7 @@ const Footer: React.FC = () => {
           <div className="flex flex-col gap-2 text-[11px] text-slate-400 md:flex-row md:flex-wrap md:gap-x-6 md:justify-center">
             <div className="flex gap-1 justify-center">
               <span className="font-medium text-slate-500">TEAM</span>
-              <span className="text-cyan-400">ONDO HOUSE</span>
+              <span className="text-cyan-400">GoZip</span>
             </div>
             <div className="flex gap-1 justify-center">
               <span className="font-medium text-slate-500">문의</span>

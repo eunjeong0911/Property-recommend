@@ -145,3 +145,28 @@ class LandImage(models.Model):
     def __str__(self):
         return self.img_url
 
+
+class PriceClassificationResult(models.Model):
+    """가격 분류 결과 모델"""
+    id = models.AutoField(primary_key=True)
+    land_num = models.CharField(max_length=20, db_column='매물번호', unique=True)
+    land_url = models.TextField(db_column='매물_url', blank=True, null=True)
+    
+    # 예측 결과
+    prediction_class = models.IntegerField(db_column='예측_클래스', help_text='예측 클래스 (0: 저렴, 1: 적정, 2: 비쌈)')
+    prediction_label = models.CharField(max_length=50, db_column='예측_레이블', help_text='예측 레이블 (영문)')
+    prediction_label_korean = models.CharField(max_length=50, db_column='예측_레이블_한글', help_text='예측 레이블 (한글)')
+    
+    # 확률
+    probability_underpriced = models.FloatField(db_column='저렴_확률', help_text='저렴 확률')
+    probability_fair = models.FloatField(db_column='적정_확률', help_text='적정 확률')
+    probability_overpriced = models.FloatField(db_column='비쌈_확률', help_text='비쌈 확률')
+    
+    prediction_datetime = models.DateTimeField(db_column='예측_일시', blank=True, null=True)
+    
+    class Meta:
+        managed = False
+        db_table = 'price_classification_results'
+    
+    def __str__(self):
+        return f"{self.land_num} - {self.prediction_label_korean}"
