@@ -1,0 +1,54 @@
+{
+  "family": "realestate-rag",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "2048",
+  "executionRoleArn": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "rag",
+      "image": "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/realestate-rag:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8001,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {"name": "POSTGRES_HOST", "value": "${RDS_ENDPOINT}"},
+        {"name": "POSTGRES_PORT", "value": "5432"},
+        {"name": "NEO4J_URI", "value": "neo4j+s://${NEO4J_AURA_ENDPOINT}"},
+        {"name": "REDIS_URL", "value": "redis://${ELASTICACHE_ENDPOINT}:6379/0"},
+        {"name": "OPENSEARCH_HOST", "value": "${OPENSEARCH_ENDPOINT}"},
+        {"name": "LOG_FORMAT", "value": "json"},
+        {"name": "LOG_LEVEL", "value": "INFO"}
+      ],
+      "secrets": [
+        {"name": "POSTGRES_DB", "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:realestate/db:POSTGRES_DB::"},
+        {"name": "POSTGRES_USER", "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:realestate/db:POSTGRES_USER::"},
+        {"name": "POSTGRES_PASSWORD", "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:realestate/db:POSTGRES_PASSWORD::"},
+        {"name": "NEO4J_USER", "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:realestate/neo4j:NEO4J_USER::"},
+        {"name": "NEO4J_PASSWORD", "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:realestate/neo4j:NEO4J_PASSWORD::"},
+        {"name": "OPENAI_API_KEY", "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:realestate/openai:OPENAI_API_KEY::"}
+      ],
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"],
+        "interval": 30,
+        "timeout": 10,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/realestate-rag",
+          "awslogs-region": "${AWS_REGION}",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}

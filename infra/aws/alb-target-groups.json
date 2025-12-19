@@ -1,0 +1,131 @@
+{
+  "_comment": "ALB Target Groups Configuration for ECS Services",
+  "_usage": "AWS Console 또는 Terraform/CDK로 생성하세요",
+
+  "TargetGroups": [
+    {
+      "Name": "realestate-frontend-tg",
+      "Port": 3000,
+      "Protocol": "HTTP",
+      "VpcId": "${VPC_ID}",
+      "TargetType": "ip",
+      "HealthCheck": {
+        "Path": "/api/health",
+        "Protocol": "HTTP",
+        "Port": "traffic-port",
+        "HealthyThresholdCount": 2,
+        "UnhealthyThresholdCount": 3,
+        "Timeout": 10,
+        "Interval": 30,
+        "Matcher": {
+          "HttpCode": "200"
+        }
+      },
+      "Attributes": {
+        "deregistration_delay.timeout_seconds": "30",
+        "stickiness.enabled": "false"
+      }
+    },
+    {
+      "Name": "realestate-backend-tg",
+      "Port": 8000,
+      "Protocol": "HTTP",
+      "VpcId": "${VPC_ID}",
+      "TargetType": "ip",
+      "HealthCheck": {
+        "Path": "/api/health/",
+        "Protocol": "HTTP",
+        "Port": "traffic-port",
+        "HealthyThresholdCount": 2,
+        "UnhealthyThresholdCount": 3,
+        "Timeout": 10,
+        "Interval": 30,
+        "Matcher": {
+          "HttpCode": "200"
+        }
+      },
+      "Attributes": {
+        "deregistration_delay.timeout_seconds": "30",
+        "stickiness.enabled": "false"
+      }
+    },
+    {
+      "Name": "realestate-rag-tg",
+      "Port": 8001,
+      "Protocol": "HTTP",
+      "VpcId": "${VPC_ID}",
+      "TargetType": "ip",
+      "HealthCheck": {
+        "Path": "/health",
+        "Protocol": "HTTP",
+        "Port": "traffic-port",
+        "HealthyThresholdCount": 2,
+        "UnhealthyThresholdCount": 3,
+        "Timeout": 10,
+        "Interval": 30,
+        "Matcher": {
+          "HttpCode": "200"
+        }
+      },
+      "Attributes": {
+        "deregistration_delay.timeout_seconds": "30",
+        "stickiness.enabled": "false",
+        "_comment_streaming": "RAG 스트리밍을 위해 idle_timeout을 300초로 설정 필요"
+      }
+    }
+  ],
+
+  "ListenerRules": [
+    {
+      "Priority": 10,
+      "Conditions": [
+        {
+          "Field": "path-pattern",
+          "Values": ["/api/*"]
+        }
+      ],
+      "Actions": [
+        {
+          "Type": "forward",
+          "TargetGroupArn": "realestate-backend-tg"
+        }
+      ]
+    },
+    {
+      "Priority": 20,
+      "Conditions": [
+        {
+          "Field": "path-pattern",
+          "Values": ["/rag/*"]
+        }
+      ],
+      "Actions": [
+        {
+          "Type": "forward",
+          "TargetGroupArn": "realestate-rag-tg"
+        }
+      ]
+    },
+    {
+      "Priority": 100,
+      "_comment": "Default rule - Frontend",
+      "Conditions": [],
+      "Actions": [
+        {
+          "Type": "forward",
+          "TargetGroupArn": "realestate-frontend-tg"
+        }
+      ]
+    }
+  ],
+
+  "ALBAttributes": {
+    "_comment": "ALB 자체 설정",
+    "idle_timeout.timeout_seconds": "300",
+    "_reason": "RAG 스트리밍 응답이 길어질 수 있으므로 300초로 설정",
+    "routing.http2.enabled": "true",
+    "access_logs.s3.enabled": "true",
+    "access_logs.s3.bucket": "realestate-alb-logs",
+    "access_logs.s3.prefix": "alb"
+  }
+}

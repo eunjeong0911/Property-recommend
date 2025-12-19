@@ -1,0 +1,101 @@
+# =============================================================================
+# AWS CodeBuild Buildspec for Multi-Service Build
+# =============================================================================
+# This buildspec builds all Docker images and pushes to ECR
+# =============================================================================
+
+version: 0.2
+
+env:
+  variables:
+    AWS_DEFAULT_REGION: ap-northeast-2
+  parameter-store:
+    NEXT_PUBLIC_KAKAO_MAP_KEY: /realestate/kakao-map-key
+  secrets-manager:
+    NEXTAUTH_SECRET: realestate/nextauth:NEXTAUTH_SECRET
+    GOOGLE_CLIENT_ID: realestate/google:GOOGLE_CLIENT_ID
+    GOOGLE_CLIENT_SECRET: realestate/google:GOOGLE_CLIENT_SECRET
+
+phases:
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - IMAGE_TAG=${COMMIT_HASH:-latest}
+      - echo "Building images with tag $IMAGE_TAG"
+
+  build:
+    commands:
+      - echo Build started on `date`
+      
+      # Build Backend
+      - echo Building backend image...
+      - docker build -t realestate-backend:$IMAGE_TAG -f infra/docker/backend.Dockerfile --target runtime .
+      - docker tag realestate-backend:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/realestate-backend:$IMAGE_TAG
+      - docker tag realestate-backend:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/realestate-backend:latest
+      
+      # Build RAG
+      - echo Building RAG image...
+      - docker build -t realestate-rag:$IMAGE_TAG -f infra/docker/rag.Dockerfile --target runtime .
+      - docker tag realestate-rag:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/realestate-rag:$IMAGE_TAG
+      - docker tag realestate-rag:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/realestate-rag:latest
+      
+      # Build Reco
+      - echo Building Reco image...
+      - docker build -t realestate-reco:$IMAGE_TAG -f infra/docker/reco.Dockerfile --target runtime .
+      - docker tag realestate-reco:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/realestate-reco:$IMAGE_TAG
+      - docker tag realestate-reco:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/realestate-reco:latest
+      
+      # Build Frontend (with build args)
+      - echo Building frontend image...
+      - |
+        docker build -t realestate-frontend:$IMAGE_TAG \
+          -f infra/docker/frontend.Dockerfile \
+          --target runner \
+          --build-arg NEXT_PUBLIC_API_URL=https://api.${DOMAIN_NAME} \
+          --build-arg NEXT_PUBLIC_KAKAO_MAP_KEY=$NEXT_PUBLIC_KAKAO_MAP_KEY \
+          --build-arg NEXTAUTH_URL=https://${DOMAIN_NAME} \
+          --build-arg NEXTAUTH_SECRET=$NEXTAUTH_SECRET \
+          --build-arg GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID \
+          --build-arg GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET \
+          .
+      - docker tag realestate-frontend:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/realestate-frontend:$IMAGE_TAG
+      - docker tag realestate-frontend:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/realestate-frontend:latest
+
+  post_build:
+    commands:
+      - echo Build completed on `date`
+      - echo Pushing images to ECR...
+      
+      # Push all images
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/realestate-backend:$IMAGE_TAG
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/realestate-backend:latest
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/realestate-rag:$IMAGE_TAG
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/realestate-rag:latest
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/realestate-reco:$IMAGE_TAG
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/realestate-reco:latest
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/realestate-frontend:$IMAGE_TAG
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/realestate-frontend:latest
+      
+      # Generate imagedefinitions.json for ECS deployment
+      - echo Writing image definitions file...
+      - |
+        cat > imagedefinitions.json << EOF
+        [
+          {"name": "backend", "imageUri": "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/realestate-backend:$IMAGE_TAG"},
+          {"name": "rag", "imageUri": "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/realestate-rag:$IMAGE_TAG"},
+          {"name": "reco", "imageUri": "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/realestate-reco:$IMAGE_TAG"},
+          {"name": "frontend", "imageUri": "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/realestate-frontend:$IMAGE_TAG"}
+        ]
+        EOF
+
+artifacts:
+  files:
+    - imagedefinitions.json
+    - infra/aws/ecs-task-definition-*.json
+
+cache:
+  paths:
+    - '/root/.cache/pip/**/*'
+    - '/root/.npm/**/*'

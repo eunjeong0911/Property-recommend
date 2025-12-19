@@ -1,0 +1,37 @@
+# AWS
+
+## 1) 배포 구조: 
+
+- ECS/Fargate: `frontend`, `backend`, `rag`
+- Managed: `RDS(Postgres+pgvector)`, `OpenSearch Service`
+- (그래프) `Neo4j`는 EC2/Aura
+- 초기 스냅샷 1회 적재 후 런칭
+
+이렇게 가면 **운영 난이도/장애 리스크**를 크게 줄이면서 빨리 런칭 가능.
+
+---
+
+## 2) Route 53 + CloudFront + ALB ,캐시 전략
+
+- CloudFront(캐시/CDN/WAF)을 앞에 두고, 원본(Origin)을 ALB로 잡는 방식
+- 프론트 정적 자산이 많거나, 전세계/속도/보안(WAF)이 중요하면 이쪽이 더 좋아
+
+CloudFront를 앞에 두는 건 “사이트가 빠르게 보이는 체감”
+
+하지만 **API/챗봇은 캐시하면 안 되고, 스트리밍도 깨지면 안 됨.**
+그래서 다음처럼 “Behavior 분리”가 필수
+
+### CloudFront Behavior 
+
+- `/_next/static/*` → **강캐시 ON** (정적 파일)
+- `/static/*` 또는 이미지 경로 → **캐시 ON**
+- `/api/*`(Django) → **캐시 OFF** (완전 패스스루)
+- `/rag/*`(챗봇 스트리밍/SSE) → **캐시 OFF + 스트리밍 유지**(헤더 전달 포함)
+- `/`(Next SSR 페이지) → 보통 **TTL 0(또는 짧게)**
+
+> 이걸 안 나누고 “전부 캐시” 해버리면 로그인/개인화/API 응답이 꼬이거나 챗봇이 버퍼링
+> 
+
+
+- **Route 53 → CloudFront → ALB → ECS(Fargate 서비스들)**
+- 단, **CloudFront는 “정적 자산은 캐시”, “/api와 /rag는 캐시 없이 통과”**가 원칙

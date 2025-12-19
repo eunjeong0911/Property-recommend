@@ -1,0 +1,29 @@
+# =============================================================================
+# RAG Service Requirements
+# =============================================================================
+
+# LangChain & RAG
+langgraph>=0.2
+langchain>=0.3
+langchain-openai>=0.3
+langchain-community>=0.3
+openai>=1.0
+
+# API Framework
+fastapi>=0.109
+uvicorn[standard]>=0.25
+pydantic>=2.0
+
+# Database Clients
+psycopg2-binary>=2.9
+neo4j>=5.0
+redis>=5.0
+opensearch-py>=2.4
+
+# Performance
+uvloop>=0.19
+httptools>=0.6
+
+# Utils
+python-dotenv>=1.0
+requests>=2.31

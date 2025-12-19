@@ -1,0 +1,105 @@
+# =============================================================================
+# Docker Ignore File
+# =============================================================================
+# Excludes files from Docker build context for faster builds and smaller images
+# =============================================================================
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv
+venv
+ENV
+env
+.pytest_cache
+.hypothesis
+*.egg-info
+.eggs
+dist
+build
+
+# Node.js
+node_modules
+.npm
+.yarn
+.pnp.*
+
+# Next.js
+.next
+out
+
+# Testing
+coverage
+.coverage
+htmlcov
+.tox
+.nox
+
+# Documentation
+docs
+*.md
+!README.md
+
+# Local development
+.env
+.env.local
+.env.*.local
+*.log
+
+# Data files (mount as volumes instead)
+data/
+*.csv
+*.xlsx
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+
+# Analytics notebooks
+analytics/
+*.ipynb
+
+# Crawling data
+dataCrawling/
+
+# Temporary files
+tmp
+temp
+*.tmp
+*.temp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.docker
+
+# Infrastructure (not needed in app images)
+infra/aws
+infra/terraform
+infra/cloudformation
+
+# Scripts (mount as volumes)
+scripts/
+
+# Test files
+test_*
+*_test.py
+tests/

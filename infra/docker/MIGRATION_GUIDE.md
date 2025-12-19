@@ -1,110 +1,89 @@
-# Requirements 통합 마이그레이션 가이드
+# Docker 최적화 마이그레이션 가이드
 
-## 변경 사항
+## 변경 사항 요약
 
-모든 Python 의존성 파일이 `infra/docker/` 폴더로 통합되었습니다.
+### 1. Dockerfile 최적화
 
-### 이전 구조
-```
-requirements.txt
-apps/backend/requirements.txt
-apps/rag/requirements.txt
-apps/reco/requirements.txt
-analytics/requirements.txt
-dataCrawling/피터팬 매물 데이터/requirements.txt
-```
+#### 적용된 개선사항
+- **Multi-stage 빌드**: 빌드 의존성과 런타임 분리로 이미지 크기 50% 이상 감소
+- **Non-root 사용자**: 보안 강화를 위해 appuser(UID 1000)로 실행
+- **서비스별 requirements.txt**: 불필요한 의존성 제거로 빌드 시간 단축
+- **Health check 내장**: ALB/ECS 호환 헬스체크 설정
+- **캐시 최적화**: 레이어 순서 최적화로 재빌드 시간 단축
 
-### 새로운 구조
-```
-infra/docker/
-├── requirements.txt          # 🎯 모든 의존성 통합!
-├── backend.Dockerfile
-├── rag.Dockerfile
-├── reco.Dockerfile
-├── analytics.Dockerfile
-├── scripts.Dockerfile
-└── crawling.Dockerfile
-```
+#### 이미지 크기 비교 (예상)
+| 서비스 | 이전 | 이후 |
+|--------|------|------|
+| backend | ~1.5GB | ~500MB |
+| rag | ~1.5GB | ~600MB |
+| reco | ~2.0GB | ~1.2GB |
+| frontend | ~300MB | ~150MB |
 
-**모든 Python 패키지가 하나의 `requirements.txt` 파일로 통합되었습니다.**
+### 2. docker-compose.yml 개선
 
-## 사용 방법
+- **네트워크 격리**: backend-network, frontend-network 분리
+- **리소스 제한**: 메모리/CPU 제한 설정
+- **헬스체크 조건**: 의존 서비스 헬스체크 완료 후 시작
+- **명명된 볼륨**: 일관된 볼륨 이름 사용
+- **환경 변수 검증**: 필수 변수 누락 시 에러
 
-### 기존 방식 (더 이상 필요 없음)
+### 3. 프로덕션 설정 분리
+
+- `docker-compose.prod.yml`: 프로덕션 오버라이드
+- `nginx.prod.conf`: 프로덕션 Nginx 설정 (rate limiting, gzip, 보안 헤더)
+
+## 마이그레이션 절차
+
+### 1단계: 기존 컨테이너 정리
 ```bash
-# ❌ 이제 필요 없습니다
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
+docker compose down -v
+docker system prune -f
 ```
 
-### 새로운 방식
+### 2단계: 새 이미지 빌드
 ```bash
-# ✅ Docker만 사용하면 됩니다
-docker-compose up
+make setup
+# 또는
+docker compose build --no-cache
 ```
 
-## 서비스별 실행
-
-### 메인 서비스 (항상 실행)
+### 3단계: 서비스 시작
 ```bash
-docker-compose up
+make up
 ```
-- postgres, neo4j, redis
-- backend, rag, reco, frontend
 
-### Analytics (선택적)
+### 4단계: 헬스체크 확인
 ```bash
-docker-compose --profile analytics up analytics
+make health
 ```
-Jupyter Notebook: http://localhost:8888
 
-### Scripts (선택적)
+## 주의사항
+
+### 볼륨 마운트 변경
+개발 환경에서는 여전히 소스 코드가 마운트되지만, 프로덕션에서는 이미지에 포함된 코드만 사용됩니다.
+
+### 환경 변수
+`.env` 파일에 다음 변수가 필수입니다:
+- `POSTGRES_PASSWORD`
+- `NEO4J_PASSWORD`
+
+### 서비스별 requirements.txt
+각 서비스는 이제 자체 requirements.txt를 사용합니다:
+- `apps/backend/requirements.txt`
+- `apps/rag/requirements.txt`
+- `apps/reco/requirements.txt`
+
+공유 유틸리티 서비스(scripts, analytics, crawling)는 여전히 `infra/docker/requirements.txt`를 사용합니다.
+
+## 롤백 절차
+
+문제 발생 시 Git에서 이전 버전으로 롤백:
 ```bash
-docker-compose --profile scripts run scripts python your_script.py
+git checkout HEAD~1 -- docker-compose.yml infra/docker/
+docker compose build
+docker compose up -d
 ```
 
-### Crawling (선택적)
-```bash
-docker-compose --profile crawling run crawling python your_crawler.py
-```
+## AWS 배포
 
-## 의존성 추가 방법
-
-1. `infra/docker/requirements.txt` 파일 수정
-2. Docker 이미지 재빌드:
-   ```bash
-   docker-compose build <service-name>
-   # 또는 모든 서비스
-   docker-compose build
-   ```
-3. 서비스 재시작:
-   ```bash
-   docker-compose up -d <service-name>
-   ```
-
-## 장점
-
-✅ **가상환경 불필요**: venv 설치/활성화 과정 제거  
-✅ **중앙 관리**: 모든 의존성이 한 곳에서 관리됨  
-✅ **일관성**: 모든 개발자가 동일한 환경 사용  
-✅ **격리**: 각 서비스가 독립적인 컨테이너에서 실행  
-✅ **재현성**: Docker 이미지로 환경 완벽 재현  
-
-## 문제 해결
-
-### 의존성이 설치되지 않는 경우
-```bash
-# 캐시 없이 재빌드
-docker-compose build --no-cache <service-name>
-```
-
-### 컨테이너 내부에서 명령 실행
-```bash
-docker-compose exec <service-name> bash
-```
-
-### 로그 확인
-```bash
-docker-compose logs <service-name>
-```
+AWS ECS 배포는 `infra/aws/DEPLOYMENT_GUIDE.md`를 참조하세요.

@@ -10,15 +10,46 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 # =============================================================================
 # Security Settings (Requirements 3.1, 3.2)
 # =============================================================================
+# DEBUG: Must be False in production
+DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() in ("true", "1", "yes")
+
 # SECRET_KEY: Required in production, no hardcoded default
 # In production, this MUST be set via environment variable
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
 if not SECRET_KEY:
     # Only allow missing SECRET_KEY in development
-    if os.getenv("DJANGO_DEBUG", "True").lower() in ("true", "1", "yes"):
+    if DEBUG:
         SECRET_KEY = "dev-secret-key-not-for-production"
     else:
         raise ValueError("DJANGO_SECRET_KEY environment variable is required in production")
+
+# ALLOWED_HOSTS: Required in production
+# Format: comma-separated list (e.g., "api.example.com,www.example.com")
+_allowed_hosts = os.getenv("DJANGO_ALLOWED_HOSTS", "")
+if _allowed_hosts:
+    ALLOWED_HOSTS = [host.strip() for host in _allowed_hosts.split(",") if host.strip()]
+else:
+    # Development defaults
+    ALLOWED_HOSTS = ["localhost", "127.0.0.1", "backend"]
+
+# Production security settings (only when DEBUG=False)
+if not DEBUG:
+    # HTTPS settings
+    SECURE_SSL_REDIRECT = os.getenv("SECURE_SSL_REDIRECT", "True").lower() in ("true", "1", "yes")
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    
+    # Cookie security
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    
+    # HSTS settings
+    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    
+    # Content security
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = "DENY"
 
 # Custom User Model
 AUTH_USER_MODEL = "users.User"
@@ -122,6 +153,11 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# Media files (user uploads)
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
