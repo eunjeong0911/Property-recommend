@@ -20,11 +20,8 @@ def generate(state: RAGState) -> RAGState:
     price_conditions = state.get("price_conditions", {})
     
     print(f"\n{'='*60}")
-    print(f"[Generate] 🚀 Starting answer generation...")
-    print(f"[Generate] 📝 Question: {question}")
-    print(f"[Generate] 📊 Graph results count: {len(graph_results) if isinstance(graph_results, list) else 1}")
-    print(f"[Generate] 🗄️  SQL results count: {len(sql_results)}")
-    print(f"{'='*60}\n")
+    print(f"[LLM] 🚀 답변 생성 시작")
+    print(f"{'='*60}")
     
     # Extract context list if nested
     if isinstance(graph_results, dict) and 'context' in graph_results:
@@ -107,41 +104,58 @@ def generate(state: RAGState) -> RAGState:
                  if not details_list: return []
                  return [d for d in details_list if d.get('name') not in poi_names]
 
-            # 2. General Facilities (Convenience, Hospital, Park, Education, Pharmacy)
+            # 2. General Facilities - 요청된 시설만 표시
+            requested = state.get('requested_facilities', [])
+            
+            # [Fallback] state에 정보가 없을 경우 질문에서 직접 추출 (TMI 방지)
+            if not requested and question:
+                q_temp = question.lower()
+                if any(k in q_temp for k in ['편의점', '마트', 'gs25', 'cu']): requested.append('convenience')
+                if any(k in q_temp for k in ['병원', '의료', '종합병원']): requested.append('hospital')
+                if any(k in q_temp for k in ['약국']): requested.append('pharmacy')
+                if any(k in q_temp for k in ['공원', '산책']): requested.append('park')
+                if any(k in q_temp for k in ['대학', '학교', '캠퍼스']): requested.append('university')
+                if any(k in q_temp for k in ['안전', '치안', 'cctv', '경찰']): requested.append('safety')
+                
             fac_summary = []
-            if result.get('med_details'): fac_summary.append(f"의료(병원): {format_details(result['med_details'])}")
-            if result.get('pharm_details'): fac_summary.append(f"약국: {format_details(result['pharm_details'])}")
-            if result.get('gen_hosp_details'): fac_summary.append(f"의료(종합/대학병원): {format_details(result['gen_hosp_details'])}")
-            if result.get('conv_details'): fac_summary.append(f"편의: {format_details(result['conv_details'])}")
-            if result.get('park_details'): fac_summary.append(f"공원: {format_details(result['park_details'])}")
-            if result.get('edu_details'): fac_summary.append(f"교육: {format_details(result['edu_details'])}")
+            show_all = not requested
+            
+            if (show_all or 'hospital' in requested or 'general_hospital' in requested):
+                if result.get('med_details'): fac_summary.append(f"의료(병원): {format_details(result['med_details'])}")
+                if result.get('pharm_details'): fac_summary.append(f"약국: {format_details(result['pharm_details'])}")
+                if result.get('gen_hosp_details'): fac_summary.append(f"의료(종합/대학병원): {format_details(result['gen_hosp_details'])}")
+            if (show_all or 'convenience' in requested):
+                if result.get('conv_details'): fac_summary.append(f"편의: {format_details(result['conv_details'])}")
+            if (show_all or 'park' in requested):
+                if result.get('park_details'): fac_summary.append(f"공원: {format_details(result['park_details'])}")
+            if (show_all or 'university' in requested):
+                if result.get('edu_details'): fac_summary.append(f"교육: {format_details(result['edu_details'])}")
             
             # [Fix]: Filter out transportation items that match the Anchor (POI) to avoid duplication
             filtered_trans = filter_poi(result.get('trans_details'))
             if filtered_trans: fac_summary.append(f"교통: {format_details(filtered_trans)}")
             
             merged['formatted_infrastructure'] = " | ".join(fac_summary)
+
             
             # 3. Safety Facilities (Dual Display)
-            # - CCTV/Bell: Count only
-            # - Police/Fire: Distance and time
             safe_summary = []
             
-            # Count-based facilities
-            cctv_count = result.get('cctv_count', 0)
-            bell_count = result.get('bell_count', 0)
-            if cctv_count > 0:
-                safe_summary.append(f"CCTV {cctv_count}개")
-            if bell_count > 0:
-                safe_summary.append(f"비상벨 {bell_count}개")
-            
-            # Distance-based facilities
-            police_details = result.get('police_details', [])
-            fire_details = result.get('fire_details', [])
-            if police_details:
-                safe_summary.append(f"경찰서: {format_details(police_details)}")
-            if fire_details:
-                safe_summary.append(f"소방서: {format_details(fire_details)}")
+            # 안전 정보는 'safety' 요청이 있거나 show_all일 때만 표시
+            if (show_all or 'safety' in requested):
+                cctv_count = result.get('cctv_count', 0)
+                bell_count = result.get('bell_count', 0)
+                if cctv_count > 0:
+                    safe_summary.append(f"CCTV {cctv_count}개")
+                if bell_count > 0:
+                    safe_summary.append(f"비상벨 {bell_count}개")
+                
+                police_details = result.get('police_details', [])
+                fire_details = result.get('fire_details', [])
+                if police_details:
+                    safe_summary.append(f"경찰서: {format_details(police_details)}")
+                if fire_details:
+                    safe_summary.append(f"소방서: {format_details(fire_details)}")
             
             merged['formatted_safety'] = " | ".join(safe_summary) if safe_summary else ""
             
@@ -155,6 +169,10 @@ def generate(state: RAGState) -> RAGState:
                 merged['detail_link'] = f"[📋 상세보기](/landDetail/{land_id})"
             else:
                 merged['detail_link'] = ""
+            
+            # 6. 외부 URL 제거 (LLM이 내부 링크만 사용하도록)
+            if 'url' in postgres_details:
+                del postgres_details['url']
 
             unique_results.append(merged)
     
@@ -212,7 +230,59 @@ def generate(state: RAGState) -> RAGState:
     # Select top 3 for display
     context_for_display = context[:3]
     print(f"[Generate] 📊 Showing top 3 out of {len(full_results)} total results")
-    print(f"[Generate] 🤖 Sending to LLM...\n")
+    
+    # ------------------------------------------------------------------
+    # [Input Diet] LLM 입력 데이터 최적화
+    # ------------------------------------------------------------------
+    slim_context = []
+    
+    for item in context_for_display:
+        new_item = item.copy()
+        
+        # 1. postgres_details 경량화 (White-listing)
+        details = item.get('postgres_details', {})
+        slim_details = {}
+        
+        whitelist_keys = ['address', 'trade_info', 'listing_info', 'floor_info', 'direction']
+        for k in whitelist_keys:
+            if k in details:
+                slim_details[k] = details[k]
+        
+        # 2. 가격 정보 Pre-formatting (토큰 절약)
+        deposit = details.get('parsed_deposit')
+        rent = details.get('parsed_rent')
+        jeonse = details.get('parsed_jeonse')
+        sale = details.get('parsed_sale')
+        
+        price_str = str(details.get('trade_info', '-'))
+        try:
+            trade_type = details.get('type')
+            if trade_type == '월세' and deposit is not None:
+                price_str = f"보증금 {deposit}/{rent}"
+            elif trade_type == '전세' and jeonse is not None:
+                price_str = f"전세 {jeonse}"
+            elif trade_type == '매매' and sale is not None:
+                price_str = f"매매 {sale}"
+            elif deposit is not None and rent is not None:
+                 price_str = f"{deposit}/{rent}"
+        except:
+            pass
+            
+        slim_details['formatted_price'] = price_str
+        new_item['postgres_details'] = slim_details
+        
+        # 3. 불필요한 중간 데이터 삭제
+        for key in ['poi_details', 'med_details', 'pharm_details', 'conv_details', 'park_details', 'edu_details', 'trans_details', 'police_details', 'fire_details']:
+             if key in new_item:
+                 del new_item[key]
+                 
+        slim_context.append(new_item)
+
+    # Input Size 로깅
+    import json
+    input_str = json.dumps(slim_context, ensure_ascii=False)
+    print(f"[Generate] 📉 Optimized Context Size: {len(str(context_for_display))} -> {len(input_str)} chars")
+    print(f"[Generate] 🤖 Sending to LLM (Parallel Batch)...\n")
 
     # 검색 컨텍스트 정보
     context_info = ""
@@ -228,131 +298,63 @@ def generate(state: RAGState) -> RAGState:
     # Simple generation using LLM
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
     
-    prompt = ChatPromptTemplate.from_template(
-        """
-        당신은 유용한 부동산 AI 비서입니다. 검색 결과를 바탕으로 사용자의 질문에 친절하게 답변해 주세요.
+    # ------------------------------------------------------------------
+    # [Parallel Generation] 병렬 생성 (분신술 전략)
+    # ------------------------------------------------------------------
+    # 1. 배치 입력 준비
+    batch_inputs = []
+    for i, item in enumerate(slim_context):
+        # 마지막 항목인지 확인
+        is_last = (i == len(slim_context) - 1)
         
-        **중요: 예시 생성 금지**
-        검색 결과(Context)에 포함된 매물만 소개하세요. 절대로 임의로 예시를 만들거나 가상의 매물을 생성하지 마세요.
+        # 추가 질문 섹션 준비 (마지막 항목에만 포함)
+        followup_section = ""
+        if is_last:
+            followup_section = f"\n💬 추가질문 2개 제안\n질문: {question}"
+            
+        batch_inputs.append({
+            "rank": f"{i+1}순위",
+            "context_info": context_info if i == 0 else "", # 컨텍스트는 첫 번째만 줘도 충분하지만 다 줘도 무방
+            # LLM에게는 매물 하나만 리스트로 전달 (그래야 기존 포맷 유지 쉬움)
+            "context": [item], 
+            "followup_section": followup_section
+        })
+        
+    # 2. 단일 매물용 프롬프트 정의
+    single_prompt = ChatPromptTemplate.from_template(
+        """부동산 AI. 매물 1개 요약.
+{context_info}
+**매물**: {context}
 
-        {context_info}
-
-        검색 결과 (Context):
-        {context}
-        
-        **중요: 데이터 해석 및 표기**
-        Context에는 이미 포맷팅된 인프라 및 안전 정보가 포함되어 있습니다. 이를 그대로 활용하세요.
-        
-        - **formatted_poi**: 주요 위치/지하철역 정보 (예: "홍대입구역 (200m, 3분)")
-        - **formatted_infrastructure**: 주변 편의시설 (병원, 공원, 편의점 등) 상세 정보 (이름, 거리, 시간 포함)
-        - **formatted_safety**: 안전 시설 (CCTV, 경찰서 등) 정보
-        
-        **답변 작성 가이드라인:**
-        1. **형식 유지**: 아래 형식을 정확히 지켜주세요.
-        2. **정확한 정보 전달**:
-           - **'주변 인프라'** 항목 작성 시, `formatted_infrastructure`에 있는 내용을 사용하여 **구체적인 이름과 거리/시간**을 명시하세요.
-           - 예: "세브란스병원 (350m, 5분), 연세내과 (100m, 1분)"
-           - 뭉뚱그려 "병원과 가깝습니다"라고 하지 마세요.
-        3. **'역 접근성'** 항목에는 `formatted_poi` 정보를 사용하세요.
-
-        **답변 포맷 (상위 3개 매물):**
-        
-        **중요: 각 매물마다 상세보기 링크를 반드시 포함하세요**
-        각 매물 데이터에는 `detail_link` 필드가 미리 준비되어 있습니다.
-        **이 값을 그대로 복사해서 사용하세요!** (직접 링크를 만들지 마세요)
-        
-        **데이터 구조 예시**:
-        ```
-        {{
-          "address": "서울 마포구...",
-          "detail_link": "[📋 상세보기](/landDetail/9458)",  ← 이것을 그대로 사용!
-          "postgres_details": {{ ... }},
-          ...
-        }}
-        ```
-        
-        **사용 방법**: 
-        매물 정보 마지막에 `� {{detail_link}}` 형식으로 넣으면 됩니다.
-        
-        ---
-        
-        **답변 작성 시 반드시 지켜야 할 포맷**:
-        
-        **중요**: 각 매물은 반드시 "**N순위 (옵션 X)**" 헤더로 시작해야 합니다!
-        
-        **1순위 (옵션 A)**
-        - **주소**: [주소]
-        - **타입**: [건물형태]
-        - **가격**: [보증금/월세 또는 전세가]
-        - **관리비**: [관리비 정보] (없으면 생략)
-        - **면적/구조**: [전용면적], [방/욕실 개수]
-        - **역 접근성**: [formatted_poi 내용 위주로 작성]
-        - **주변 인프라**: [formatted_infrastructure의 모든 내용을 표시 - 편의점, 병원, 공원 등 이전 검색에서 누적된 모든 시설 정보 포함]
-        - **안전 시설**: [formatted_safety 내용] (정보가 있으면 작성)
-        - **한줄 요약**: [이 매물의 장점 요약]
-        
-        
-        👉 [매물의 detail_link 필드 값 그대로 넣기]
-
-
-        **2순위 (옵션 B)**
-        - **주소**: [주소]
-        - **타입**: [건물형태]
-        - **가격**: [보증금/월세 또는 전세가]
-        - **관리비**: [관리비 정보] (없으면 생략)
-        - **면적/구조**: [전용면적], [방/욕실 개수]
-        - **역 접근성**: [formatted_poi 내용 위주로 작성]
-        - **주변 인프라**: [formatted_infrastructure 내용 중 질문과 관련된 것 위주로 작성]
-        - **안전 시설**: [formatted_safety 내용] (정보가 있으면 작성)
-        - **한줄 요약**: [이 매물의 장점 요약]
-        
-        👉 [매물의 detail_link 필드 값 그대로 넣기]
-
-        **3순위 (옵션 C)**
-        - **주소**: [주소]
-        - **타입**: [건물형태]
-        - **가격**: [보증금/월세 또는 전세가]
-        - **관리비**: [관리비 정보] (없으면 생략)
-        - **면적/구조**: [전용면적], [방/욕실 개수]
-        - **역 접근성**: [formatted_poi 내용 위주로 작성]
-        - **주변 인프라**: [formatted_infrastructure 내용 중 질문과 관련된 것 위주로 작성]
-        - **안전 시설**: [formatted_safety 내용] (정보가 있으면 작성)
-        - **한줄 요약**: [이 매물의 장점 요약]
-        
-        👉 [매물의 detail_link 필드 값 그대로 넣기]
-
-        **후속 질문 생성 (매물 소개 후):**
-        답변 끝에 자연스럽게 2-3개의 후속 질문을 추가하세요.
-        
-        사용 가능한 필터 옵션:
-        - 가격: 보증금, 월세, 전세가, 매매가
-        - 구조: 방/욕실 개수, 전용/공급면적, 층수
-        - 시설: 엘리베이터, 주차, 난방방식
-        - 입주: 입주가능일
-        - 위치 세부: 병원, 편의점, 공원, 안전시설 근접성
-        
-        이미 적용된 조건은 다시 묻지 마세요. 자연스러운 대화 톤으로 물어보세요.
-        
-        **예시**:
-        "... (매물 결과)
-        
-        💬 추가로 도와드릴까요?
-        - 원하시는 가격대가 있으신가요? (예: 보증금 5000만원 이하)
-        - 층수나 방 구조에 선호사항이 있으신가요?"
-
-        질문: {question}
-        """
+**포맷**:
+**{rank}**
+- 주소: [postgres_details.address]
+- 가격: [postgres_details.formatted_price]
+- 면적: [postgres_details.listing_info]
+- 역: [formatted_poi]
+- 시설: [formatted_infrastructure]
+- 안전: [formatted_safety] (있으면)
+👉 [detail_link]
+{followup_section}"""
     )
     
-    chain = prompt | llm | StrOutputParser()
+    chain = single_prompt | llm | StrOutputParser()
     
-    print("[Generate] 🤖 Generating final answer with GPT-4o...")
-    answer = chain.invoke({
-        "question": question, 
-        "context": context_for_display,  # Only send top 3 to LLM
-        "context_info": context_info
-    })
-    print(f"[Generate] ✅ Answer generated:\n{answer}")
+    print(f"[Generate] 🚀 Executing parallel batch generation (Workers: {len(batch_inputs)})...")
+    
+    # 3. 병렬 실행 (Batch)
+    
+    # batch 호출로 병렬 처리 (속도 3배 향상)
+    results = chain.batch(batch_inputs)
+    
+    # 4. 결과 합치기
+    answer = "\n\n".join(results)
+
+
+
+    
+    llm_elapsed = int((time.time() - start_time) * 1000)
+    print(f"[LLM] ✅ 완료: {len(context)}개 매물 답변 | 시간: {llm_elapsed}ms")
     
     state["answer"] = answer
     state["full_results"] = full_results  # Store all results for Redis caching
