@@ -179,4 +179,55 @@ class LandViewSet(viewsets.ReadOnlyModelViewSet):
                 'error': str(e)
             }, status=500)
     
+    @action(detail=False, methods=['post'], permission_classes=[])
+    def compare(self, request):
+        """
+        매물 비교 API
+        
+        POST /api/lands/compare/
+        Body: {
+            "land_ids": [1, 2, 3]
+        }
+        
+        Returns:
+            {
+                "summary": "LLM 생성 비교 분석 (마크다운)",
+                "properties": [...],
+                "count": 2 or 3
+            }
+        """
+        from .services.compare_service import PropertyComparisonService
+        
+        land_ids = request.data.get('land_ids', [])
+        
+        # 유효성 검증
+        if not land_ids or len(land_ids) < 2:
+            return Response({
+                'error': '최소 2개의 매물을 선택해주세요.'
+            }, status=400)
+        
+        if len(land_ids) > 3:
+            return Response({
+                'error': '최대 3개까지만 비교할 수 있습니다.'
+            }, status=400)
+        
+        try:
+            # 비교 서비스 호출
+            service = PropertyComparisonService()
+            result = service.compare_properties(land_ids)
+            
+            return Response(result)
+            
+        except ValueError as e:
+            return Response({
+                'error': str(e)
+            }, status=400)
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"매물 비교 중 오류 발생: {e}")
+            return Response({
+                'error': '매물 비교 중 오류가 발생했습니다.'
+            }, status=500)
+    
 

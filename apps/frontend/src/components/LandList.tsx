@@ -256,9 +256,18 @@ export default function LandList({ filterParams, recommendedLandIds }: LandListP
                                     </h4>
 
                                     {/* 가격 */}
-                                    <p className="text-xl font-bold text-[var(--color-primary)] mb-2">
+                                    <p className="text-xl font-bold text-[var(--color-primary)] mb-1">
                                         {land.price}
                                     </p>
+
+                                    {/* 단기임대 상세 가격 (보증금/월세) */}
+                                    {(land.deal_type === '단기임대' || land.transaction_type === '단기임대') && (
+                                        <p className="text-sm text-[var(--color-text-secondary)] mb-1">
+                                            {land.deposit ? `보증금 ${land.deposit.toLocaleString()}만원` : ''}
+                                            {land.deposit && land.monthly_rent ? ' / ' : ''}
+                                            {land.monthly_rent ? `월세 ${land.monthly_rent.toLocaleString()}만원` : ''}
+                                        </p>
+                                    )}
 
                                     {/* 메타 정보 */}
                                     <div className="flex gap-3 mt-2 text-xs text-[var(--color-text-tertiary)]">

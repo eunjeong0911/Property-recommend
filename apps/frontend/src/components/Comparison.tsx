@@ -5,19 +5,21 @@
  *
  * 주요 기능:
  * - 두 개 이상의 매물을 나란히 비교 표시 (최대 3개)
- * - 매물 이미지 표시
- * - 찜하기 버튼
- * - 매물 정보 표시 (월세, 보증금, 건축물 용도, 공급면적, 해당층/전체층, 방/욕실 수)
- * - AI 비교 분석 영역
+ * - LLM 기반 비교 분석 (ML 예측 포함)
+ * - 마크다운 렌더링
  *
  * 사용 컴포넌트:
  * - LandImage: 매물 사진 표시
+ * - ReactMarkdown: 마크다운 렌더링
  */
 
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import LandImage from './LandImage'
+import { compareProperties, type PropertyData } from '@/api/compareApi'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 interface LandData {
   id: string
@@ -32,6 +34,19 @@ interface LandData {
   rooms?: number
   bathrooms?: number
   temperature?: number
+  // 추가 필드
+  direction?: string
+  parking?: string
+  heating?: string
+  elevator?: string
+  moveInDate?: string
+  address?: string
+  // ML 예측
+  pricePredictionLabel?: string
+  pricePredictionProb?: number
+  // 중개사 신뢰도
+  brokerTrustScore?: string
+  brokerTrustGrade?: string
 }
 
 interface ComparisonProps {
@@ -41,10 +56,23 @@ interface ComparisonProps {
 }
 
 export default function Comparison({ lands, land1, land2 }: ComparisonProps) {
-  const [likedStates, setLikedStates] = useState<Record<string, boolean>>({})
-
   // lands prop이 있으면 사용, 없으면 land1, land2 사용 (하위 호환성)
   const compareData = lands && lands.length >= 2 ? lands : (land1 && land2 ? [land1, land2] : [])
+
+  // 찜 목록에서 온 매물이므로 기본값은 모두 true (빨간 하트)
+  const [likedStates, setLikedStates] = useState<Record<string, boolean>>(() => {
+    const initialStates: Record<string, boolean> = {}
+    compareData.forEach(land => {
+      initialStates[land.id] = true
+    })
+    return initialStates
+  })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [comparisonResult, setComparisonResult] = useState<{
+    summary: string
+    properties: PropertyData[]
+  } | null>(null)
 
   // 매물이 2개 미만일 때
   if (compareData.length < 2) {
@@ -60,6 +88,30 @@ export default function Comparison({ lands, land1, land2 }: ComparisonProps) {
     )
   }
 
+  // LLM 비교 분석 호출
+  useEffect(() => {
+    async function fetchComparison() {
+      try {
+        setLoading(true)
+        setError(null)
+
+        // land_id 추출
+        const landIds = compareData.map(land => parseInt(land.id))
+
+        // API 호출
+        const result = await compareProperties(landIds)
+        setComparisonResult(result)
+      } catch (err) {
+        console.error('비교 분석 실패:', err)
+        setError(err instanceof Error ? err.message : '비교 분석에 실패했습니다.')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchComparison()
+  }, [compareData])
+
   const toggleLike = (landId: string) => {
     setLikedStates(prev => ({ ...prev, [landId]: !prev[landId] }))
   }
@@ -73,8 +125,15 @@ export default function Comparison({ lands, land1, land2 }: ComparisonProps) {
 
       {/* 매물 비교 */}
       <div className={`grid ${gridCols} gap-8 mb-8`}>
-        {compareData.map((land) => (
+        {compareData.map((land, index) => (
           <div key={land.id} className="bg-white rounded-lg shadow-md p-6">
+            {/* 매물 번호 라벨 */}
+            <div className="mb-3">
+              <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-bold">
+                매물{index + 1}
+              </span>
+            </div>
+
             {/* 매물 이미지 */}
             <LandImage
               id={land.id}
@@ -87,6 +146,13 @@ export default function Comparison({ lands, land1, land2 }: ComparisonProps) {
 
             {/* 매물 정보 */}
             <div className="mt-6 space-y-3">
+              {/* 위치 */}
+              {land.address && (
+                <div className="flex justify-between border-b pb-2">
+                  <span className="text-gray-600">위치</span>
+                  <span className="font-semibold text-right max-w-[60%] truncate" title={land.address}>{land.address}</span>
+                </div>
+              )}
               {land.deposit && (
                 <div className="flex justify-between border-b pb-2">
                   <span className="text-gray-600">보증금</span>
@@ -111,16 +177,86 @@ export default function Comparison({ lands, land1, land2 }: ComparisonProps) {
                   <span className="font-semibold">{land.area}</span>
                 </div>
               )}
-              {land.floor && land.totalFloor && (
+              {land.floor && (
                 <div className="flex justify-between border-b pb-2">
                   <span className="text-gray-600">층수</span>
-                  <span className="font-semibold">{land.floor}층 / 전체 {land.totalFloor}층</span>
+                  <span className="font-semibold">{land.floor}</span>
                 </div>
               )}
-              {land.rooms !== undefined && land.bathrooms !== undefined && (
+              {land.rooms && (
                 <div className="flex justify-between border-b pb-2">
-                  <span className="text-gray-600">방 / 욕실</span>
-                  <span className="font-semibold">{land.rooms}개 / {land.bathrooms}개</span>
+                  <span className="text-gray-600">방</span>
+                  <span className="font-semibold">{land.rooms}</span>
+                </div>
+              )}
+              {land.direction && (
+                <div className="flex justify-between border-b pb-2">
+                  <span className="text-gray-600">방향</span>
+                  <span className="font-semibold">{land.direction}</span>
+                </div>
+              )}
+              {land.parking && (
+                <div className="flex justify-between border-b pb-2">
+                  <span className="text-gray-600">주차</span>
+                  <span className="font-semibold">{land.parking}</span>
+                </div>
+              )}
+              {land.heating && (
+                <div className="flex justify-between border-b pb-2">
+                  <span className="text-gray-600">난방방식</span>
+                  <span className="font-semibold">{land.heating}</span>
+                </div>
+              )}
+              {land.elevator && (
+                <div className="flex justify-between border-b pb-2">
+                  <span className="text-gray-600">엘리베이터</span>
+                  <span className="font-semibold">{land.elevator}</span>
+                </div>
+              )}
+              {land.moveInDate && (
+                <div className="flex justify-between border-b pb-2">
+                  <span className="text-gray-600">입주가능일</span>
+                  <span className="font-semibold">{land.moveInDate}</span>
+                </div>
+              )}
+              {/* 중개사 온도 (신뢰도 위) */}
+              {land.temperature !== undefined && (
+                <div className="flex justify-between border-b pb-2 bg-orange-50 p-2 rounded">
+                  <span className="text-orange-700 font-medium">🌡️ 중개사 온도</span>
+                  <span className={`font-bold ${land.temperature >= 70 ? 'text-red-500' :
+                    land.temperature >= 50 ? 'text-orange-500' :
+                      land.temperature >= 30 ? 'text-yellow-600' :
+                        'text-blue-500'
+                    }`}>
+                    {land.temperature}°C
+                  </span>
+                </div>
+              )}
+              {/* 중개사 신뢰도 (온도 아래) */}
+              {land.brokerTrustScore && (
+                <div className="flex justify-between border-b pb-2 bg-purple-50 p-2 rounded">
+                  <span className="text-purple-700 font-medium">🏢 중개사 신뢰도</span>
+                  <span className={`font-bold ${land.brokerTrustScore === 'A' ? 'text-green-600' :
+                    land.brokerTrustScore === 'B' ? 'text-yellow-600' :
+                      'text-red-600'
+                    }`}>
+                    {land.brokerTrustScore}등급 {land.brokerTrustGrade ? `(${land.brokerTrustGrade})` : ''}
+                  </span>
+                </div>
+              )}
+              {/* 실거래가 판단 (구 AI 가격 예측) */}
+              {land.pricePredictionLabel && (
+                <div
+                  className="flex justify-between border-b pb-2 bg-blue-50 p-2 rounded cursor-help"
+                  title="해당 행정동의 건물용도별 평당가 대비 ML 모델이 분석한 결과입니다."
+                >
+                  <span className="text-blue-700 font-medium">📊 실거래가 판단</span>
+                  <span className={`font-bold ${land.pricePredictionLabel === '저렴' ? 'text-green-600' :
+                    land.pricePredictionLabel === '적정' ? 'text-blue-600' :
+                      'text-red-600'
+                    }`}>
+                    {land.pricePredictionLabel}
+                  </span>
                 </div>
               )}
             </div>
@@ -129,22 +265,77 @@ export default function Comparison({ lands, land1, land2 }: ComparisonProps) {
       </div>
 
       {/* AI 비교 분석 영역 */}
-      <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
-        <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-          <span className="text-blue-600">🤖</span>
-          AI 비교 분석
+      <div className="bg-white rounded-2xl p-8 border-2 border-gray-200 shadow-lg">
+        <h3 className="text-2xl font-bold mb-6 flex items-center gap-3">
+          <span className="text-3xl">🤖</span>
+          <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            AI 비교 분석
+          </span>
         </h3>
-        <div className="space-y-3 text-gray-700">
-          <p>
-            <strong>가격 비교:</strong> 선택한 {compareData.length}개 매물의 가격대를 분석 중입니다.
-          </p>
-          <p>
-            <strong>위치 및 편의성:</strong> 각 매물의 위치와 주변 편의시설을 비교합니다.
-          </p>
-          <p>
-            <strong>추천:</strong> 사용자의 선호도에 맞는 최적의 매물을 추천해드립니다.
-          </p>
-        </div>
+
+        {loading && (
+          <div className="flex flex-col items-center justify-center py-12">
+            <div className="w-16 h-16 border-4 border-blue-400 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p className="text-gray-600 text-lg font-medium">AI가 매물을 분석하고 있습니다...</p>
+            <p className="text-gray-500 text-sm mt-2">잠시만 기다려주세요 (약 5-10초 소요)</p>
+          </div>
+        )}
+
+        {error && (
+          <div className="bg-red-50 border-2 border-red-200 rounded-lg p-6">
+            <p className="text-red-600 font-medium">⚠️ {error}</p>
+            <p className="text-red-500 text-sm mt-2">다시 시도해주세요.</p>
+          </div>
+        )}
+
+        {!loading && !error && comparisonResult && (
+          <div className="prose prose-lg max-w-none">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                // 테이블 스타일링
+                table: ({ node, ...props }) => (
+                  <div className="overflow-x-auto my-6">
+                    <table className="min-w-full border-collapse border border-gray-300" {...props} />
+                  </div>
+                ),
+                thead: ({ node, ...props }) => (
+                  <thead className="bg-blue-100" {...props} />
+                ),
+                th: ({ node, ...props }) => (
+                  <th className="border border-gray-300 px-4 py-3 text-left font-bold text-gray-700" {...props} />
+                ),
+                td: ({ node, ...props }) => (
+                  <td className="border border-gray-300 px-4 py-3" {...props} />
+                ),
+                // 헤딩 스타일링
+                h2: ({ node, ...props }) => (
+                  <h2 className="text-2xl font-bold mt-8 mb-4 text-gray-800 border-b-2 border-blue-300 pb-2" {...props} />
+                ),
+                h3: ({ node, ...props }) => (
+                  <h3 className="text-xl font-bold mt-6 mb-3 text-gray-700" {...props} />
+                ),
+                // 리스트 스타일링
+                ul: ({ node, ...props }) => (
+                  <ul className="list-disc list-inside space-y-2 my-4" {...props} />
+                ),
+                li: ({ node, ...props }) => (
+                  <li className="text-gray-700" {...props} />
+                ),
+                // 강조 텍스트
+                strong: ({ node, ...props }) => (
+                  <strong className="font-bold text-blue-700" {...props} />
+                ),
+                // 수평선
+                hr: ({ node, ...props }) => (
+                  <hr className="my-6 border-t-2 border-gray-300" {...props} />
+                ),
+              }}
+            >
+              {comparisonResult.summary}
+            </ReactMarkdown>
+          </div>
+        )}
       </div>
     </div>
   )
