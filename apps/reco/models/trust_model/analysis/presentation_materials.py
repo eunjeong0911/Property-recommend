@@ -38,7 +38,7 @@ y_train = pd.read_csv('data/ML/trust/y_train.csv', encoding='utf-8-sig')['Target
 y_test = pd.read_csv('data/ML/trust/y_test.csv', encoding='utf-8-sig')['Target']
 
 # 모델 로드
-with open("apps/reco/models/trust_model/save_models/final_trust_model.pkl", "rb") as f:
+with open("apps/reco/models/trust_model/model/final_trust_model.pkl", "rb") as f:
     model_data = pickle.load(f)
     model = model_data["model"]
     scaler = model_data["scaler"]

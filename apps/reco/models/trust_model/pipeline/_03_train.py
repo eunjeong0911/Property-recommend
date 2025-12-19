@@ -150,7 +150,7 @@ def main():
         print(f"    - CV Mean:        {cv_scores.mean():.4f} (±{cv_scores.std():.4f})")
     
     # 5) 모델 + 스케일러 저장
-    Path("apps/reco/models/trust_model/save_models").mkdir(parents=True, exist_ok=True)
+    Path("apps/reco/models/trust_model/model").mkdir(parents=True, exist_ok=True)
     with open(MODEL_TEMP_PATH, "wb") as f:
         pickle.dump(
             {
