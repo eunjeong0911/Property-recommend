@@ -20,7 +20,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Button from './Button'
-import { useParticleEffect } from '../hooks/useParticleEffect'
+import { fetchComments, createComment, updateComment, deleteComment } from '../api/communityApi'
 
 interface Comment {
   id: string
@@ -58,6 +58,7 @@ interface CommunityDetailModalProps {
   onEdit?: () => void
   onDelete?: () => void
   onToggleLike?: (postId: string) => void
+  onCommentCountChange?: (postId: string, newCount: number) => void
 }
 
 export default function CommunityDetailModal({
@@ -66,20 +67,20 @@ export default function CommunityDetailModal({
   onClose,
   onEdit,
   onDelete,
-  onToggleLike
+  onToggleLike,
+  onCommentCountChange
 }: CommunityDetailModalProps) {
   const [comments, setComments] = useState<Comment[]>([])
   const [newComment, setNewComment] = useState('')
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
   const [editingCommentContent, setEditingCommentContent] = useState('')
+  const [isLoadingComments, setIsLoadingComments] = useState(false)
   const commentsContainerRef = useRef<HTMLDivElement>(null)
-  const { triggerEffect } = useParticleEffect()
 
-  // 모달이 열릴 때 스크롤 방지
+  // 모달이 열릴 때 댓글 로드
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden'
-      // 임시 댓글 데이터 로드 (실제로는 API 호출)
       loadComments()
     } else {
       document.body.style.overflow = 'unset'
@@ -87,13 +88,33 @@ export default function CommunityDetailModal({
     return () => {
       document.body.style.overflow = 'unset'
     }
-  }, [isOpen])
+  }, [isOpen, post.id])
 
   // 댓글 로드 함수
-  const loadComments = () => {
-    // 실제로는 API 호출
-    // 빈 배열로 초기화 - 사용자가 작성한 댓글만 표시됨
-    setComments([])
+  const loadComments = async () => {
+    try {
+      setIsLoadingComments(true)
+      const data = await fetchComments(post.id)
+
+      // API 응답을 Comment 형태로 변환
+      const formattedComments: Comment[] = data.map((comment: any) => ({
+        id: comment.id.toString(),
+        author: {
+          name: comment.author_name || '익명',
+          profileImage: comment.author_profile_image
+        },
+        content: comment.content,
+        createdAt: new Date(comment.created_at),
+        isOwner: comment.is_owner || false
+      }))
+
+      setComments(formattedComments)
+    } catch (error) {
+      console.error('Failed to load comments:', error)
+      // 에러 시 빈 배열 유지
+    } finally {
+      setIsLoadingComments(false)
+    }
   }
 
   // 날짜 포맷 함수
@@ -113,50 +134,87 @@ export default function CommunityDetailModal({
   }
 
   // 댓글 작성
-  const handleAddComment = (e?: React.MouseEvent) => {
-    if (e) triggerEffect(e.currentTarget as HTMLElement)
+  const handleAddComment = async (e?: React.MouseEvent) => {
     if (!newComment.trim()) return
 
-    const comment: Comment = {
-      id: Date.now().toString(),
-      author: { name: '현재 사용자' },
-      content: newComment,
-      createdAt: new Date(),
-      isOwner: true
-    }
+    try {
+      const data = await createComment(post.id, newComment.trim())
 
-    setComments(prev => [...prev, comment])
-    setNewComment('')
+      // 새 댓글을 목록에 추가
+      const newCommentObj: Comment = {
+        id: data.id.toString(),
+        author: {
+          name: data.author_name || '현재 사용자',
+          profileImage: data.author_profile_image
+        },
+        content: data.content,
+        createdAt: new Date(data.created_at),
+        isOwner: true
+      }
+
+      setComments(prev => {
+        const newComments = [...prev, newCommentObj]
+        // 부모 컴포넌트에 댓글 수 업데이트 알림
+        onCommentCountChange?.(post.id, newComments.length)
+        return newComments
+      })
+      setNewComment('')
+
+      // 댓글 작성 후 스크롤을 맨 아래로
+      setTimeout(() => {
+        if (commentsContainerRef.current) {
+          commentsContainerRef.current.scrollTop = commentsContainerRef.current.scrollHeight
+        }
+      }, 100)
+    } catch (error) {
+      console.error('Failed to create comment:', error)
+      alert('댓글 작성에 실패했습니다.')
+    }
   }
 
   // 댓글 수정 시작
   const handleStartEditComment = (comment: Comment, e: React.MouseEvent) => {
-    triggerEffect(e.currentTarget as HTMLElement)
     setEditingCommentId(comment.id)
     setEditingCommentContent(comment.content)
   }
 
   // 댓글 수정 완료
-  const handleUpdateComment = (commentId: string, e: React.MouseEvent) => {
-    triggerEffect(e.currentTarget as HTMLElement)
+  const handleUpdateComment = async (commentId: string, e: React.MouseEvent) => {
     if (!editingCommentContent.trim()) return
 
-    setComments(prev =>
-      prev.map(comment =>
-        comment.id === commentId
-          ? { ...comment, content: editingCommentContent }
-          : comment
+    try {
+      await updateComment(post.id, commentId, editingCommentContent.trim())
+
+      setComments(prev =>
+        prev.map(comment =>
+          comment.id === commentId
+            ? { ...comment, content: editingCommentContent.trim() }
+            : comment
+        )
       )
-    )
-    setEditingCommentId(null)
-    setEditingCommentContent('')
+      setEditingCommentId(null)
+      setEditingCommentContent('')
+    } catch (error) {
+      console.error('Failed to update comment:', error)
+      alert('댓글 수정에 실패했습니다.')
+    }
   }
 
   // 댓글 삭제
-  const handleDeleteComment = (commentId: string, e: React.MouseEvent) => {
-    triggerEffect(e.currentTarget as HTMLElement)
-    if (confirm('댓글을 삭제하시겠습니까?')) {
-      setComments(prev => prev.filter(comment => comment.id !== commentId))
+  const handleDeleteComment = async (commentId: string, e: React.MouseEvent) => {
+    if (!confirm('댓글을 삭제하시겠습니까?')) return
+
+    try {
+      await deleteComment(post.id, commentId)
+      setComments(prev => {
+        const newComments = prev.filter(comment => comment.id !== commentId)
+        // 부모 컴포넌트에 댓글 수 업데이트 알림
+        onCommentCountChange?.(post.id, newComments.length)
+        return newComments
+      })
+    } catch (error) {
+      console.error('Failed to delete comment:', error)
+      alert('댓글 삭제에 실패했습니다.')
     }
   }
 
@@ -169,22 +227,19 @@ export default function CommunityDetailModal({
   }
 
   const handleClose = (e?: React.MouseEvent) => {
-    if (e) triggerEffect(e.currentTarget as HTMLElement)
     onClose()
   }
 
   const handleEditPost = (e?: React.MouseEvent<HTMLButtonElement>) => {
-    if (e) triggerEffect(e.currentTarget)
     onEdit?.()
   }
 
   const handleDeletePost = (e?: React.MouseEvent<HTMLButtonElement>) => {
-    if (e) triggerEffect(e.currentTarget)
     onDelete?.()
   }
 
   const handleLikePost = (e: React.MouseEvent<HTMLButtonElement>) => {
-    triggerEffect(e.currentTarget)
+    e.stopPropagation()
     onToggleLike?.(post.id)
   }
 
@@ -192,23 +247,23 @@ export default function CommunityDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
       onClick={onClose}
     >
       <div
-        className="rounded-3xl border-2 border-white/40 bg-gradient-to-b from-sky-100/95 to-blue-200/95 backdrop-blur-xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden"
+        className="rounded-3xl bg-white shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 헤더 */}
-        <div className="flex items-center justify-between p-4 border-b border-white/40">
-          <h2 className="text-lg font-bold text-slate-800">게시글 상세</h2>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <h2 className="text-xl font-bold text-slate-900">게시글 상세</h2>
           <button
             onClick={handleClose}
-            className="text-slate-400 hover:text-slate-600 transition-colors"
+            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-all"
             aria-label="모달 닫기"
           >
             <svg
-              className="w-6 h-6"
+              className="w-5 h-5"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -224,11 +279,11 @@ export default function CommunityDetailModal({
         </div>
 
         {/* 내용 */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto px-6 py-5">
           {/* 작성자 정보 */}
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-3">
+              <div className="relative w-12 h-12 rounded-full bg-gradient-to-br from-[#16375B] to-[#2a4a6f] overflow-hidden flex-shrink-0 ring-2 ring-white shadow-md">
                 {post.author.profileImage ? (
                   <img
                     src={post.author.profileImage}
@@ -236,7 +291,7 @@ export default function CommunityDetailModal({
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-600">
+                  <div className="w-full h-full flex items-center justify-center text-white">
                     <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
                       <path
                         fillRule="evenodd"
@@ -248,12 +303,12 @@ export default function CommunityDetailModal({
                 )}
               </div>
               <div>
-                <p className="font-medium text-sm text-slate-900">{post.author.name}</p>
-                <p className="text-xs text-slate-500">{formatDate(post.createdAt)}</p>
+                <p className="font-semibold text-base text-slate-900">{post.author.name}</p>
+                <p className="text-sm text-slate-500">{formatDate(post.createdAt)}</p>
               </div>
             </div>
 
-            {/* 게시글 수정/삭제 버튼 (작성자만) - Button 컴포넌트 사용 */}
+            {/* 게시글 수정/삭제 버튼 (작성자만) */}
             {post.isOwner && (
               <div className="flex gap-2">
                 <Button variant="ghost" size="sm" onClick={handleEditPost}>
@@ -268,17 +323,17 @@ export default function CommunityDetailModal({
 
           {/* 지역 태그 */}
           {post.region && (
-            <div className="mb-3 flex flex-wrap gap-1.5">
-              <span className="inline-block px-2 py-1 bg-orange-50 text-orange-600 text-xs font-medium rounded">
+            <div className="mb-4 flex flex-wrap gap-2">
+              <span className="inline-flex items-center px-3 py-1.5 bg-[#16375B]/5 text-[#16375B] text-xs font-semibold rounded-full border border-[#16375B]/10">
                 {post.region}
               </span>
               {post.dong && (
-                <span className="inline-block px-2 py-1 bg-orange-50 text-orange-600 text-xs font-medium rounded">
+                <span className="inline-flex items-center px-3 py-1.5 bg-[#16375B]/5 text-[#16375B] text-xs font-semibold rounded-full border border-[#16375B]/10">
                   {post.dong}
                 </span>
               )}
               {post.complexName && (
-                <span className="inline-block px-2 py-1 bg-blue-50 text-blue-600 text-xs font-medium rounded">
+                <span className="inline-flex items-center px-3 py-1.5 bg-[#16375B]/5 text-[#16375B] text-xs font-semibold rounded-full border border-[#16375B]/10">
                   {post.complexName}
                 </span>
               )}
@@ -286,69 +341,70 @@ export default function CommunityDetailModal({
           )}
 
           {/* 게시글 제목 */}
-          <h3 className="text-xl font-bold text-slate-900 mb-3">{post.title}</h3>
+          <h3 className="text-2xl font-bold text-slate-900 mb-4 leading-tight">{post.title}</h3>
 
           {/* 게시글 내용 */}
-          <p className="text-sm text-slate-700 leading-relaxed mb-4 whitespace-pre-wrap">
+          <p className="text-base text-slate-700 leading-relaxed mb-6 whitespace-pre-wrap">
             {post.content}
           </p>
 
           {/* 좋아요 & 댓글 수 */}
-          <div className="flex items-center gap-6 py-4 border-y border-white/40 mb-6">
+          <div className="flex items-center gap-4 py-4 border-y border-slate-100 mb-6">
             <button
               onClick={handleLikePost}
-              className="flex items-center gap-2 transition-colors hover:text-red-500 group"
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${post.isLiked
+                ? 'text-red-500 bg-red-50 hover:bg-red-100'
+                : 'text-slate-500 hover:text-red-500 hover:bg-red-50'
+                }`}
             >
               <svg
-                className={`w-5 h-5 transition-colors ${post.isLiked
-                  ? 'fill-red-600 text-red-600'
-                  : 'fill-none text-slate-600 group-hover:text-red-500'
-                  }`}
+                className="w-5 h-5"
+                fill={post.isLiked ? 'currentColor' : 'none'}
                 stroke="currentColor"
+                strokeWidth={2}
                 viewBox="0 0 24 24"
               >
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  strokeWidth={2}
                   d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
                 />
               </svg>
-              <span className={`font-medium ${post.isLiked ? 'text-red-600' : 'text-slate-600'}`}>
-                {post.likes}
-              </span>
+              <span className="font-semibold text-sm">{post.likes}</span>
             </button>
-            <div className="flex items-center gap-2 text-slate-600">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-50 text-slate-500">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  strokeWidth={2}
                   d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
                 />
               </svg>
-              <span className="font-medium">{comments.length}</span>
+              <span className="font-semibold text-sm">{comments.length}</span>
             </div>
           </div>
 
           {/* 댓글 목록 */}
-          <div className="space-y-4 mb-6" ref={commentsContainerRef}>
-            <h4 className="font-semibold text-slate-900 mb-3">
+          <div className="space-y-4" ref={commentsContainerRef}>
+            <h4 className="font-bold text-lg text-slate-900 mb-4">
               댓글 {comments.length}
             </h4>
             {comments.length === 0 ? (
-              <p className="text-sm text-slate-500 text-center py-8">
-                첫 댓글을 작성해보세요!
-              </p>
+              <div className="text-center py-12 bg-slate-50 rounded-2xl">
+                <svg className="w-12 h-12 mx-auto mb-3 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                <p className="text-sm text-slate-500">첫 댓글을 작성해보세요!</p>
+              </div>
             ) : (
               comments.map((comment) => (
                 <div
                   key={comment.id}
-                  className="bg-white/40 rounded-2xl p-4 border border-white/40 shadow-sm backdrop-blur-sm"
+                  className="bg-slate-50 rounded-2xl p-4 hover:bg-slate-100 transition-colors"
                 >
-                  <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3 flex-1">
-                      <div className="w-8 h-8 rounded-full bg-gray-300 overflow-hidden flex-shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#16375B] to-[#2a4a6f] overflow-hidden flex-shrink-0 ring-2 ring-white shadow-sm">
                         {comment.author.profileImage ? (
                           <img
                             src={comment.author.profileImage}
@@ -356,7 +412,7 @@ export default function CommunityDetailModal({
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-600">
+                          <div className="w-full h-full flex items-center justify-center text-white">
                             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                               <path
                                 fillRule="evenodd"
@@ -368,7 +424,7 @@ export default function CommunityDetailModal({
                         )}
                       </div>
                       <div className="flex-1">
-                        <p className="font-medium text-sm text-slate-900">
+                        <p className="font-semibold text-sm text-slate-900">
                           {comment.author.name}
                         </p>
                         <p className="text-xs text-slate-500">
@@ -384,13 +440,13 @@ export default function CommunityDetailModal({
                           <>
                             <button
                               onClick={(e) => handleUpdateComment(comment.id, e)}
-                              className="text-xs text-orange-600 hover:underline"
+                              className="text-xs font-medium text-[#16375B] hover:underline"
                             >
                               완료
                             </button>
                             <button
                               onClick={() => setEditingCommentId(null)}
-                              className="text-xs text-slate-600 hover:underline"
+                              className="text-xs font-medium text-slate-500 hover:underline"
                             >
                               취소
                             </button>
@@ -399,13 +455,13 @@ export default function CommunityDetailModal({
                           <>
                             <button
                               onClick={(e) => handleStartEditComment(comment, e)}
-                              className="text-xs text-orange-600 hover:underline"
+                              className="text-xs font-medium text-[#16375B] hover:underline"
                             >
                               수정
                             </button>
                             <button
                               onClick={(e) => handleDeleteComment(comment.id, e)}
-                              className="text-xs text-red-600 hover:underline"
+                              className="text-xs font-medium text-red-500 hover:underline"
                             >
                               삭제
                             </button>
@@ -421,11 +477,11 @@ export default function CommunityDetailModal({
                       type="text"
                       value={editingCommentContent}
                       onChange={(e) => setEditingCommentContent(e.target.value)}
-                      className="w-full px-4 py-2 border border-white/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/60 backdrop-blur-sm"
+                      className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#16375B] focus:border-transparent bg-white"
                       autoFocus
                     />
                   ) : (
-                    <p className="text-sm text-slate-700 whitespace-pre-wrap">
+                    <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
                       {comment.content}
                     </p>
                   )}
@@ -435,16 +491,16 @@ export default function CommunityDetailModal({
           </div>
         </div>
 
-        {/* 댓글 입력 영역 - Button 컴포넌트 사용 */}
-        <div className="p-4 border-t border-white/40">
-          <div className="flex gap-2">
+        {/* 댓글 입력 영역 */}
+        <div className="px-6 py-4 border-t border-slate-100 bg-slate-50">
+          <div className="flex gap-3">
             <input
               type="text"
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="댓글을 입력하세요..."
-              className="flex-1 px-3 py-1.5 text-sm border border-white/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/60 backdrop-blur-sm placeholder-slate-400"
+              className="flex-1 px-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#16375B] focus:border-transparent bg-white placeholder-slate-400"
             />
             <Button
               variant="primary"

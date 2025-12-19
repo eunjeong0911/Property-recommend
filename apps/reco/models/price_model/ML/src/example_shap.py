@@ -124,21 +124,98 @@ def example_shap_analysis():
     print("\n[Step 9] 피처 중요도 계산 및 출력")
     importance_df = explainer_test.get_feature_importance(top_n=15)
 
+    # 10. SHAP 양수/음수 기여도 분석
+    print("\n[Step 10] SHAP 양수/음수 기여도 분석")
+    
+    import numpy as np
+    import pandas as pd
+    
+    # SHAP 값 가져오기
+    shap_values = explainer_test.shap_values
+    feature_names = trainer.feature_names
+    
+    # 각 피처별 양수/음수 기여도 계산
+    positive_contributions = []
+    negative_contributions = []
+    net_contributions = []
+    
+    for i, feature in enumerate(feature_names):
+        if len(shap_values.shape) == 3:  # 다중 클래스
+            # 모든 클래스의 SHAP 값 평균
+            feature_shap = shap_values[:, i, :].mean(axis=1)
+        else:
+            feature_shap = shap_values[:, i]
+        
+        pos_contrib = feature_shap[feature_shap > 0].sum()
+        neg_contrib = feature_shap[feature_shap < 0].sum()
+        net_contrib = feature_shap.sum()
+        
+        positive_contributions.append(pos_contrib)
+        negative_contributions.append(neg_contrib)
+        net_contributions.append(net_contrib)
+    
+    # DataFrame 생성
+    contrib_df = pd.DataFrame({
+        'Feature': feature_names,
+        'Positive_Contribution': positive_contributions,
+        'Negative_Contribution': negative_contributions,
+        'Net_Contribution': net_contributions,
+        'Abs_Total': [abs(p) + abs(n) for p, n in zip(positive_contributions, negative_contributions)]
+    })
+    
+    # 절대값 기준 정렬
+    contrib_df = contrib_df.sort_values('Abs_Total', ascending=False)
+    
+    print("\n상위 15개 피처의 양수/음수 기여도:")
+    print(contrib_df.head(15).to_string(index=False))
+    
+    # 11. 양수/음수 기여도 시각화
+    print("\n[Step 11] 양수/음수 기여도 시각화")
+    
+    top_features = contrib_df.head(15)
+    
+    fig, ax = plt.subplots(figsize=(12, 8))
+    
+    y_pos = np.arange(len(top_features))
+    
+    # 양수 기여도 (오른쪽)
+    ax.barh(y_pos, top_features['Positive_Contribution'], 
+            color='#2ecc71', alpha=0.7, label='양수 기여도 (+)')
+    
+    # 음수 기여도 (왼쪽)
+    ax.barh(y_pos, top_features['Negative_Contribution'], 
+            color='#e74c3c', alpha=0.7, label='음수 기여도 (-)')
+    
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(top_features['Feature'])
+    ax.set_xlabel('SHAP 기여도 합계', fontsize=12)
+    ax.set_title('피처별 SHAP 양수/음수 기여도 (상위 15개)', fontsize=14, fontweight='bold')
+    ax.axvline(x=0, color='black', linestyle='-', linewidth=0.8)
+    ax.legend()
+    ax.grid(True, alpha=0.3, axis='x')
+    
+    plt.tight_layout()
+    plt.savefig(PLOTS_DIR / "shap_positive_negative_contributions.png", dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    print("✅ 저장: shap_positive_negative_contributions.png")
+
     print("\n" + "=" * 70)
     print(">> 저장된 모델 기반 SHAP 분석 예시 종료!")
     print("=" * 70)
     print("\n생성된 플롯 경로:")
     print("   - ./shap_plots/summary_test.png")
     print("   - ./shap_plots/bar_test.png")
+    print("   - ./shap_plots/shap_positive_negative_contributions.png")
     print("\n상위 중요 피처:")
     print(importance_df.head(10))
 
-    return explainer_test, importance_df
+    return explainer_test, importance_df, contrib_df
 
 
 if __name__ == "__main__":
     # 메뉴 없이 바로 예시 실행
-    explainer, importance_df = example_shap_analysis()
+    explainer, importance_df, contrib_df = example_shap_analysis()
 
     print("\n" + "=" * 70)
     print("SHAP 플롯 사용 가이드:")
@@ -150,5 +227,10 @@ if __name__ == "__main__":
 
     2. Bar Plot (bar_test.png):
        - Test 기준 피처 중요도 순위 (평균 |SHAP| 기준)
+    
+    3. Positive/Negative Contributions (shap_positive_negative_contributions.png):
+       - 각 피처의 양수(+) 기여도와 음수(-) 기여도를 분리하여 표시
+       - 초록색: 예측값을 높이는 방향 (+)
+       - 빨간색: 예측값을 낮추는 방향 (-)
     """
     )

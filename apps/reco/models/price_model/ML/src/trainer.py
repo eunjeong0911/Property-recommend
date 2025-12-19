@@ -147,14 +147,20 @@ class ModelTrainer:
             self.results.append({
                 "model": name,
                 "accuracy_train": metrics_tr["accuracy"],
+                "precision_macro_train": metrics_tr["precision_macro"],
+                "recall_macro_train": metrics_tr["recall_macro"],
                 "f1_macro_train": metrics_tr["f1_macro"],
                 "f1_weighted_train": metrics_tr["f1_weighted"],
                 "roc_auc_train": metrics_tr.get("roc_auc_ovr", 0.0),
                 "accuracy_val": metrics_val["accuracy"],
+                "precision_macro_val": metrics_val["precision_macro"],
+                "recall_macro_val": metrics_val["recall_macro"],
                 "f1_macro_val": metrics_val["f1_macro"],
                 "f1_weighted_val": metrics_val["f1_weighted"],
                 "roc_auc_val": metrics_val.get("roc_auc_ovr", 0.0),
                 "accuracy_test": metrics_test["accuracy"],
+                "precision_macro_test": metrics_test["precision_macro"],
+                "recall_macro_test": metrics_test["recall_macro"],
                 "f1_macro_test": metrics_test["f1_macro"],
                 "f1_weighted_test": metrics_test["f1_weighted"],
                 "roc_auc_test": metrics_test.get("roc_auc_ovr", 0.0),
@@ -162,9 +168,9 @@ class ModelTrainer:
 
             # 5) 결과 출력
             print(f"\n📈 [{name}] 성능 지표:")
-            print(f"   [Train] Acc: {metrics_tr['accuracy']:.4f} | F1(macro): {metrics_tr['f1_macro']:.4f} | F1(weighted): {metrics_tr['f1_weighted']:.4f} | ROC-AUC: {metrics_tr.get('roc_auc_ovr', 0):.4f}")
-            print(f"   [Val]   Acc: {metrics_val['accuracy']:.4f} | F1(macro): {metrics_val['f1_macro']:.4f} | F1(weighted): {metrics_val['f1_weighted']:.4f} | ROC-AUC: {metrics_val.get('roc_auc_ovr', 0):.4f}")
-            print(f"   [Test]  Acc: {metrics_test['accuracy']:.4f} | F1(macro): {metrics_test['f1_macro']:.4f} | F1(weighted): {metrics_test['f1_weighted']:.4f} | ROC-AUC: {metrics_test.get('roc_auc_ovr', 0):.4f}")
+            print(f"   [Train] Acc: {metrics_tr['accuracy']:.4f} | Prec: {metrics_tr['precision_macro']:.4f} | Rec: {metrics_tr['recall_macro']:.4f} | F1(macro): {metrics_tr['f1_macro']:.4f} | ROC-AUC: {metrics_tr.get('roc_auc_ovr', 0):.4f}")
+            print(f"   [Val]   Acc: {metrics_val['accuracy']:.4f} | Prec: {metrics_val['precision_macro']:.4f} | Rec: {metrics_val['recall_macro']:.4f} | F1(macro): {metrics_val['f1_macro']:.4f} | ROC-AUC: {metrics_val.get('roc_auc_ovr', 0):.4f}")
+            print(f"   [Test]  Acc: {metrics_test['accuracy']:.4f} | Prec: {metrics_test['precision_macro']:.4f} | Rec: {metrics_test['recall_macro']:.4f} | F1(macro): {metrics_test['f1_macro']:.4f} | ROC-AUC: {metrics_test.get('roc_auc_ovr', 0):.4f}")
 
             # 6) 혼동 행렬 출력 (Test)
             print(f"\n📊 [{name}] Test 혼동 행렬:")

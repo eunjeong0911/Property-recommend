@@ -182,18 +182,21 @@ class PriceDataPreprocessor:
 
         # 2. 자치구 권역
         print("2. 자치구 권역 생성 중...")
-        east = ["광진구", "중랑구", "동대문구", "성동구", "강동구", "송파구"]
-        west = ["은평구", "서대문구", "마포구", "강서구", "양천구", "영등포구", "구로구", "금천구"]
-        south = ["강남구", "서초구", "동작구", "관악구"]
+        east = ["광진구", "중랑구", "동대문구", "성동구", "강북구", "도봉구", "성북구", "노원구"]
+        west = ["은평구", "서대문구", "마포구"]
+        south = ["강서구", "양천구", "영등포구", "구로구", "금천구", "관악구", "동작구"]
+        city = ["종로구", "중구", "용산구"]
 
         def map_direction(gu):
             if gu in east:
-                return "동부"
+                return "동북"
             if gu in west:
-                return "서부"
+                return "서북"
             if gu in south:
-                return "남부"
-            return "북부"
+                return "서남"
+            if gu in city:
+                return "도심"
+            return "동남"
 
         df_train["구_권역"] = df_train["자치구명"].apply(map_direction)
         df_test["구_권역"] = df_test["자치구명"].apply(map_direction)
@@ -209,39 +212,39 @@ class PriceDataPreprocessor:
         # df_test["분기"] = df_test["연월_dt"].dt.quarter
         # df_test["분기_라벨"] = df_test["분기"].astype(str) + "분기"
 
-        #3-1. 계약 월/계절/반기
-        print("3-1. 계약 월/계절/반기 생성 중...")
-        for df in (df_train, df_test):
-            if "계약월" not in df.columns:
-                df["계약월"] = pd.to_datetime(df["연월"], errors="coerce").dt.month
+        # #3-1. 계약 월/계절/반기
+        # print("3-1. 계약 월/계절/반기 생성 중...")
+        # for df in (df_train, df_test):
+        #     if "계약월" not in df.columns:
+        #         df["계약월"] = pd.to_datetime(df["연월"], errors="coerce").dt.month
 
-            month = df["계약월"]
+        #     month = df["계약월"]
 
-            def map_season(m):
-                    if m in [3, 4, 5]:
-                        return "봄"
-                    if m in [6, 7, 8]:
-                        return "여름"
-                    if m in [9, 10, 11]:
-                        return "가을"
-                    return "겨울"
+        #     def map_season(m):
+        #             if m in [3, 4, 5]:
+        #                 return "봄"
+        #             if m in [6, 7, 8]:
+        #                 return "여름"
+        #             if m in [9, 10, 11]:
+        #                 return "가을"
+        #             return "겨울"
 
-            df["계약_계절"] = month.apply(map_season)
+        #     df["계약_계절"] = month.apply(map_season)
         #   df["계약_반기"] = np.where(month <= 6, "상반기", "하반기")
 
-        # 4. 층 구간화
-        print("4. 층 구간화 중...")
-        df_train["층_bin"] = pd.cut(
-            df_train["층"],
-            bins=[0, 3, 6, 11, 70],
-            labels=["저층", "중층", "중고층", "고층"]
-        )
+        # # 4. 층 구간화
+        # print("4. 층 구간화 중...")
+        # df_train["층_bin"] = pd.cut(
+        #     df_train["층"],
+        #     bins=[0, 3, 6, 11, 70],
+        #     labels=["저층", "중층", "중고층", "고층"]
+        # )
 
-        df_test["층_bin"] = pd.cut(
-            df_test["층"],
-            bins=[0, 3, 6, 11, 70],
-            labels=["저층", "중층", "중고층", "고층"]
-        )
+        # df_test["층_bin"] = pd.cut(
+        #     df_test["층"],
+        #     bins=[0, 3, 6, 11, 70],
+        #     labels=["저층", "중층", "중고층", "고층"]
+        # )
 
         # 5. 건축연차 계산 (이미 create_target에 있지만 확인)
         print("5. 건축연차 확인 중...")
@@ -299,7 +302,7 @@ class PriceDataPreprocessor:
         df_train["자치구_거래량_구간"] = df_train["자치구명"].map(train_qcat)
         df_test["자치구_거래량_구간"] = df_test["자치구명"].map(train_qcat)
 
-                # 9. 금리 특성 생성 중...
+        # 9. 금리 특성 생성 중...
         print("9. 금리 특성 생성 중...")
         rate_cols = ["무담보콜금리", "KORIBOR", "CD", "기업대출", "전세자금대출", "변동형주택담보대출"]
 
@@ -366,12 +369,12 @@ class PriceDataPreprocessor:
         print("10-1. 추가 범주형 금리/가격 피처 생성 중...")
 
         for df in (df_train, df_test):
-            # 기준금리 레벨 (논리적 구간: 2.5, 3.0, 3.5 기준)
-            df["기준금리_레벨"] = pd.cut(
-                df["기준금리"],
-                bins=[-np.inf, 2.5, 3.0, np.inf],
-                labels=["저금리", "중간금리", "고금리"]
-            )
+            # # 기준금리 레벨 (논리적 구간: 2.5, 3.0, 3.5 기준)
+            # df["기준금리_레벨"] = pd.cut(
+            #     df["기준금리"],
+            #     bins=[-np.inf, 2.5, 3.0, np.inf],
+            #     labels=["저금리", "중간금리", "고금리"]
+            # )
 
             # # 소비자물가 레벨 (대략 1.8, 2.2 기준)
             # df["소비자물가_레벨"] = pd.cut(
@@ -413,92 +416,92 @@ class PriceDataPreprocessor:
             # )
 
         # 11. 자치구 수준 z-score (전용면적, 건축연도, 층수)
-        print("11. 자치구 수준 z-score 생성 중...")
+        # print("11. 자치구 수준 z-score 생성 중...")
 
-        # 자치구별 평균 계산
-        gu_mean_area = df_train.groupby("자치구명")["전용평수"].mean().to_dict()
-        gu_mean_year = df_train.groupby("자치구명")["건축년도"].mean().to_dict()
-        gu_mean_floor = df_train.groupby("자치구명")["층"].mean().to_dict()
+        # # 자치구별 평균 계산
+        # gu_mean_area = df_train.groupby("자치구명")["전용평수"].mean().to_dict()
+        # gu_mean_year = df_train.groupby("자치구명")["건축년도"].mean().to_dict()
+        # gu_mean_floor = df_train.groupby("자치구명")["층"].mean().to_dict()
 
-        # 각 데이터셋에 자치구 평균 매핑
-        for df in [df_train, df_test]:
-            df["자치구_평균_전용면적"] = df["자치구명"].map(gu_mean_area)
-            df["자치구_평균_건축연도"] = df["자치구명"].map(gu_mean_year)
-            df["자치구_평균_층수"] = df["자치구명"].map(gu_mean_floor)
+        # # 각 데이터셋에 자치구 평균 매핑
+        # for df in [df_train, df_test]:
+        #     df["자치구_평균_전용면적"] = df["자치구명"].map(gu_mean_area)
+        #     df["자치구_평균_건축연도"] = df["자치구명"].map(gu_mean_year)
+        #     df["자치구_평균_층수"] = df["자치구명"].map(gu_mean_floor)
 
-            # 평균 대비 비율 계산
-            df["평균대비_전용면적"] = df["전용평수"] / df["자치구_평균_전용면적"]
-            df["평균대비_건축연도"] = df["건축년도"] / df["자치구_평균_건축연도"]
-            df["평균대비_층수"] = df["층"] / df["자치구_평균_층수"]
+        #     # 평균 대비 비율 계산
+        #     df["평균대비_전용면적"] = df["전용평수"] / df["자치구_평균_전용면적"]
+        #     df["평균대비_건축연도"] = df["건축년도"] / df["자치구_평균_건축연도"]
+        #     df["평균대비_층수"] = df["층"] / df["자치구_평균_층수"]
 
-        # z-score 계산
-        for col in ["평균대비_전용면적", "평균대비_건축연도", "평균대비_층수"]:
-            mu = df_train[col].mean()
-            sigma = df_train[col].std()
-            df_train[col + "_z"] = (df_train[col] - mu) / sigma
-            df_test[col + "_z"] = (df_test[col] - mu) / sigma
+        # # z-score 계산
+        # for col in ["평균대비_전용면적", "평균대비_건축연도", "평균대비_층수"]:
+        #     mu = df_train[col].mean()
+        #     sigma = df_train[col].std()
+        #     df_train[col + "_z"] = (df_train[col] - mu) / sigma
+        #     df_test[col + "_z"] = (df_test[col] - mu) / sigma
 
-        def z_bin(z):
-            if z <= -1:
-                return "낮음"
-            elif z <= 1:
-                return "보통"
-            else:
-                return "높음"
+        # def z_bin(z):
+        #     if z <= -1:
+        #         return "낮음"
+        #     elif z <= 1:
+        #         return "보통"
+        #     else:
+        #         return "높음"
 
-        df_train["전용면적_자치구수준_z"] = df_train["평균대비_전용면적_z"].apply(z_bin)
-        df_train["건축연도_자치구수준_z"] = df_train["평균대비_건축연도_z"].apply(z_bin)
-        # df_train["층수_자치구수준_z"] = df_train["평균대비_층수_z"].apply(z_bin)
+        # df_train["전용면적_자치구수준_z"] = df_train["평균대비_전용면적_z"].apply(z_bin)
+        # df_train["건축연도_자치구수준_z"] = df_train["평균대비_건축연도_z"].apply(z_bin)
+        # # df_train["층수_자치구수준_z"] = df_train["평균대비_층수_z"].apply(z_bin)
 
-        df_test["전용면적_자치구수준_z"] = df_test["평균대비_전용면적_z"].apply(z_bin)
-        df_test["건축연도_자치구수준_z"] = df_test["평균대비_건축연도_z"].apply(z_bin)
-        # df_test["층수_자치구수준_z"] = df_test["평균대비_층수_z"].apply(z_bin)
+        # df_test["전용면적_자치구수준_z"] = df_test["평균대비_전용면적_z"].apply(z_bin)
+        # df_test["건축연도_자치구수준_z"] = df_test["평균대비_건축연도_z"].apply(z_bin)
+        # # df_test["층수_자치구수준_z"] = df_test["평균대비_층수_z"].apply(z_bin)
 
-        # 12. 기준금리_전월대비_범주
-        print("12. 기준금리_전월대비_범주 생성 중...")
+        # # 12. 기준금리_전월대비_범주
+        # print("12. 기준금리_전월대비_범주 생성 중...")
 
-        # 연월별 금리 테이블 생성 (train에서만)
-        macro = (
-            df_train[["연월", "연월_dt", "기준금리"]]
-            .drop_duplicates()
-            .sort_values("연월_dt")
-            .reset_index(drop=True)
-        )
+        # # 연월별 금리 테이블 생성 (train에서만)
+        # macro = (
+        #     df_train[["연월", "연월_dt", "기준금리"]]
+        #     .drop_duplicates()
+        #     .sort_values("연월_dt")
+        #     .reset_index(drop=True)
+        # )
 
-        # 전월 기준금리 값 계산
-        macro["기준금리_전월값"] = macro["기준금리"].shift(1)
+        # # 전월 기준금리 값 계산
+        # macro["기준금리_전월값"] = macro["기준금리"].shift(1)
 
-        # train과 test에 연월 기준으로 매핑
-        for df in [df_train, df_test]:
-            df_temp = df.merge(
-                macro[["연월", "기준금리_전월값"]],
-                on="연월",
-                how="left"
-            )
+        # # train과 test에 연월 기준으로 매핑
+        # for df in [df_train, df_test]:
+        #     df_temp = df.merge(
+        #         macro[["연월", "기준금리_전월값"]],
+        #         on="연월",
+        #         how="left"
+        #     )
 
-            # 전월 대비 변화율
-            df_temp["기준금리_전월대비변화"] = (
-                (df_temp["기준금리"] - df_temp["기준금리_전월값"]) / df_temp["기준금리_전월값"]
-            )
+        #     # 전월 대비 변화율
+        #     df_temp["기준금리_전월대비변화"] = (
+        #         (df_temp["기준금리"] - df_temp["기준금리_전월값"]) / df_temp["기준금리_전월값"]
+        #     )
 
-            def sign_cat_label(x):
-                if pd.isna(x):
-                    return "변화없음"
-                if x > 0:
-                    return "상승"
-                if x < 0:
-                    return "하락"
-                return "변화없음"
+        #     def sign_cat_label(x):
+        #         if pd.isna(x):
+        #             return "변화없음"
+        #         if x > 0:
+        #             return "상승"
+        #         if x < 0:
+        #             return "하락"
+        #         return "변화없음"
 
-            df_temp["기준금리_전월대비_범주"] = (
-                df_temp["기준금리_전월대비변화"].apply(sign_cat_label).astype("category")
-            )
+        #     df_temp["기준금리_전월대비_범주"] = (
+        #         df_temp["기준금리_전월대비변화"].apply(sign_cat_label).astype("category")
+        #     )
 
-            # 원본 df 업데이트
-            if df is df_train:
-                df_train = df_temp
-            else:
-                df_test = df_temp
+        #     # 원본 df 업데이트
+        #     if df is df_train:
+        #         df_train = df_temp
+        #     else:
+        #         df_test = df_temp
 
         # 13. 자치구_월별_임대료수준_구간
         print("13. 자치구_월별_임대료수준_구간 생성 중...")
@@ -547,40 +550,40 @@ class PriceDataPreprocessor:
                 .transform("mean")
             )
 
-        # 15-1. 동용도_희소도_구간 생성 (동 내 용도별 매물 비율 기준)
-        print("15-1. 동용도_희소도_구간 생성 중...")
+        # # 15-1. 동용도_희소도_구간 생성 (동 내 용도별 매물 비율 기준)
+        # print("15-1. 동용도_희소도_구간 생성 중...")
 
-        # 동 전체 매물 수, 동×용도 매물 수 (train 기준)
-        dong_total = df_train.groupby("법정동명").size().rename("동_전체매물수")
-        dong_usage = df_train.groupby(["법정동명", "건물용도"]).size().rename("동용도_매물수")
+        # # 동 전체 매물 수, 동×용도 매물 수 (train 기준)
+        # dong_total = df_train.groupby("법정동명").size().rename("동_전체매물수")
+        # dong_usage = df_train.groupby(["법정동명", "건물용도"]).size().rename("동용도_매물수")
 
-        rarity_df = (
-            dong_usage
-            .reset_index()
-            .merge(dong_total.reset_index(), on="법정동명", how="left")
-        )
-        rarity_df["동용도_비율"] = rarity_df["동용도_매물수"] / rarity_df["동_전체매물수"]
+        # rarity_df = (
+        #     dong_usage
+        #     .reset_index()
+        #     .merge(dong_total.reset_index(), on="법정동명", how="left")
+        # )
+        # rarity_df["동용도_비율"] = rarity_df["동용도_매물수"] / rarity_df["동_전체매물수"]
 
-        # 비율 기준 희소도 구간 (앞에서 확인한 thresholds 그대로 사용)
-        def rarity_label(p: float) -> str:
-            if p <= 0.03:
-                return "매우희소"
-            if p <= 0.10:
-                return "희소"
-            if p <= 0.30:
-                return "보통"
-            if p <= 0.60:
-                return "다수"
-            return "과밀"
+        # # 비율 기준 희소도 구간 (앞에서 확인한 thresholds 그대로 사용)
+        # def rarity_label(p: float) -> str:
+        #     if p <= 0.03:
+        #         return "매우희소"
+        #     if p <= 0.10:
+        #         return "희소"
+        #     if p <= 0.30:
+        #         return "보통"
+        #     if p <= 0.60:
+        #         return "다수"
+        #     return "과밀"
 
-        rarity_df["동용도_희소도_구간"] = rarity_df["동용도_비율"].apply(rarity_label)
+        # rarity_df["동용도_희소도_구간"] = rarity_df["동용도_비율"].apply(rarity_label)
 
-        # 매물 레벨로 매핑 (train/test 모두)
-        rarity_map = rarity_df.set_index(["법정동명", "건물용도"])["동용도_희소도_구간"]
+        # # 매물 레벨로 매핑 (train/test 모두)
+        # rarity_map = rarity_df.set_index(["법정동명", "건물용도"])["동용도_희소도_구간"]
 
-        for df in [df_train, df_test]:
-            keys = list(zip(df["법정동명"], df["건물용도"]))
-            df["동용도_희소도_구간"] = [rarity_map.get(k, "보통") for k in keys]
+        # for df in [df_train, df_test]:
+        #     keys = list(zip(df["법정동명"], df["건물용도"]))
+        #     df["동용도_희소도_구간"] = [rarity_map.get(k, "보통") for k in keys]
 
         # # 15-2. 동용도_공급국면 생성 (최근 매물 수 변화율 기준)
         # print("15-2. 동용도_공급국면 생성 중...")
@@ -689,9 +692,9 @@ class PriceDataPreprocessor:
             df["자치구_x_금리평균"] = df["자치구명_LE"] * df["금리_평균"]
 
             # 3. 계절 × 자치구 (계절별 지역 선호도)
-            df["계절_x_자치구"] = (
-                df["계약_계절"].astype(str) + "_" + df["자치구명"].astype(str)
-            )
+            # df["계절_x_자치구"] = (
+            #     df["계약_계절"].astype(str) + "_" + df["자치구명"].astype(str)
+            # )
 
         # 17. 최종 피처 선택
         print("17. 최종 피처 선택 중...")
@@ -706,21 +709,21 @@ class PriceDataPreprocessor:
             # "분기_라벨",
             # "계약_계절",
             # "계약_반기",
-            "층_bin",
+            # "층_bin",
             "층",
             "건축연차",
             "건축시대",
-            "자치구_거래량_구간",
+            # "자치구_거래량_구간",
             # "보증금_구간",
             # "임대료_구간",
             "보증금임대료비율_구간",
-            "기준금리_레벨",
+            # "기준금리_레벨",
             # "소비자물가_레벨",
             # "KORIBOR_스프레드_구간",
             # "금리_국면",
             # "금리_z_구간",
-            "전용면적_자치구수준_z",
-            "건축연도_자치구수준_z",
+            # "전용면적_자치구수준_z",
+            # "건축연도_자치구수준_z",
             # "층수_자치구수준_z",
             "KORIBOR",
             "기업대출",
@@ -729,16 +732,16 @@ class PriceDataPreprocessor:
             # "무담보콜금리",
             # "변동형주택담보대출",
             # "소비자물가",
-            "기준금리_전월대비_범주",
+            # "기준금리_전월대비_범주",
             "자치구_월별_임대료수준_구간",
             "자치구_용도_월별_임대료_평균",
             "법정동_용도_월별_임대료_평균",
-            "동용도_희소도_구간",
+            # "동용도_희소도_구간",
             # "동용도_공급국면",
             "면적_x_건축연차",
             "자치구거래량_x_면적",
-            "자치구_x_금리평균",
-            "계절_x_자치구",
+            # "자치구_x_금리평균",
+            # "계절_x_자치구",
             "보증금_지역대비",
         ]
 
