@@ -10,7 +10,7 @@ from pathlib import Path
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 
 
-MODEL_TEMP_PATH = "apps/reco/models/trust_model/save_models/temp_trained_models.pkl"
+MODEL_TEMP_PATH = "apps/reco/models/trust_model/model/temp_trained_models.pkl"
 
 
 def load_temp_model():
@@ -30,11 +30,6 @@ def evaluate_model(models, X_train, y_train, X_test, y_test, cv_results=None):
     """
     모델별 평가 수행 (훈련/테스트/CV 정확도 모두 출력)
     """
-
-    # --- 추가된 부분: NaN 강제 처리 ---
-    X_train = pd.DataFrame(X_train).replace([np.inf, -np.inf], np.nan).fillna(0)
-    X_test = pd.DataFrame(X_test).replace([np.inf, -np.inf], np.nan).fillna(0)
-
     results = []
 
     for name, model in models.items():
@@ -64,7 +59,24 @@ def evaluate_model(models, X_train, y_train, X_test, y_test, cv_results=None):
         print(classification_report(y_test, test_preds))
 
         print("▶ Test Confusion Matrix:")
-        print(confusion_matrix(y_test, test_preds))
+        cm = confusion_matrix(y_test, test_preds)
+        
+        # 등급 라벨 (실제 데이터에 맞게 조정)
+        labels = sorted(y_test.unique())
+        
+        # 혼동행렬을 보기 좋게 출력
+        print("\n" + " " * 12 + "예측")
+        print(" " * 8 + "  ".join([f"{label:>6}" for label in labels]))
+        print(" " * 6 + "-" * (8 * len(labels) + 4))
+        
+        for i, label in enumerate(labels):
+            if i == len(labels) // 2:
+                row_label = f"실제 {label} |"
+            else:
+                row_label = f"     {label} |"
+            row_values = "  ".join([f"{val:>6}" for val in cm[i]])
+            print(f"{row_label} {row_values}")
+        print()
 
         result_dict = {
             "model": name,

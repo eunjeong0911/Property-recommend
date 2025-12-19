@@ -1,40 +1,32 @@
 """
-중개사 신뢰도 다중분류 모델 - 앙상블 학습
-- 모델: LightGBM, XGBoost, RandomForest
-- 최적화: RandomizedSearchCV → 정규화 파라미터 적용
-- SHAP 분석 포함
+이진 분류 모델 - 앙상블 학습 (Binary Classification)
+- 모델: LightGBM, XGBoost, RandomForest, CatBoost, SVM
+- 2등급: 상위(1), 하위(0)
 """
 import pandas as pd
 import numpy as np
 import pickle
 from pathlib import Path
-from sklearn.model_selection import train_test_split, StratifiedKFold, RandomizedSearchCV, cross_val_score
+from sklearn.model_selection import train_test_split, StratifiedKFold, RandomizedSearchCV
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import (
-    classification_report, confusion_matrix, 
-    accuracy_score, f1_score, precision_score, recall_score, 
-    roc_auc_score, log_loss
-)
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, f1_score
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
 import warnings
 warnings.filterwarnings("ignore")
 
-# 모듈 임포트
 from _00_load_data import load_processed_office_data as load_data
 import _01_targer_engineering as target_engineering
 from _02_feature_engineering import main as feature_engineering
 
 
-def prepare_data(filepath=None):
-    """데이터 준비: 로드 → 타겟 생성 → 피처 생성"""
+
+def prepare_data():
+    """데이터 준비"""
     print("=" * 70)
-    print("🏠 중개사 신뢰도 모델 - 앙상블 분류 파이프라인")
+    print("🏠 중개사 신뢰도 모델 - 이진 분류 파이프라인")
     print("=" * 70)
     
-    if filepath:
-        raw_df = load_data(filepath)
-    else:
-        raw_df = load_data()
+    raw_df = load_data()
     df_with_target = target_engineering.main(raw_df)
     df_final, X, feature_names = feature_engineering(df_with_target)
     y = df_final["신뢰등급"].astype(int)
@@ -46,7 +38,7 @@ def prepare_data(filepath=None):
 
 
 def train_lightgbm(X_train, y_train, cv):
-    """LightGBM 학습 (정규화 파라미터 포함)"""
+    """LightGBM (Binary)"""
     from lightgbm import LGBMClassifier
     
     print("\n🌲 [LightGBM] 하이퍼파라미터 탐색 중...")
@@ -59,20 +51,19 @@ def train_lightgbm(X_train, y_train, cv):
         "min_child_samples": [30, 50, 80],
         "subsample": [0.6, 0.7, 0.8],
         "colsample_bytree": [0.5, 0.6, 0.7],
-        "reg_alpha": [0.0, 0.1, 0.5, 1.0],     # L1 정규화
-        "reg_lambda": [0.0, 1.0, 5.0, 10.0],   # L2 정규화
+        "reg_alpha": [0.0, 0.1, 0.5, 1.0],
+        "reg_lambda": [0.0, 1.0, 5.0, 10.0],
     }
     
     model = LGBMClassifier(
-        objective="multiclass",
-        num_class=3,
+        objective="binary",
         class_weight="balanced",
         random_state=42,
         verbose=-1
     )
     
     search = RandomizedSearchCV(
-        model, param_dist, n_iter=30, cv=cv, scoring="f1_macro",
+        model, param_dist, n_iter=30, cv=cv, scoring="f1",
         n_jobs=-1, random_state=42, verbose=0
     )
     search.fit(X_train, y_train)
@@ -82,7 +73,7 @@ def train_lightgbm(X_train, y_train, cv):
 
 
 def train_xgboost(X_train, y_train, cv):
-    """XGBoost 학습 (정규화 파라미터 포함)"""
+    """XGBoost (Binary)"""
     try:
         from xgboost import XGBClassifier
     except ImportError:
@@ -98,21 +89,20 @@ def train_xgboost(X_train, y_train, cv):
         "min_child_weight": [3, 5, 7],
         "subsample": [0.6, 0.7, 0.8],
         "colsample_bytree": [0.5, 0.6, 0.7],
-        "reg_alpha": [0.0, 0.1, 0.5, 1.0],     # L1 정규화
-        "reg_lambda": [1.0, 5.0, 10.0],        # L2 정규화
+        "reg_alpha": [0.0, 0.1, 0.5, 1.0],
+        "reg_lambda": [1.0, 5.0, 10.0],
     }
     
     model = XGBClassifier(
-        objective="multi:softmax",
-        num_class=3,
+        objective="binary:logistic",
         use_label_encoder=False,
-        eval_metric="mlogloss",
+        eval_metric="logloss",
         random_state=42,
         verbosity=0
     )
     
     search = RandomizedSearchCV(
-        model, param_dist, n_iter=30, cv=cv, scoring="f1_macro",
+        model, param_dist, n_iter=30, cv=cv, scoring="f1",
         n_jobs=-1, random_state=42, verbose=0
     )
     search.fit(X_train, y_train)
@@ -122,7 +112,7 @@ def train_xgboost(X_train, y_train, cv):
 
 
 def train_random_forest(X_train, y_train, cv):
-    """RandomForest 학습"""
+    """RandomForest"""
     print("\n🌳 [RandomForest] 하이퍼파라미터 탐색 중...")
     
     param_dist = {
@@ -140,7 +130,7 @@ def train_random_forest(X_train, y_train, cv):
     )
     
     search = RandomizedSearchCV(
-        model, param_dist, n_iter=30, cv=cv, scoring="f1_macro",
+        model, param_dist, n_iter=30, cv=cv, scoring="f1",
         n_jobs=-1, random_state=42, verbose=0
     )
     search.fit(X_train, y_train)
@@ -150,11 +140,11 @@ def train_random_forest(X_train, y_train, cv):
 
 
 def train_catboost(X_train, y_train, cv):
-    """CatBoost 학습"""
+    """CatBoost (Binary)"""
     try:
         from catboost import CatBoostClassifier
     except ImportError:
-        print("\n🐱 [CatBoost] ⚠️ 미설치. 건너뜀. (pip install catboost)")
+        print("\n🐱 [CatBoost] ⚠️ 미설치. 건너뜀.")
         return None, None, 0
     
     print("\n🐱 [CatBoost] 하이퍼파라미터 탐색 중...")
@@ -163,19 +153,19 @@ def train_catboost(X_train, y_train, cv):
         "depth": [3, 4, 5, 6],
         "learning_rate": [0.01, 0.03, 0.05],
         "iterations": [200, 300, 500],
-        "l2_leaf_reg": [1.0, 3.0, 5.0, 10.0],   # L2 정규화
+        "l2_leaf_reg": [1.0, 3.0, 5.0, 10.0],
         "border_count": [32, 64, 128],
     }
     
     model = CatBoostClassifier(
-        loss_function="MultiClass",
+        loss_function="Logloss",
         auto_class_weights="Balanced",
         random_state=42,
         verbose=False
     )
     
     search = RandomizedSearchCV(
-        model, param_dist, n_iter=30, cv=cv, scoring="f1_macro",
+        model, param_dist, n_iter=30, cv=cv, scoring="f1",
         n_jobs=-1, random_state=42, verbose=0
     )
     search.fit(X_train, y_train)
@@ -185,7 +175,7 @@ def train_catboost(X_train, y_train, cv):
 
 
 def train_svm(X_train, y_train, cv):
-    """SVM 학습"""
+    """SVM"""
     from sklearn.svm import SVC
     
     print("\n🎯 [SVM] 하이퍼파라미터 탐색 중...")
@@ -194,17 +184,17 @@ def train_svm(X_train, y_train, cv):
         "C": [0.1, 1.0, 10.0, 100.0],
         "gamma": ["scale", "auto", 0.01, 0.1],
         "kernel": ["rbf", "poly"],
-        "degree": [2, 3],  # poly 커널용
+        "degree": [2, 3],
     }
     
     model = SVC(
         class_weight="balanced",
-        probability=True,  # Soft voting을 위해 필요
+        probability=True,
         random_state=42
     )
     
     search = RandomizedSearchCV(
-        model, param_dist, n_iter=20, cv=cv, scoring="f1_macro",
+        model, param_dist, n_iter=20, cv=cv, scoring="f1",
         n_jobs=-1, random_state=42, verbose=0
     )
     search.fit(X_train, y_train)
@@ -214,56 +204,42 @@ def train_svm(X_train, y_train, cv):
 
 
 def train_ensemble(models_dict, X_train, y_train, X_test, y_test, cv):
-    """앙상블 모델 (Voting Classifier)"""
+    """앙상블 모델"""
     print("\n" + "=" * 70)
     print("🏆 앙상블 모델 (Voting Classifier)")
     print("=" * 70)
     
-    # 유효한 모델만 선택
     estimators = [(name, model) for name, model in models_dict.items() if model is not None]
     
     if len(estimators) < 2:
-        print("   ⚠️ 앙상블에 필요한 모델 부족 (최소 2개)")
-        return None
+        print("   ⚠️ 앙상블에 필요한 모델 부족")
+        return None, 0
     
-    # Soft Voting (확률 기반)
     ensemble = VotingClassifier(estimators=estimators, voting='soft')
     ensemble.fit(X_train, y_train)
     
-    # 성능 평가
-    # 성능 평가
     y_train_pred = ensemble.predict(X_train)
     y_test_pred = ensemble.predict(X_test)
-    y_test_proba = ensemble.predict_proba(X_test)
     
-    train_f1 = f1_score(y_train, y_train_pred, average='macro')
-    
+    train_f1 = f1_score(y_train, y_train_pred)
+    test_f1 = f1_score(y_test, y_test_pred)
     test_acc = accuracy_score(y_test, y_test_pred)
-    test_f1 = f1_score(y_test, y_test_pred, average='macro')
-    test_prec = precision_score(y_test, y_test_pred, average='macro')
-    test_rec = recall_score(y_test, y_test_pred, average='macro')
-    test_auc = roc_auc_score(y_test, y_test_proba, multi_class='ovr')
-    test_logloss = log_loss(y_test, y_test_proba)
     
-    print(f"\n📊 앙상블 성능 상세:")
-    print(f"   Train F1 : {train_f1:.4f}")
-    print(f"   Test F1  : {test_f1:.4f}  | Acc  : {test_acc:.4f}")
-    print(f"   Prec     : {test_prec:.4f}  | Rec  : {test_rec:.4f}")
-    print(f"   ROC AUC  : {test_auc:.4f}  | Loss : {test_logloss:.4f}")
+    print(f"\n📊 앙상블 성능:")
+    print(f"   Train F1: {train_f1:.4f} / Test F1: {test_f1:.4f}")
+    print(f"   Test Accuracy: {test_acc:.4f}")
     
-    # Classification Report
-    class_names = ["하위", "중위", "상위"]
+    class_names = ["하위", "상위"]
     print(f"\n📋 Classification Report:")
     print(classification_report(y_test, y_test_pred, target_names=class_names))
     
-    # Confusion Matrix
     print(f"🔢 Confusion Matrix:")
     print(confusion_matrix(y_test, y_test_pred))
     
     return ensemble, test_f1
 
 
-def analyze_shap(model, X_test, feature_names, output_dir="apps/reco/models/trust_model/saved_models"):
+def analyze_shap(model, X_test, feature_names, output_dir="apps/reco/models/trust_model/saved_models_binary"):
     """SHAP 분석"""
     print("\n" + "=" * 70)
     print("🔍 SHAP 분석")
@@ -284,19 +260,17 @@ def analyze_shap(model, X_test, feature_names, output_dir="apps/reco/models/trus
         explainer = shap.TreeExplainer(model)
         shap_values = explainer(X_test_df)
         
-        # Summary Plot (클래스별)
-        class_names = ["하위", "중위", "상위"]
-        for i, name in enumerate(class_names):
-            plt.figure(figsize=(10, 8))
-            shap.summary_plot(shap_values[:, :, i], X_test_df, show=False, max_display=15)
-            plt.title(f"SHAP - {name} 등급")
-            plt.tight_layout()
-            plt.savefig(output_path / f"shap_{name}.png", dpi=150)
-            plt.close()
-            print(f"      ✅ 저장: shap_{name}.png")
+        # Summary Plot
+        plt.figure(figsize=(10, 8))
+        shap.summary_plot(shap_values, X_test_df, show=False, max_display=15)
+        plt.title("SHAP Summary Plot - Binary Classification")
+        plt.tight_layout()
+        plt.savefig(output_path / "shap_binary.png", dpi=150)
+        plt.close()
+        print(f"      ✅ 저장: shap_binary.png")
         
-        # Feature Importance Bar
-        mean_shap = np.abs(shap_values.values).mean(axis=0).mean(axis=1)
+        # Feature Importance
+        mean_shap = np.abs(shap_values.values).mean(axis=0)
         sorted_idx = np.argsort(mean_shap)[::-1]
         
         plt.figure(figsize=(10, 8))
@@ -304,11 +278,11 @@ def analyze_shap(model, X_test, feature_names, output_dir="apps/reco/models/trus
         plt.barh(range(top_n), mean_shap[sorted_idx[:top_n]][::-1], color='steelblue')
         plt.yticks(range(top_n), [feature_names[i] for i in sorted_idx[:top_n]][::-1])
         plt.xlabel('Mean |SHAP Value|')
-        plt.title('SHAP Feature Importance')
+        plt.title('SHAP Feature Importance - Binary')
         plt.tight_layout()
-        plt.savefig(output_path / "shap_importance.png", dpi=150)
+        plt.savefig(output_path / "shap_importance_binary.png", dpi=150)
         plt.close()
-        print(f"      ✅ 저장: shap_importance.png")
+        print(f"      ✅ 저장: shap_importance_binary.png")
         
         print("\n   📋 SHAP Top 10 피처:")
         for rank, idx in enumerate(sorted_idx[:10], 1):
@@ -318,7 +292,7 @@ def analyze_shap(model, X_test, feature_names, output_dir="apps/reco/models/trus
         print(f"   ❌ SHAP 오류: {e}")
 
 
-def save_models(best_model, models_dict, scaler, feature_names, output_dir="apps/reco/models/trust_model/saved_models"):
+def save_models(best_model, models_dict, scaler, feature_names, output_dir="apps/reco/models/trust_model/saved_models_binary"):
     """모델 저장"""
     print("\n💾 모델 저장 중...")
     output_path = Path(output_dir)
@@ -338,24 +312,19 @@ def save_models(best_model, models_dict, scaler, feature_names, output_dir="apps
 
 def main():
     """메인 실행"""
-    # 1. 데이터 준비
     X, y, feature_names = prepare_data()
     
-    # 2. Train/Test 분리
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y
     )
     print(f"\n📊 데이터 분리: Train {len(X_train)} / Test {len(X_test)}")
     
-    # 3. 스케일링
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
     
-    # 4. CV 설정
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
     
-    # 5. 개별 모델 학습
     print("\n" + "=" * 70)
     print("🎯 개별 모델 학습")
     print("=" * 70)
@@ -366,7 +335,6 @@ def main():
     cat_model, cat_params, cat_score = train_catboost(X_train_scaled, y_train, cv)
     svm_model, svm_params, svm_score = train_svm(X_train_scaled, y_train, cv)
     
-    # 6. 모델 비교
     print("\n" + "=" * 70)
     print("📊 모델 성능 비교")
     print("=" * 70)
@@ -383,53 +351,32 @@ def main():
     if svm_model:
         results.append(("SVM", svm_model, svm_score))
     
-    print(f"\n   {'Model':<12} | {'CV F1':<7} | {'Test F1':<7} | {'Acc':<6} | {'Prec':<6} | {'Rec':<6} | {'AUC':<6}")
-    print("   " + "-" * 75)
-    
     for name, model, score in sorted(results, key=lambda x: x[2], reverse=True):
         test_pred = model.predict(X_test_scaled)
-        
-        # 확률 계산 (가능한 경우)
-        if hasattr(model, "predict_proba"):
-            test_proba = model.predict_proba(X_test_scaled)
-            auc = roc_auc_score(y_test, test_proba, multi_class='ovr')
-        else:
-            auc = 0.0
-            
-        test_f1 = f1_score(y_test, test_pred, average='macro')
-        acc = accuracy_score(y_test, test_pred)
-        prec = precision_score(y_test, test_pred, average='macro')
-        rec = recall_score(y_test, test_pred, average='macro')
-        
-        print(f"   {name:<12} | {score:.4f}  | {test_f1:.4f}  | {acc:.4f} | {prec:.4f} | {rec:.4f} | {auc:.4f}")
+        test_f1 = f1_score(y_test, test_pred)
+        print(f"   {name:<15}: CV F1={score:.4f}, Test F1={test_f1:.4f}")
     
-    # 7. 최고 모델 선택
     best_name, best_model, best_cv_score = max(results, key=lambda x: x[2])
     print(f"\n   🏆 최고 모델: {best_name} (CV F1={best_cv_score:.4f})")
     
-    # 8. 앙상블 모델
     models_dict = {"lgb": lgb_model, "xgb": xgb_model, "rf": rf_model, "cat": cat_model, "svm": svm_model}
     ensemble, ensemble_f1 = train_ensemble(
         {k: v for k, v in models_dict.items() if v is not None},
         X_train_scaled, y_train, X_test_scaled, y_test, cv
     )
     
-    # 9. 최종 모델 결정 (앙상블 vs 개별 최고)
-    if ensemble and ensemble_f1 > f1_score(y_test, best_model.predict(X_test_scaled), average='macro'):
+    if ensemble and ensemble_f1 > f1_score(y_test, best_model.predict(X_test_scaled)):
         final_model = ensemble
         print(f"\n   🎉 최종 선택: Ensemble (F1={ensemble_f1:.4f})")
     else:
         final_model = best_model
         print(f"\n   🎉 최종 선택: {best_name}")
     
-    # 10. SHAP 분석 (개별 최고 모델로)
     analyze_shap(best_model, X_test_scaled, feature_names)
-    
-    # 11. 모델 저장
     save_models(final_model, models_dict, scaler, feature_names)
     
     print("\n" + "=" * 70)
-    print("✅ 앙상블 학습 완료!")
+    print("✅ 이진 분류 모델 학습 완료!")
     print("=" * 70)
     
     return final_model, scaler, feature_names
