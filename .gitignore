@@ -74,6 +74,12 @@ logs/
 # 데이터
 data
 
+# catboost
+catboost_info
+
+# md
+md
+
 .kiro
 
 .hypothesis

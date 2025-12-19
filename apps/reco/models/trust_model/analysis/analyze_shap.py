@@ -14,33 +14,118 @@ from pathlib import Path
 plt.rcParams['font.family'] = 'Malgun Gothic'  # Windows
 plt.rcParams['axes.unicode_minus'] = False
 
-TEMP_MODEL_PATH = "apps/reco/models/trust_model/save_models/temp_trained_models.pkl"
+# 모델 경로는 스크립트 위치 기준 상대 경로로 설정
+script_dir = Path(__file__).parent
+MODEL_PATH = script_dir.parent / "model" / "final_trust_model.pkl"
 
 
 def load_model_and_data():
     """저장된 모델과 데이터 로드"""
     print("📂 모델 및 데이터 로드 중...")
     
-    with open(TEMP_MODEL_PATH, "rb") as f:
+    with open(MODEL_PATH, "rb") as f:
         temp_data = pickle.load(f)
     
-    # 최고 성능 모델 선택
-    models = temp_data["models"]
-    cv_results = temp_data.get("cv_results", {})
+    # 사용 가능한 키 확인
+    print(f"\n🔍 모델 파일에 있는 키: {list(temp_data.keys())}")
     
-    best_model_name = max(cv_results.keys(), key=lambda k: cv_results[k]['cv_mean'])
-    model = models[best_model_name]
+    # 모델 로드 (다양한 구조 지원)
+    if "models" in temp_data:
+        # 여러 모델이 저장된 경우
+        models = temp_data["models"]
+        cv_results = temp_data.get("cv_results", {})
+        best_model_name = max(cv_results.keys(), key=lambda k: cv_results[k]['cv_mean'])
+        model = models[best_model_name]
+        print(f"   ✅ 모델: {best_model_name}")
+    elif "model" in temp_data:
+        # 단일 모델이 저장된 경우
+        model = temp_data["model"]
+        print(f"   ✅ 모델: {type(model).__name__}")
+    else:
+        # 모델 객체 자체가 저장된 경우
+        model = temp_data
+        print(f"   ✅ 모델: {type(model).__name__}")
     
-    feature_names = list(temp_data["feature_names"])
-    X_test_scaled = temp_data["X_test_scaled"]
-    y_test = temp_data["y_test"]
+    # 피처명 로드
+    if "feature_names" in temp_data:
+        feature_names = list(temp_data["feature_names"])
+    elif hasattr(model, 'feature_names_in_'):
+        feature_names = list(model.feature_names_in_)
+    else:
+        raise ValueError("피처명을 찾을 수 없습니다.")
     
-    print(f"   ✅ 모델: {best_model_name}")
+    # Scaler 로드
+    scaler = temp_data.get("scaler", None)
+    
+    # 테스트 데이터 로드
+    if "X_test_scaled" in temp_data:
+        X_test_scaled = temp_data["X_test_scaled"]
+        y_test = temp_data.get("y_test", None)
+    elif "X_test" in temp_data:
+        X_test_scaled = temp_data["X_test"]
+        y_test = temp_data.get("y_test", None)
+    else:
+        # 모델 파일에 테스트 데이터가 없으면 파이프라인 출력에서 로드
+        print("   ⚠️  모델 파일에 테스트 데이터가 없습니다. 파이프라인 출력에서 로드합니다...")
+        
+        # 데이터 경로 (파이프라인이 생성한 데이터)
+        # analysis/ -> trust_model/ -> models/ -> reco/ -> apps/ -> SKN18-FINAL-1TEAM/
+        script_dir = Path(__file__).parent.parent.parent.parent.parent.parent
+        X_train_path = script_dir / "data" / "ML" / "trust" / "X_train.csv"
+        X_test_path = script_dir / "data" / "ML" / "trust" / "X_test.csv"
+        y_train_path = script_dir / "data" / "ML" / "trust" / "y_train.csv"
+        y_test_path = script_dir / "data" / "ML" / "trust" / "y_test.csv"
+        
+        if not X_train_path.exists() or not X_test_path.exists():
+            raise ValueError(
+                f"파이프라인 출력 데이터를 찾을 수 없습니다.\n"
+                f"먼저 'python run_all.py'를 실행하여 데이터를 생성해주세요.\n"
+                f"찾는 파일: {X_train_path}, {X_test_path}"
+            )
+        
+        # Train + Test 피처 데이터 로드
+        X_train = pd.read_csv(X_train_path, encoding='utf-8-sig')
+        X_test = pd.read_csv(X_test_path, encoding='utf-8-sig')
+        X = pd.concat([X_train, X_test], ignore_index=True)
+        
+        # Scaler 적용
+        if scaler is not None:
+            X_test_scaled = scaler.transform(X)
+            print(f"   ✅ Scaler 적용 완료")
+        else:
+            X_test_scaled = X.values
+            print(f"   ⚠️  Scaler가 없어 원본 데이터 사용")
+        
+        # 타겟 로드 (있으면)
+        if y_train_path.exists() and y_test_path.exists():
+            y_train = pd.read_csv(y_train_path, encoding='utf-8-sig')
+            y_test_df = pd.read_csv(y_test_path, encoding='utf-8-sig')
+            y_combined = pd.concat([y_train, y_test_df], ignore_index=True)
+            y_test = y_combined.values.ravel()
+        else:
+            y_test = None
+        
+        print(f"   ✅ 파이프라인 출력에서 로드 완료 ({len(X_test_scaled)}개 샘플)")
+
+    
     print(f"   ✅ 피처 수: {len(feature_names)}")
     print(f"   ✅ 테스트 샘플 수: {len(X_test_scaled)}")
     print(f"   ✅ 테스트 데이터 shape: {X_test_scaled.shape}")
     
+    # 🔍 현재 사용 중인 피처명 출력 (디버깅용)
+    print(f"\n🔍 현재 사용 중인 피처명:")
+    for i, name in enumerate(feature_names):
+        print(f"   {i+1:2d}. {name}")
+    
+    # 🔍 데이터 샘플 확인 (처음 5개 샘플의 처음 5개 피처)
+    print(f"\n🔍 데이터 샘플 확인 (처음 5개 샘플, 처음 5개 피처):")
+    for i in range(min(5, len(X_test_scaled))):
+        sample_values = [f"{X_test_scaled[i][j]:.4f}" for j in range(min(5, len(feature_names)))]
+        print(f"   샘플 {i+1}: {sample_values}")
+    
     return model, X_test_scaled, feature_names, y_test
+
+
 
 
 def get_shap_explainer(model, X_background):
@@ -138,9 +223,9 @@ def plot_manual_shap_importance(shap_values, feature_names, model):
             'importance': mean_abs_shap
         }).sort_values('importance', ascending=True)
         
-        # 상위 20개만 표시
-        top_n = min(20, len(importance_df))
-        importance_df_top = importance_df.tail(top_n)
+        # 전체 피처 표시
+        top_n = len(importance_df)
+        importance_df_top = importance_df
         
         # 1) Bar Plot 생성
         fig_height = max(8, top_n * 0.4)
@@ -164,11 +249,14 @@ def plot_manual_shap_importance(shap_values, feature_names, model):
         print(f"   ✅ 저장: {output_path}")
         plt.close()
         
-        # 2) 상위 10개 Feature 출력
-        top_10 = importance_df.tail(10).sort_values('importance', ascending=False)
-        print(f"\n   📋 {class_name}등급 - 상위 10개 Feature:")
-        for idx, row in top_10.iterrows():
-            print(f"      {row['feature']:30s}: {row['importance']:.4f}")
+        # 2) 전체 Feature 출력
+        top_all = importance_df.sort_values('importance', ascending=False)
+        print(f"\n   📋 {class_name}등급 - 전체 {len(top_all)}개 Feature:")
+        
+        for idx, row in top_all.iterrows():
+            feature_name = row['feature']
+            importance = row['importance']
+            print(f"      {feature_name:30s}: {importance:.4f}")
 
 
 def plot_shap_scatter(shap_values, X_test_scaled, feature_names, model):
@@ -377,7 +465,7 @@ def main():
     print("=" * 70)
     print("\n📁 결과 파일:")
     print("   - shap_importance_*.png : Feature 중요도 가로 막대그래프")
-    print(f"\n   📂 저장 위치: apps/reco/models/trust_model/results/")
+    print(f"\n   📂 저장 위치: analysis/results/")
     print("=" * 70 + "\n")
 
 

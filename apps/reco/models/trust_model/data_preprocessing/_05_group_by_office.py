@@ -70,10 +70,32 @@ def group_by_office():
                 }
                 staff_list.append(staff_info)
         
+        # 대표자 구분명 찾기
+        representative_name = office_info.get('대표자')
+        representative_classification = None
+        if representative_name:
+            for staff in staff_list:
+                if staff.get('이름') == representative_name:
+                    representative_classification = staff.get('구분명')
+                    break
+        office_info['대표자구분명'] = representative_classification
+        
         # 직원 수 집계
-        office_info['총_직원수'] = len(staff_list)
-        office_info['공인중개사수'] = sum(1 for s in staff_list if s.get('구분명') == '공인중개사')
-        office_info['중개보조원수'] = sum(1 for s in staff_list if s.get('구분명') == '중개보조원')
+        # 구분명 기준 집계 (자격 종류)
+        공인중개사수 = sum(1 for s in staff_list if s.get('구분명') == '공인중개사')
+        중개보조원수 = sum(1 for s in staff_list if s.get('구분명') == '중개보조원')
+        중개인수 = sum(1 for s in staff_list if s.get('구분명') == '중개인')
+        법인수 = sum(1 for s in staff_list if s.get('구분명') == '법인')
+        
+        office_info['공인중개사수'] = 공인중개사수
+        office_info['중개보조원수'] = 중개보조원수
+        office_info['중개인수'] = 중개인수
+        office_info['법인수'] = 법인수
+        
+        # 총_직원수 = 4개 구분명의 합
+        office_info['총_직원수'] = 공인중개사수 + 중개보조원수 + 중개인수 + 법인수
+        
+        # 직위구분명 기준 집계 (직책)
         office_info['대표수'] = sum(1 for s in staff_list if s.get('직위구분명') == '대표')
         office_info['일반직원수'] = sum(1 for s in staff_list if s.get('직위구분명') == '일반')
         
@@ -92,6 +114,8 @@ def group_by_office():
     print(f"  - 평균 직원 수: {result_df['총_직원수'].mean():.2f}명")
     print(f"  - 평균 공인중개사 수: {result_df['공인중개사수'].mean():.2f}명")
     print(f"  - 평균 중개보조원 수: {result_df['중개보조원수'].mean():.2f}명")
+    print(f"  - 평균 중개인 수: {result_df['중개인수'].mean():.2f}명")
+    print(f"  - 평균 법인 수: {result_df['법인수'].mean():.2f}명")
     
     # CSV 파일로 저장
     result_df.to_csv(output_file, index=False, encoding='utf-8-sig')

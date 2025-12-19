@@ -7,9 +7,9 @@ import pickle
 from pathlib import Path
 import pandas as pd
 
-TEMP_MODEL_PATH = "apps/reco/models/trust_model/save_models/temp_trained_models.pkl"
-FINAL_MODEL_PATH = "apps/reco/models/trust_model/save_models/final_trust_model.pkl"
-EVAL_RESULTS_PATH = "apps/reco/models/trust_model/results/model_eval_results.csv"
+TEMP_MODEL_PATH = "apps/reco/models/trust_model/model/temp_trained_models.pkl"
+FINAL_MODEL_PATH = "apps/reco/models/trust_model/model/final_trust_model.pkl"
+EVAL_RESULTS_PATH = "apps/reco/models/trust_model/model/model_eval_results.csv"
 
 
 def select_best_model(temp_data):
@@ -83,7 +83,7 @@ def main():
     best_model_name = select_best_model(temp_data)
 
     # 4) 최고 성능 모델만 추출하여 최종 저장
-    Path("apps/reco/models/trust_model/save_models").mkdir(parents=True, exist_ok=True)
+    Path("apps/reco/models/trust_model/model").mkdir(parents=True, exist_ok=True)
     
     final_model_data = {
         "model": temp_data["models"][best_model_name],
