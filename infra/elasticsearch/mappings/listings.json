@@ -2,6 +2,7 @@
   "settings": {
     "number_of_shards": 1,
     "number_of_replicas": 0,
+    "index.knn": true,
     "analysis": {
       "analyzer": {
         "nori_analyzer": {
@@ -18,14 +19,16 @@
         "type": "keyword" 
       },
       "embedding": {
-        "type": "dense_vector",
-        "dims": 3072,
-        "index": true,
-        "similarity": "cosine",
-        "index_options": {
-          "type": "hnsw",
-          "m": 16,
-          "ef_construction": 100
+        "type": "knn_vector",
+        "dimension": 3072,
+        "method": {
+          "name": "hnsw",
+          "space_type": "cosinesimil",
+          "engine": "nmslib",
+          "parameters": {
+            "m": 16,
+            "ef_construction": 100
+          }
         }
       },
       "address": { 

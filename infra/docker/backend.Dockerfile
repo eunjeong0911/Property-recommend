@@ -15,4 +15,5 @@ COPY libs /libs
 
 ENV PYTHONPATH=/app:/libs
 
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+# Production server: gunicorn with 2 workers and keep-alive for ALB compatibility
+CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2", "--keep-alive", "65"]

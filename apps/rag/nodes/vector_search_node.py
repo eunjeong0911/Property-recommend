@@ -55,12 +55,34 @@ def get_es_client() -> Elasticsearch:
     return _es_client
 
 
+def build_knn_query(query_vector: List[float], k: int = 20) -> Dict:
+    """OpenSearch k-NN 쿼리 빌드
+    
+    OpenSearch k-NN DSL 형식으로 쿼리 생성
+    
+    Args:
+        query_vector: 쿼리 임베딩 벡터
+        k: 반환할 최대 결과 개수
+    
+    Returns:
+        OpenSearch k-NN 쿼리 딕셔너리
+    """
+    return {
+        "knn": {
+            "embedding": {
+                "vector": query_vector,
+                "k": k
+            }
+        }
+    }
+
+
 def vector_search(
     query: str,
     top_k: int = 20,
     min_score: float = 0.5
 ) -> List[Dict]:
-    """ES kNN 벡터 검색
+    """ES kNN 벡터 검색 (OpenSearch k-NN DSL 형식)
     
     Args:
         query: 검색 쿼리 텍스트
@@ -77,18 +99,16 @@ def vector_search(
     service = get_embedding_service()
     query_embedding = service.embed_text(query)
     
-    # ES kNN 검색 (Requirements 3.2)
+    # OpenSearch k-NN 검색 (Requirements 3.2, 2.2)
     es = get_es_client()
     
     try:
+        # OpenSearch k-NN DSL 쿼리 형식 사용
+        knn_query = build_knn_query(query_embedding, k=top_k)
+        
         result = es.search(
             index=ES_INDEX_NAME,
-            knn={
-                "field": "embedding",
-                "query_vector": query_embedding,
-                "k": top_k,
-                "num_candidates": top_k * 2
-            },
+            query=knn_query,
             min_score=min_score,
             size=top_k,
             _source=["search_text", "land_num", "주소_정보"]

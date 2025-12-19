@@ -24,4 +24,5 @@ COPY libs /libs
 
 ENV PYTHONPATH=/app:/libs
 
-CMD ["python", "main.py"]
+# Production server: uvicorn with 2 workers for production traffic
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "2"]

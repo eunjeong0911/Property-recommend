@@ -20,12 +20,7 @@ services:
   neo4j:
     image: neo4j:5.15
     environment:
-      NEO4J_AUTH: none
-<<<<<<< HEAD
-    # NEO4J_AUTH: ${NEO4J_USER}/${NEO4J_PASSWORD}
-=======
-      # NEO4J_AUTH: ${NEO4J_USER}/${NEO4J_PASSWORD}
->>>>>>> 913c0c78f4c57bfa2fcf97560e310862f921b955
+      NEO4J_AUTH: ${NEO4J_USER}/${NEO4J_PASSWORD}
       NEO4J_PLUGINS: '["apoc"]'
     ports:
       - "7474:7474"

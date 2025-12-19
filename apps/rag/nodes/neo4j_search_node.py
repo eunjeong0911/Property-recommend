@@ -165,21 +165,6 @@ def extract_location(question: str) -> tuple:
             print(f"[QueryBuilder] 📍 Location: {location} (university, intent detected)")
             return location, "university"
     
-<<<<<<< HEAD
-    # 1. Find Anchor Location (Subway, University, etc.)
-    # We allow the anchor to be ANY valid POI type
-    # [Fix]: Do NOT limit anchors immediately. We must check for connectivity first.
-    # [Fix]: Prioritize SubwayStation via Score Boost later.
-    # [Fix]: Bidirectional Matching with TEXT INDEX optimization (Requirements 6.1)
-    #   - Priority 1: STARTS WITH (fastest with TEXT INDEX)
-    #   - Priority 2: CONTAINS (fallback for partial matches)
-    #   - Case A: Keyword "Hongdae" matches Name "Hongdae Entrance" (Name STARTS WITH or CONTAINS Keyword)
-    #   - Case B: Keyword "Hongdae Station" matches Name "Hongdae" (Keyword CONTAINS Name)
-    anchor_match = """
-    MATCH (anchor) 
-    WHERE (anchor:SubwayStation OR anchor:College OR anchor:Hospital OR anchor:GeneralHospital OR anchor:Park)
-      AND (anchor.name STARTS WITH $keyword OR anchor.name CONTAINS $keyword OR $keyword CONTAINS anchor.name)
-=======
     # 3. 대학교 패턴에서 정확히 매칭되는지 확인 (대학, 학교 접미사 포함된 경우)
     uni_match = re.search(UNIVERSITY_PATTERN + r"(?=\s|$|근처|주변|앞|역)", question)
     if uni_match:
@@ -218,7 +203,6 @@ def detect_facilities(question: str) -> Dict[str, bool]:
 
 
 def analyze_question(question: str) -> Dict:
->>>>>>> e5e287129bd0e48ae86e0bb7a1db2b5f865436f3
     """
     질문 분석 - 위치와 시설 타입을 추출
     
@@ -411,116 +395,6 @@ def build_facility_query(relationship: str, label: str, result_key: str) -> str:
     """
 
 
-<<<<<<< HEAD
-# --- DOMAIN TOOLS ---
-
-@tool
-def search_properties_near_subway(location_keyword: str):
-    """
-    Find properties near a specific Subway Station (Transportation).
-    Use this when user asks for "Subway", "Station", "Transport".
-    """
-    # For subway, Anchor IS the Target.
-    # We modify the query slightly: Finding properties connected to the Subway node.
-    # [Optimization] TEXT INDEX optimization (Requirements 6.1): STARTS WITH priority, CONTAINS fallback
-    query = """
-    MATCH (s:SubwayStation) WHERE (s.name STARTS WITH $keyword OR s.name CONTAINS $keyword OR $keyword CONTAINS s.name)
-    WITH s LIMIT 3
-    MATCH (p:Property)-[r:NEAR_SUBWAY]->(s)
-    
-    WITH p, s, r, (5000 - coalesce(toInteger(r.distance), 5000)) as total_score
-    RETURN p.id as id, total_score,
-           collect({name: s.name, dist: coalesce(toInteger(r.distance), 9999), time: coalesce(toInteger(r.walking_time), 9999)}) as poi_details,
-           collect({name: s.name, dist: coalesce(toInteger(r.distance), 9999), time: coalesce(toInteger(r.walking_time), 9999)}) as trans_details
-    ORDER BY total_score DESC LIMIT 300
-    """
-    return get_graph().query(query, params={"keyword": location_keyword})
-
-@tool
-def search_properties_near_hospital(location_keyword: str, general_only: bool = False):
-    """
-    Find properties near Hospitals.
-    Args:
-        location_keyword: The location name (e.g. "Hongdae")
-        general_only: If True, searches ONLY 'GeneralHospital/UniversityHospital'. If False, searches all hospitals/pharmacies.
-    """
-    if general_only:
-        # Strict: GeneralHospital
-        return execute_hybrid_query(location_keyword, "GeneralHospital", "NEAR_GENERAL_HOSPITAL", "gen_hosp_details", "dist")
-    else:
-        # Broad: Hospital, GeneralHospital (EXCLUDE Pharmacy)
-        return execute_hybrid_query(location_keyword, "ANY", "NEAR_HOSPITAL|NEAR_GENERAL_HOSPITAL", "med_details", "dist")
-
-@tool
-def search_properties_near_pharmacy(location_keyword: str):
-    """
-    Find properties near Pharmacies.
-    """
-    return execute_hybrid_query(location_keyword, "Pharmacy", "NEAR_PHARMACY", "pharmacy_details", "dist")
-
-@tool
-def search_properties_near_convenience(location_keyword: str):
-    """
-    Find properties near Convenience Stores.
-    """
-    return execute_hybrid_query(location_keyword, "Convenience", "NEAR_CONVENIENCE", "conv_details", "dist")
-
-@tool
-def search_properties_near_park(location_keyword: str):
-    """
-    Find properties near Parks or Walking areas.
-    """
-    return execute_hybrid_query(location_keyword, "Park", "NEAR_PARK", "park_details", "dist")
-
-@tool
-def search_properties_near_university(location_keyword: str):
-    """
-    Find properties near Universities/Colleges.
-    Uses a specialized query that ONLY matches College nodes as anchors.
-    Returns: poi_details = nearby subway station, edu_details = searched university only
-    """
-    # [Optimization] TEXT INDEX optimization (Requirements 6.1): STARTS WITH priority, CONTAINS fallback
-    query = """
-    MATCH (anchor:College) 
-    WHERE (anchor.name STARTS WITH $keyword OR anchor.name CONTAINS $keyword OR $keyword CONTAINS anchor.name)
-    
-    MATCH (p:Property)-[r_anchor:NEAR_COLLEGE]->(anchor)
-    
-    // 가장 가까운 지하철역 조회 (역 접근성용)
-    OPTIONAL MATCH (p)-[r_sub:NEAR_SUBWAY]->(sub:SubwayStation)
-    
-    WITH p, anchor, r_anchor, sub, r_sub,
-         (5000 - coalesce(toInteger(r_anchor.distance), 5000)) as total_score
-    
-    RETURN p.id as id, total_score,
-           CASE WHEN sub IS NOT NULL 
-                THEN [{name: sub.name, dist: coalesce(toInteger(r_sub.distance), 9999), time: coalesce(toInteger(r_sub.walking_time), 9999)}]
-                ELSE [] 
-           END as poi_details,
-           [{name: anchor.name, dist: coalesce(toInteger(r_anchor.distance), 9999), time: coalesce(toInteger(r_anchor.walking_time), 9999)}] as edu_details
-    ORDER BY total_score DESC LIMIT 300
-    """
-    print(f"[Debug] University Search: '{location_keyword}'")
-    return get_graph().query(query, params={"keyword": location_keyword})
-
-
-@tool
-def search_properties_with_safety(location_keyword: str):
-    """
-    Find properties with GOOD SAFETY infrastructure.
-    Returns:
-    - CCTV/Bell counts (e.g., "CCTV 5개")
-    - Police/Fire distance and time (e.g., "경찰서 150m, 도보 2분")
-    
-    [Optimization] Requirements 2.2: CALL subqueries to prevent Cartesian product
-    """
-    # [Optimization] TEXT INDEX optimization (Requirements 6.1): STARTS WITH priority, CONTAINS fallback
-    # [Optimization] CALL subqueries to prevent Cartesian product (Requirements 2.2)
-    query = """
-    MATCH (anchor) 
-    WHERE (anchor:SubwayStation OR anchor:College OR anchor:Hospital OR anchor:GeneralHospital OR anchor:Park)
-      AND (anchor.name STARTS WITH $keyword OR anchor.name CONTAINS $keyword OR $keyword CONTAINS anchor.name)
-=======
 def build_multi_criteria_query() -> str:
     """다중 조건 검색 Cypher 쿼리 (TEXT INDEX 활용)"""
     return f"""
@@ -528,48 +402,12 @@ def build_multi_criteria_query() -> str:
     WHERE (anchor:SubwayStation OR anchor:College OR anchor:Hospital OR anchor:GeneralHospital OR anchor:Park)
       AND (anchor.name STARTS WITH $keyword OR anchor.name CONTAINS $keyword)
     WITH anchor LIMIT 5
->>>>>>> e5e287129bd0e48ae86e0bb7a1db2b5f865436f3
     
     MATCH (p:Property)-[r_anchor]-(anchor)
     WHERE type(r_anchor) STARTS WITH 'NEAR_'
     WITH DISTINCT p, anchor, r_anchor
     ORDER BY r_anchor.distance LIMIT 150
     
-<<<<<<< HEAD
-    WITH p, anchor, r_anchor
-    
-    // CCTV count - separate subquery to prevent Cartesian product
-    CALL {
-        WITH p
-        OPTIONAL MATCH (p)-[:NEAR_CCTV]->(c)
-        RETURN count(c) as cctv_count
-    }
-    
-    // Bell count - separate subquery to prevent Cartesian product
-    CALL {
-        WITH p
-        OPTIONAL MATCH (p)-[:NEAR_BELL]->(b)
-        RETURN count(b) as bell_count
-    }
-    
-    // Police details - separate subquery to prevent Cartesian product
-    CALL {
-        WITH p
-        OPTIONAL MATCH (p)-[r:NEAR_POLICE]->(pol)
-        WITH pol, r ORDER BY coalesce(toInteger(r.distance), 9999) ASC
-        WITH collect({name: pol.name, dist: coalesce(toInteger(r.distance), 9999), time: coalesce(toInteger(r.walking_time), 9999)})[..3] as police_list
-        RETURN [item in police_list WHERE item.name IS NOT NULL] as police_details
-    }
-    
-    // Fire station details - separate subquery to prevent Cartesian product
-    CALL {
-        WITH p
-        OPTIONAL MATCH (p)-[r:NEAR_FIRE]->(f)
-        WITH f, r ORDER BY coalesce(toInteger(r.distance), 9999) ASC
-        WITH collect({name: f.name, dist: coalesce(toInteger(r.distance), 9999), time: coalesce(toInteger(r.walking_time), 9999)})[..3] as fire_list
-        RETURN [item in fire_list WHERE item.name IS NOT NULL] as fire_details
-    }
-=======
     CALL {{
         WITH p
         OPTIONAL MATCH (p)-[r:NEAR_CONVENIENCE]->(n:Convenience)
@@ -599,7 +437,6 @@ def build_multi_criteria_query() -> str:
         RETURN count{{(p)-[:NEAR_CCTV]->()}} as cctv_count,
                count{{(p)-[:NEAR_BELL]->()}} as bell_count
     }}
->>>>>>> e5e287129bd0e48ae86e0bb7a1db2b5f865436f3
     
     CALL {{
         WITH p
@@ -615,119 +452,6 @@ def build_multi_criteria_query() -> str:
         RETURN collect({{name: n.name, dist: toInteger(r.distance), time: toInteger(r.walking_time)}}) as fire_list
     }}
     
-<<<<<<< HEAD
-    RETURN p.id as id, total_score,
-           [anchor_info] as poi_details,
-           cctv_count, bell_count, police_details, fire_details
-    ORDER BY total_score DESC LIMIT 300
-    """
-    return get_graph().query(query, params={"keyword": location_keyword})
-
-@tool
-def search_properties_multi_criteria(
-    location_keyword: str,
-    convenience: bool = False,
-    hospital: bool = False,
-    pharmacy: bool = False,
-    safety: bool = False,
-    park: bool = False
-):
-    """
-    Find properties that satisfy MULTIPLE facility requirements simultaneously.
-    Use when user requests 2+ facility types (e.g., "convenience AND safety").
-    Returns properties that have ALL requested facilities nearby.
-    
-    [Optimization] Requirements 2.2: CALL subqueries to prevent Cartesian product
-    """
-    
-    # [Optimization] TEXT INDEX optimization (Requirements 6.1): STARTS WITH priority, CONTAINS fallback
-    # [Optimization] CALL subqueries to prevent Cartesian product (Requirements 2.2)
-    query = """
-    MATCH (anchor) 
-    WHERE (anchor:SubwayStation OR anchor:College OR anchor:Hospital OR anchor:GeneralHospital OR anchor:Park)
-      AND (anchor.name STARTS WITH $keyword OR anchor.name CONTAINS $keyword OR $keyword CONTAINS anchor.name)
-    
-    MATCH (p:Property)-[r_anchor]-(anchor)
-    WHERE type(r_anchor) STARTS WITH 'NEAR_'
-    
-    WITH p, anchor, r_anchor
-    
-    // Convenience - separate subquery to prevent Cartesian product
-    CALL {
-        WITH p
-        OPTIONAL MATCH (p)-[r:NEAR_CONVENIENCE]->(conv:Convenience)
-        WITH conv, r ORDER BY coalesce(toInteger(r.distance), 9999) ASC
-        WITH count(conv) as cnt, collect({name: conv.name, dist: coalesce(toInteger(r.distance), 9999), time: coalesce(toInteger(r.walking_time), 9999)})[..3] as details
-        RETURN cnt as conv_count, [item in details WHERE item.name IS NOT NULL] as conv_details
-    }
-    
-    // Hospital - separate subquery to prevent Cartesian product
-    CALL {
-        WITH p
-        OPTIONAL MATCH (p)-[r:NEAR_HOSPITAL|NEAR_GENERAL_HOSPITAL]->(hosp)
-        WITH hosp, r ORDER BY coalesce(toInteger(r.distance), 9999) ASC
-        WITH count(hosp) as cnt, collect({name: hosp.name, dist: coalesce(toInteger(r.distance), 9999), time: coalesce(toInteger(r.walking_time), 9999)})[..3] as details
-        RETURN cnt as hosp_count, [item in details WHERE item.name IS NOT NULL] as hosp_details
-    }
-    
-    // Pharmacy - separate subquery to prevent Cartesian product
-    CALL {
-        WITH p
-        OPTIONAL MATCH (p)-[r:NEAR_PHARMACY]->(pharm:Pharmacy)
-        WITH pharm, r ORDER BY coalesce(toInteger(r.distance), 9999) ASC
-        WITH count(pharm) as cnt, collect({name: pharm.name, dist: coalesce(toInteger(r.distance), 9999), time: coalesce(toInteger(r.walking_time), 9999)})[..3] as details
-        RETURN cnt as pharm_count, [item in details WHERE item.name IS NOT NULL] as pharm_details
-    }
-    
-    // CCTV count - separate subquery to prevent Cartesian product
-    CALL {
-        WITH p
-        OPTIONAL MATCH (p)-[:NEAR_CCTV]->(c)
-        RETURN count(c) as cctv_count
-    }
-    
-    // Bell count - separate subquery to prevent Cartesian product
-    CALL {
-        WITH p
-        OPTIONAL MATCH (p)-[:NEAR_BELL]->(b)
-        RETURN count(b) as bell_count
-    }
-    
-    // Police details - separate subquery to prevent Cartesian product
-    CALL {
-        WITH p
-        OPTIONAL MATCH (p)-[r:NEAR_POLICE]->(pol)
-        WITH pol, r ORDER BY coalesce(toInteger(r.distance), 9999) ASC
-        WITH collect({name: pol.name, dist: coalesce(toInteger(r.distance), 9999), time: coalesce(toInteger(r.walking_time), 9999)})[..3] as details
-        RETURN [item in details WHERE item.name IS NOT NULL] as police_details
-    }
-    
-    // Fire station details - separate subquery to prevent Cartesian product
-    CALL {
-        WITH p
-        OPTIONAL MATCH (p)-[r:NEAR_FIRE]->(f)
-        WITH f, r ORDER BY coalesce(toInteger(r.distance), 9999) ASC
-        WITH collect({name: f.name, dist: coalesce(toInteger(r.distance), 9999), time: coalesce(toInteger(r.walking_time), 9999)})[..3] as details
-        RETURN [item in details WHERE item.name IS NOT NULL] as fire_details
-    }
-    
-    // Park - separate subquery to prevent Cartesian product
-    CALL {
-        WITH p
-        OPTIONAL MATCH (p)-[r:NEAR_PARK]->(park_node:Park)
-        WITH park_node, r ORDER BY coalesce(toInteger(r.distance), 9999) ASC
-        WITH count(park_node) as cnt, collect({name: park_node.name, dist: coalesce(toInteger(r.distance), 9999), time: coalesce(toInteger(r.walking_time), 9999)})[..3] as details
-        RETURN cnt as park_count, [item in details WHERE item.name IS NOT NULL] as park_details
-    }
-    
-    // WHERE: Property must satisfy ALL requested conditions
-    WITH p, anchor, r_anchor,
-         conv_count, conv_details,
-         hosp_count, hosp_details,
-         pharm_count, pharm_details,
-         cctv_count, bell_count, police_details, fire_details,
-         park_count, park_details
-=======
     CALL {{
         WITH p
         OPTIONAL MATCH (p)-[r:NEAR_PARK]->(n:Park)
@@ -745,7 +469,6 @@ def search_properties_multi_criteria(
          [item in fire_list WHERE item.name IS NOT NULL] as fire_details,
          park_count, [item in park_list WHERE item.name IS NOT NULL] as park_details
     
->>>>>>> e5e287129bd0e48ae86e0bb7a1db2b5f865436f3
     WHERE
         (NOT $need_conv OR conv_count > 0) AND
         (NOT $need_hosp OR hosp_count > 0) AND
