@@ -38,16 +38,20 @@ def get_embedding_service():
     return _embedding_service
 
 
-def get_es_client() -> Elasticsearch:
-    """ES 클라이언트 인스턴스 반환 (싱글톤)"""
+def get_opensearch_client() -> Elasticsearch:
+    """OpenSearch 클라이언트 인스턴스 반환 (싱글톤)
+    
+    AWS OpenSearch Service와 호환되는 클라이언트 설정
+    """
     global _es_client
     if _es_client is None:
-        es_host = os.getenv("ELASTICSEARCH_HOST", "elasticsearch")
-        es_port = os.getenv("ELASTICSEARCH_PORT", "9200")
-        es_url = f"http://{es_host}:{es_port}"
+        # OpenSearch 환경변수 우선, ES 환경변수 fallback
+        os_host = os.getenv("OPENSEARCH_HOST") or os.getenv("ELASTICSEARCH_HOST", "opensearch")
+        os_port = os.getenv("OPENSEARCH_PORT") or os.getenv("ELASTICSEARCH_PORT", "9200")
+        os_url = f"http://{os_host}:{os_port}"
         
         _es_client = Elasticsearch(
-            hosts=[es_url],
+            hosts=[os_url],
             timeout=30,
             max_retries=3,
             retry_on_timeout=True
@@ -82,7 +86,7 @@ def vector_search(
     top_k: int = 20,
     min_score: float = 0.5
 ) -> List[Dict]:
-    """ES kNN 벡터 검색 (OpenSearch k-NN DSL 형식)
+    """OpenSearch k-NN 벡터 검색
     
     Args:
         query: 검색 쿼리 텍스트
@@ -100,7 +104,7 @@ def vector_search(
     query_embedding = service.embed_text(query)
     
     # OpenSearch k-NN 검색 (Requirements 3.2, 2.2)
-    es = get_es_client()
+    es = get_opensearch_client()
     
     try:
         # OpenSearch k-NN DSL 쿼리 형식 사용

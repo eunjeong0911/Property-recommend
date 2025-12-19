@@ -37,8 +37,8 @@ docker-compose --profile scripts run --rm scripts python data_import/main.py
 - Neo4j Browser: http://localhost:7474
 - RAG/Chatbot: http://localhost:8001
 - Recommendation: http://localhost:8002
-- Elasticsearch: http://localhost:9200
-- Kibana: http://localhost:5601
+- OpenSearch: http://localhost:9200
+- OpenSearch Dashboards: http://localhost:5601
 
 ## 자주 쓰는 명령어
 
@@ -72,9 +72,9 @@ docker-compose --profile scripts run --rm scripts python data_import/importers/p
 # PostgreSQL Land 테이블만 데이터 적재 (빌라주택, 아파트, 오피스텔, 원투룸)
 docker-compose --profile scripts run --rm scripts python data_import/import_postgres_only.py
 
-# Elasticsearch 매물 인덱싱 (검색 기능 사용 시 필요)
+# OpenSearch 매물 인덱싱 (검색 기능 사용 시 필요)
 docker-compose --profile scripts run --rm scripts python es_bulk_index.py
-# Kibana 접속: http://localhost:5601
+# OpenSearch Dashboards 접속: http://localhost:5601
 ```
 
 ## 문제 해결

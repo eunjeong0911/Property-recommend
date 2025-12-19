@@ -34,13 +34,14 @@ INDEX_NAME = os.getenv("ES_INDEX_NAME", "realestate_listings")
 
 
 def get_es_client() -> Elasticsearch:
-    """ES 클라이언트 반환"""
-    es_host = os.getenv("ELASTICSEARCH_HOST", "localhost")
-    es_port = os.getenv("ELASTICSEARCH_PORT", "9200")
-    es_url = f"http://{es_host}:{es_port}"
+    """OpenSearch 클라이언트 반환 (AWS OpenSearch Service 호환)"""
+    # OpenSearch 환경변수 우선, ES 환경변수 fallback
+    os_host = os.getenv("OPENSEARCH_HOST") or os.getenv("ELASTICSEARCH_HOST", "localhost")
+    os_port = os.getenv("OPENSEARCH_PORT") or os.getenv("ELASTICSEARCH_PORT", "9200")
+    os_url = f"http://{os_host}:{os_port}"
     
     return Elasticsearch(
-        hosts=[es_url],
+        hosts=[os_url],
         request_timeout=30,
         max_retries=3,
         retry_on_timeout=True
@@ -117,10 +118,10 @@ def main():
     # 연결 확인
     try:
         info = es.info()
-        print(f"✅ Elasticsearch 연결 성공 (버전: {info['version']['number']})")
+        print(f"✅ OpenSearch 연결 성공 (버전: {info['version']['number']})")
         print(f"📌 인덱스: {INDEX_NAME}")
     except Exception as e:
-        print(f"❌ Elasticsearch 연결 실패: {e}")
+        print(f"❌ OpenSearch 연결 실패: {e}")
         sys.exit(1)
     
     total_success = 0

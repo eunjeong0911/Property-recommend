@@ -35,27 +35,31 @@ ES_INDEX_NAME = "realestate_listings"
 _es_client: Optional[Elasticsearch] = None
 
 
-def get_es_client() -> Elasticsearch:
-    """ES 클라이언트 인스턴스 반환 (싱글톤)"""
+def get_opensearch_client() -> Elasticsearch:
+    """OpenSearch 클라이언트 인스턴스 반환 (싱글톤)
+    
+    AWS OpenSearch Service와 호환되는 클라이언트 설정
+    """
     global _es_client
     if _es_client is None:
-        es_host = os.getenv("ELASTICSEARCH_HOST", "elasticsearch")
-        es_port = os.getenv("ELASTICSEARCH_PORT", "9200")
-        es_url = f"http://{es_host}:{es_port}"
+        # OpenSearch 환경변수 우선, ES 환경변수 fallback
+        os_host = os.getenv("OPENSEARCH_HOST") or os.getenv("ELASTICSEARCH_HOST", "opensearch")
+        os_port = os.getenv("OPENSEARCH_PORT") or os.getenv("ELASTICSEARCH_PORT", "9200")
+        os_url = f"http://{os_host}:{os_port}"
         
         try:
             _es_client = Elasticsearch(
-                hosts=[es_url],
+                hosts=[os_url],
                 timeout=30,
                 max_retries=3,
                 retry_on_timeout=True
             )
             if _es_client.ping():
-                logger.info(f"[ES Node] Connected to Elasticsearch: {es_url}")
+                logger.info(f"[OpenSearch] Connected to: {os_url}")
             else:
-                logger.warning(f"[ES Node] Elasticsearch ping failed: {es_url}")
+                logger.warning(f"[OpenSearch] Ping failed: {os_url}")
         except Exception as e:
-            logger.error(f"[ES Node] Failed to connect to Elasticsearch: {e}")
+            logger.error(f"[OpenSearch] Failed to connect: {e}")
             raise
     
     return _es_client
@@ -158,7 +162,7 @@ def search_with_es(
         return empty_result
     
     try:
-        es = get_es_client()
+        es = get_opensearch_client()
         
         # 쿼리 빌드
         query = build_hybrid_query(
@@ -340,7 +344,7 @@ def hybrid_search(
     if not query_embedding:
         return []
     
-    es = get_es_client()
+    es = get_opensearch_client()
     
     try:
         # OpenSearch 하이브리드 검색: k-NN + bool 쿼리 결합 (Requirements 4.1, 2.2)

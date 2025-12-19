@@ -42,17 +42,25 @@ services:
     volumes:
       - redis_data:/data
 
-  elasticsearch:
-    image: elasticsearch:8.11.0
+  opensearch:
+    image: opensearchproject/opensearch:2.11.0
     environment:
       - discovery.type=single-node
-      - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - plugins.security.disabled=true
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+      - bootstrap.memory_lock=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
     ports:
       - "9200:9200"
+      - "9600:9600"
     volumes:
-      - es_data:/usr/share/elasticsearch/data
-      - ./infra/elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
+      - opensearch_data:/usr/share/opensearch/data
     healthcheck:
       test: [ "CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'" ]
       interval: 10s
@@ -60,21 +68,16 @@ services:
       retries: 5
       start_period: 30s
 
-  kibana:
-    image: kibana:8.11.0
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:2.11.0
     environment:
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - OPENSEARCH_HOSTS=["http://opensearch:9200"]
+      - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
     ports:
       - "5601:5601"
     depends_on:
-      elasticsearch:
+      opensearch:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -s http://localhost:5601/api/status | grep -q '\"overall\":{\"level\":\"available\"}'"]
-      interval: 15s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
 
   backend:
     build:
@@ -94,11 +97,11 @@ services:
       - POSTGRES_HOST=postgres
       - NEO4J_URI=bolt://neo4j:7687
       - PYTHONUNBUFFERED=1
-      - ELASTICSEARCH_HOST=elasticsearch
+      - OPENSEARCH_HOST=opensearch
     depends_on:
       - postgres
       - redis
-      - elasticsearch
+      - opensearch
 
   rag:
     build:
@@ -115,11 +118,13 @@ services:
       - NEO4J_URI=bolt://neo4j:7687
       - POSTGRES_HOST=postgres
       - REDIS_HOST=redis
+      - OPENSEARCH_HOST=opensearch
       - PYTHONUNBUFFERED=1
     depends_on:
       - postgres
       - neo4j
       - redis
+      - opensearch
 
   reco:
     build:
@@ -193,10 +198,13 @@ services:
     environment:
       - NEO4J_URI=bolt://neo4j:7687
       - POSTGRES_HOST=postgres
+      - OPENSEARCH_HOST=opensearch
     depends_on:
       postgres:
         condition: service_healthy
       neo4j:
+        condition: service_healthy
+      opensearch:
         condition: service_healthy
     profiles:
       - scripts
@@ -217,5 +225,5 @@ volumes:
   postgres_data:
   neo4j_data:
   redis_data:
-  es_data:
+  opensearch_data:
   frontend_node_modules:
