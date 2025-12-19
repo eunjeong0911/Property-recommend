@@ -214,7 +214,25 @@ class LandSerializer(serializers.ModelSerializer):
         return '-'
     
     def get_price_prediction(self, obj):
-        """가격 분류 정보 조회"""
+        """가격 분류 정보 조회 (캐싱 적용)"""
+        # context에 캐시된 price_predictions 사용 (N+1 쿼리 방지)
+        price_cache = self.context.get('price_predictions')
+        
+        if price_cache is not None:
+            # 캐시에서 조회
+            price_class = price_cache.get(obj.land_num)
+            if price_class:
+                return {
+                    'prediction_class': price_class.prediction_class,
+                    'prediction_label': price_class.prediction_label,
+                    'prediction_label_korean': price_class.prediction_label_korean,
+                    'probability_underpriced': price_class.probability_underpriced,
+                    'probability_fair': price_class.probability_fair,
+                    'probability_overpriced': price_class.probability_overpriced
+                }
+            return None
+        
+        # 캐시가 없으면 개별 쿼리 (폴백)
         try:
             price_class = PriceClassificationResult.objects.filter(land_num=obj.land_num).first()
             if price_class:

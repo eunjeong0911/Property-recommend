@@ -2,7 +2,7 @@ from rest_framework import viewsets, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import Land
+from .models import Land, PriceClassificationResult
 from .serializers import LandSerializer
 from .utils.price_utils import get_price_display
 from .neo4j_client import Neo4jClient
@@ -14,8 +14,8 @@ class LandViewSet(viewsets.ReadOnlyModelViewSet):
     search_fields = ['land_num', 'address']
 
     def get_queryset(self):
-        # with_images()로 이미지 prefetch 적용 (N+1 쿼리 방지)
-        queryset = Land.objects.with_images()
+        # with_images() + select_related로 N+1 쿼리 방지
+        queryset = Land.objects.with_images().select_related('landbroker')
         
         # 지역 필터 (부분 일치)
         address = self.request.query_params.get('address', None)
@@ -42,6 +42,16 @@ class LandViewSet(viewsets.ReadOnlyModelViewSet):
             queryset = queryset.filter(building_type=building_type)
         
         return queryset
+    
+    def get_serializer_context(self):
+        """Serializer context에 price_predictions 캐시 추가 (N+1 쿼리 방지)"""
+        context = super().get_serializer_context()
+        
+        # 모든 price_classification을 한 번에 조회하여 캐싱
+        price_predictions = PriceClassificationResult.objects.all()
+        context['price_predictions'] = {p.land_num: p for p in price_predictions}
+        
+        return context
     
     @action(detail=False, methods=['get'])
     def locations(self, request):
