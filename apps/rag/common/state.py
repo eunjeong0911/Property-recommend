@@ -26,3 +26,7 @@ class RAGState(TypedDict):
     
     # 벡터 검색 관련 (Requirements 3.1, 3.2, 3.3, 3.4)
     vector_scores: Optional[Dict[str, float]]  # 벡터 검색 점수 {property_id: score}
+
+    # 검색 진행 상황 (Requirements: Dynamic Progress Messages)
+    search_steps: Optional[List[str]]  # ["홍대입구 근처 검색 중", "편의점 찾는 중", ...]
+    requested_facilities: Optional[List[str]]  # ["convenience", "safety", ...]

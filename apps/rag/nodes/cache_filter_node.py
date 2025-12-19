@@ -312,7 +312,7 @@ def _fetch_sql_details(property_ids: list) -> list:
             SELECT l.land_id, l.land_num, l.building_type, l.address, l.deal_type,
                    l.deposit, l.monthly_rent, l.jeonse_price, l.sale_price,
                    l.url, l.trade_info, l.listing_info, l.additional_options, 
-                   l.description, l.agent_info, l.like_count, l.view_count, 'm' as distance_unit,
+                   l.description, l.like_count, l.view_count, 'm' as distance_unit,
                    COALESCE(
                        (SELECT array_agg(img_url) FROM land_image WHERE land_id = l.land_id),
                        ARRAY[]::varchar[]
