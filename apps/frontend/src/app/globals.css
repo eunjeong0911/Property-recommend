@@ -54,6 +54,11 @@
     }
 }
 
+html,
+body {
+    min-height: 100vh;
+}
+
 body {
     color: rgb(var(--foreground-rgb));
     background: var(--color-bg-secondary);

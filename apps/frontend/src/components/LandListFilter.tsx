@@ -70,6 +70,7 @@ export default function LandListFilter({ onFilterChange }: LandListFilterProps) 
         if (onFilterChange) {
             onFilterChange({
                 region: selectedRegion,
+                dong: selectedDong,
                 transaction_type: selectedTransaction,
                 building_type: selectedBuilding,
             });

@@ -20,9 +20,9 @@ from apps.listings.models import LandBroker
 
 def load_model():
     """모델 로드"""
-    model_path = '/app/apps/reco/models/trust_model/save_models/final_trust_model.pkl'
+    model_path = '/app/apps/reco/models/trust_model/model/final_trust_model.pkl'
     if not os.path.exists(model_path):
-        model_path = 'apps/reco/models/trust_model/save_models/final_trust_model.pkl'
+        model_path = 'apps/reco/models/trust_model/model/final_trust_model.pkl'
     
     with open(model_path, 'rb') as f:
         model_data = pickle.load(f)
@@ -32,7 +32,7 @@ def load_model():
 
 def create_features(broker):
     """
-    Feature 생성 (학습 시와 동일한 12개)
+    Feature 생성 (학습 시와 동일한 14개)
     """
     from datetime import datetime
     import numpy as np
@@ -44,17 +44,28 @@ def create_features(broker):
     중개보조원수 = broker.assistants_count or 0
     일반직원수 = broker.staff_count or 0
     
-    # 1-3. 거래 지표
-    거래완료_safe = 거래완료
-    등록매물_safe = 등록매물
-    총거래활동량 = 거래완료 + 등록매물
+    # 대표자 구분 (필드가 없으면 기본값 사용)
+    대표자구분명 = getattr(broker, 'representative_type', None) or "공인중개사"
     
-    # 4-6. 인력 지표
+    # 1-3. 거래 지표 (로그 변환)
+    등록매물_log = np.log1p(등록매물)
+    총거래활동량 = 거래완료 + 등록매물
+    총거래활동량_log = np.log1p(총거래활동량)
+    
+    # 1인당 거래량
     총_직원수 = 공인중개사수 + 중개보조원수 + 일반직원수
     총_직원수_safe = max(총_직원수, 1)
-    공인중개사_비율 = 공인중개사수 / 총_직원수_safe
+    일인당_거래량 = 총거래활동량 / 총_직원수_safe
+    일인당_거래량_log = np.log1p(일인당_거래량)
     
-    # 7-10. 운영 경험
+    # 4-6. 인력 지표
+    중개보조원_비율 = 중개보조원수 / 총_직원수_safe
+    
+    # 자격증 보유 비율 (공인중개사 + 중개보조원) / 총 직원
+    자격증_보유_인원 = 공인중개사수 + 중개보조원수
+    자격증_보유비율 = 자격증_보유_인원 / 총_직원수_safe
+    
+    # 7-9. 운영 경험
     if broker.registration_date:
         try:
             등록일 = broker.registration_date
@@ -69,33 +80,41 @@ def create_features(broker):
     else:
         운영기간_년 = 0
     
-    운영경험_지수 = np.exp(운영기간_년 / 10)
+    공인중개사_비율 = 공인중개사수 / 총_직원수_safe
     숙련도_지수 = 운영기간_년 * 공인중개사_비율
     운영_안정성 = 1 if 운영기간_년 >= 3 else 0
     
-    # 11-12. 조직 구조
-    대형사무소 = 1 if 총_직원수 >= 3 else 0
-    직책_다양성 = (
-        (1 if 공인중개사수 > 0 else 0) +
-        (1 if 중개보조원수 > 0 else 0) +
-        1 +  # 대표수 (항상 1)
-        (1 if 일반직원수 > 0 else 0)
-    )
+    # 10. 조직 구조
+    대형사무소 = 1 if 총_직원수 >= 2 else 0
     
-    # 12개 Feature (학습 시와 동일한 순서)
+    # 11-12. 대표자 자격 (One-Hot Encoding)
+    대표_공인중개사 = 1 if 대표자구분명 == "공인중개사" else 0
+    대표_법인 = 1 if 대표자구분명 == "법인" else 0
+    
+    # 13. 지역 경쟁 강도 (임시값 - 실제로는 DB에서 계산 필요)
+    # 같은 지역의 중개사 수를 세야 하지만, 여기서는 기본값 사용
+    지역_경쟁강도 = 50  # 평균값으로 설정
+    
+    # 14. 1층 여부 (주소에서 추출)
+    주소 = broker.address or ""
+    일층_여부 = 1 if ("1층" in 주소 or "101호" in 주소 or "102호" in 주소) else 0
+    
+    # 14개 Feature (모델이 기대하는 순서대로)
     features = [
-        거래완료_safe,
-        등록매물_safe,
-        총거래활동량,
+        등록매물_log,
+        총거래활동량_log,
+        일인당_거래량_log,
         총_직원수,
-        공인중개사수,
-        공인중개사_비율,
+        중개보조원_비율,
+        자격증_보유비율,
         운영기간_년,
-        운영경험_지수,
         숙련도_지수,
         운영_안정성,
         대형사무소,
-        직책_다양성
+        대표_공인중개사,
+        대표_법인,
+        지역_경쟁강도,
+        일층_여부
     ]
     
     return features

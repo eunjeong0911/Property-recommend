@@ -8,6 +8,7 @@ import numpy as np
 def success_rate(df: pd.DataFrame) -> pd.DataFrame:
     """
     [타겟 변수 생성 로직]
+    0. 이상치 지역 제거 (노원구 + 총매물수 500건 미만)
     1. 지역별 매물분포율 계산
     2. 지역별 거래성사율 계산
     3. 성사율에 분포율 가중치 적용 (Adjusted Prior)
@@ -25,6 +26,37 @@ def success_rate(df: pd.DataFrame) -> pd.DataFrame:
             df["ldCodeNm"] = df["주소"].str.split().str[1]
         else:
             df["ldCodeNm"] = "Unknown"
+
+    # ---------------------------------------------------------
+    # [Step 0] 이상치 지역 제거
+    # ---------------------------------------------------------
+    original_count = len(df)
+    
+    # 지역별 총매물수 계산
+    region_listings = df.groupby("ldCodeNm")["총매물수"].sum()
+    
+    # 필터 1: 노원구 제거
+    if "노원구" in df["ldCodeNm"].values:
+        nowon_count = len(df[df["ldCodeNm"] == "노원구"])
+        df = df[df["ldCodeNm"] != "노원구"]
+        print(f"   - [필터1] 노원구 제거: {nowon_count}개 사무소 제외")
+    
+    # 필터 2: 총매물수 500개 미만 지역 제거
+    low_listing_regions = region_listings[region_listings < 500].index.tolist()
+    if "노원구" in low_listing_regions:
+        low_listing_regions.remove("노원구")  # 이미 제거됨
+    
+    if low_listing_regions:
+        removed_count = len(df[df["ldCodeNm"].isin(low_listing_regions)])
+        df = df[~df["ldCodeNm"].isin(low_listing_regions)]
+        print(f"   - [필터2] 총매물 500건 미만 지역 제거: {low_listing_regions}")
+        print(f"            {removed_count}개 사무소 제외")
+    
+    removed_total = original_count - len(df)
+    print(f"   - 이상치 제거 완료: {original_count} → {len(df)}개 ({removed_total}개 제거)")
+    
+    # DataFrame index 재설정
+    df = df.reset_index(drop=True)
 
     # ---------------------------------------------------------
     # [Step 1] 지역별 매물 분포율 계산
@@ -71,29 +103,26 @@ def success_rate(df: pd.DataFrame) -> pd.DataFrame:
     )
     
     # ---------------------------------------------------------
-    # [Step 6] 등급 부여 (분류 타겟)
+    # [Step 6] 등급 부여 (분류 타겟) - 3등급 (Quantile 기반)
     # ---------------------------------------------------------
-    # Mean ± 1 Std 기준으로 S/A/B/C 등급 부여
-    mean_score = df["베이지안_성사율"].mean()
-    std_score = df["베이지안_성사율"].std()
+    # 3분위수 기준으로 하/중/상 등급 부여 (균등 분할)
+    q1 = df["베이지안_성사율"].quantile(0.33)  # 하위 33%
+    q2 = df["베이지안_성사율"].quantile(0.66)  # 상위 33%
     
     def assign_grade(score):
-        if score >= mean_score + std_score:
-            return 3  # S등급
-        elif score >= mean_score:
-            return 2  # A등급
-        elif score >= mean_score - std_score:
-            return 1  # B등급
+        if score >= q2:
+            return 2  # 상위 (Top)
+        elif score >= q1:
+            return 1  # 중위 (Middle)
         else:
-            return 0  # C등급
+            return 0  # 하위 (Bottom)
     
     df["신뢰등급"] = df["베이지안_성사율"].apply(assign_grade)
     
-    print(f"\n   - 등급 기준: Mean={mean_score:.4f}, Std={std_score:.4f}")
-    print(f"   - S등급(3): >= {mean_score + std_score:.4f}")
-    print(f"   - A등급(2): >= {mean_score:.4f}")
-    print(f"   - B등급(1): >= {mean_score - std_score:.4f}")
-    print(f"   - C등급(0): < {mean_score - std_score:.4f}")
+    print(f"\n   - 등급 기준 (3분위): Q1={q1:.4f}, Q2={q2:.4f}")
+    print(f"   - 상위(2): >= {q2:.4f}")
+    print(f"   - 중위(1): {q1:.4f} ~ {q2:.4f}")
+    print(f"   - 하위(0): < {q1:.4f}")
     print(f"   - 등급 분포: {df['신뢰등급'].value_counts().sort_index().to_dict()}")
     
     return df

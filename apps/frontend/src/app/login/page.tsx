@@ -40,7 +40,7 @@ function LoginContent() {
                 {/* 로고 & 타이틀 */}
                 <div className="text-center mb-8">
                     <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
-                        Ondo House
+                        GoZip
                     </h1>
                     <p className="text-slate-600">
                         나에게 딱 맞는 집을 찾아보세요
@@ -82,15 +82,8 @@ function LoginContent() {
                         </span>
                     </button>
 
-                    {/* 구분선 */}
-                    <div className="flex items-center gap-4 my-6">
-                        <div className="flex-1 h-px bg-slate-200"></div>
-                        <span className="text-sm text-slate-400">또는</span>
-                        <div className="flex-1 h-px bg-slate-200"></div>
-                    </div>
-
                     {/* 안내 문구 */}
-                    <div className="text-center">
+                    <div className="text-center mt-8">
                         <p className="text-sm text-slate-500 mb-4">
                             Google 계정으로 간편하게 로그인하세요
                         </p>

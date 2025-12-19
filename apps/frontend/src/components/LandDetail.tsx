@@ -30,6 +30,7 @@ export default function LandDetail({ landId }: LandDetailProps) {
     const [error, setError] = useState<string | null>(null);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [liked, setLiked] = useState(false);
+    const [showTooltip, setShowTooltip] = useState(false);
     const { triggerEffect } = useParticleEffect();
 
     useEffect(() => {
@@ -174,8 +175,8 @@ export default function LandDetail({ landId }: LandDetailProps) {
                                 <div className="flex items-center gap-2 pt-2 border-t border-purple-200">
                                     <span className="w-20 text-gray-600 text-sm">신뢰도</span>
                                     <span className={`px-3 py-1 rounded-full text-sm font-bold ${land.broker.trust_score === 'A' ? 'bg-green-500 text-white' :
-                                            land.broker.trust_score === 'B' ? 'bg-blue-500 text-white' :
-                                                'bg-gray-400 text-white'
+                                        land.broker.trust_score === 'B' ? 'bg-blue-500 text-white' :
+                                            'bg-gray-400 text-white'
                                         }`}>
                                         {land.broker.trust_score}등급 ({land.broker.trust_grade})
                                     </span>
@@ -189,7 +190,43 @@ export default function LandDetail({ landId }: LandDetailProps) {
                 <div className="flex flex-col">
                     {/* 가격 정보 */}
                     <div className="mb-6">
-                        <h1 className="text-3xl font-bold text-slate-800">{land.price}</h1>
+                        <div className="flex items-center gap-3">
+                            <h1 className="text-3xl font-bold text-slate-800">{land.price}</h1>
+
+                            {/* 가격 분류 레이블 배지 */}
+                            {land.price_prediction?.prediction_label_korean && (
+                                <div className="flex items-center gap-2">
+                                    <span className={`px-3 py-1 rounded-full text-sm font-bold ${land.price_prediction.prediction_label_korean === '저렴'
+                                        ? 'bg-green-100 text-green-700 border border-green-300'
+                                        : land.price_prediction.prediction_label_korean === '적정'
+                                            ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                                            : 'bg-red-100 text-red-700 border border-red-300'
+                                        }`}>
+                                        {land.price_prediction.prediction_label_korean}
+                                    </span>
+
+                                    {/* 툴팁 아이콘 */}
+                                    <div className="relative">
+                                        <button
+                                            onMouseEnter={() => setShowTooltip(true)}
+                                            onMouseLeave={() => setShowTooltip(false)}
+                                            className="w-5 h-5 rounded-full bg-gray-300 hover:bg-gray-400 flex items-center justify-center text-white text-xs font-bold transition-colors"
+                                        >
+                                            ?
+                                        </button>
+
+                                        {/* 툴팁 내용 */}
+                                        {showTooltip && (
+                                            <div className="absolute left-0 top-full mt-2 w-64 bg-white border border-gray-300 rounded-lg shadow-lg p-3 z-50">
+                                                <p className="text-xs text-gray-700 leading-relaxed">
+                                                    서울특별시 행정동의 건물용도별 평당 환산보증금 분포 기준 <strong className="text-blue-600">{land.price_prediction.prediction_label_korean}</strong> 구간에 위치합니다
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     {/* 매물 정보 */}

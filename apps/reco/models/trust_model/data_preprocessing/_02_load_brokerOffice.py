@@ -88,7 +88,8 @@ def fetch_broker_offices(key, domain, ld_code=None, status_code="1", format_type
     return all_data
 
 
-if __name__ == "__main__":
+def main():
+    """메인 실행 함수"""
     # 환경 변수에서 API 키와 도메인 가져오기
     API_KEY = os.getenv("VWORLD_API_KEY")
     DOMAIN = os.getenv("VWORLD_DOMAIN")
@@ -167,3 +168,7 @@ if __name__ == "__main__":
                 writer.writerows(broker_offices)
             
             print(f"{csv_filename} 파일로 저장 완료")
+
+
+if __name__ == "__main__":
+    main()

@@ -14,9 +14,9 @@
 import { useState, useEffect } from 'react'
 import SideTab from '@/components/SideTab'
 import LandImage from '@/components/LandImage'
-import Pagination from '@/components/Pagination'
 import Comparison from '@/components/Comparison'
 import Button from '@/components/Button'
+import LoadingSpinner from '@/components/LoadingSpinner'
 import { fetchWishlist } from '@/api/wishlistApi'
 import { fetchLandById } from '@/api/landApi'
 import { Land } from '@/types/land'
@@ -27,6 +27,9 @@ export default function WishListPage() {
   const [wishlistLands, setWishlistLands] = useState<Land[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 8
+  const totalPages = Math.ceil(wishlistLands.length / pageSize)
 
   // 찜 매물 데이터 로드
   useEffect(() => {
@@ -118,30 +121,20 @@ export default function WishListPage() {
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex gap-6">
-          <SideTab />
-          <div className="flex-1">
-            <h1 className="text-3xl font-bold mb-6 text-black">찜 매물 목록</h1>
-            <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-              <p className="text-gray-600">로딩 중...</p>
-            </div>
-          </div>
-        </div>
+      <div className="max-w-5xl mx-auto px-4 py-8">
+        <SideTab />
+        <LoadingSpinner message="찜 매물을 불러오는 중..." />
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex gap-6">
-          <SideTab />
-          <div className="flex-1">
-            <h1 className="text-3xl font-bold mb-6 text-black">찜 매물 목록</h1>
-            <div className="bg-red-50 border border-red-200 rounded-lg p-12 text-center">
-              <p className="text-red-600">{error}</p>
-            </div>
+      <div className="max-w-5xl mx-auto px-4 py-8">
+        <SideTab />
+        <div>
+          <div className="bg-red-50 border border-red-200 rounded-lg p-12 text-center">
+            <p className="text-red-600">{error}</p>
           </div>
         </div>
       </div>
@@ -149,95 +142,169 @@ export default function WishListPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="flex gap-6">
-        {/* 좌측 사이드 탭 */}
-        <SideTab />
+    <div className="max-w-5xl mx-auto px-4 py-8">
+      {/* 가로 탭 */}
+      <SideTab />
 
-        {/* 우측 컨텐츠 영역 */}
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold mb-6 text-black">찜 매물 목록</h1>
+      {/* 컨텐츠 영역 */}
+      <div>
 
-          {!showComparison ? (
-            <>
-              {/* 선택 안내 */}
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-2xl p-4 mb-6 shadow-sm">
-                <p className="text-sm text-blue-800 font-medium">
-                  💡 비교할 매물을 선택하세요 (최대 3개) - 현재 <span className="font-bold text-blue-600">{selectedLands.length}</span>개 선택됨
-                </p>
-              </div>
+        {!showComparison ? (
+          <>
+            {/* 선택 안내 */}
+            <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-2xl p-4 mb-6 shadow-sm">
+              <p className="text-sm text-blue-800 font-medium">
+                💡 비교할 매물을 선택하세요 (최대 3개) - 현재 <span className="font-bold text-blue-600">{selectedLands.length}</span>개 선택됨
+              </p>
+            </div>
 
-              {/* 찜한 매물 목록 - Pagination으로 관리 */}
-              <Pagination
-                items={wishlistLands}
-                pageSize={8}
-                renderItem={(land) => (
-                  <div className="w-1/4 p-3">
-                    <div className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden">
-                      <div className="relative">
-                        {/* 체크박스 */}
-                        <div className="absolute top-3 left-3 z-10">
+            {/* 찜한 매물 목록 - 2행 4열 고정 그리드 */}
+            <div className="grid grid-cols-4 gap-4 mb-6">
+              {/* 현재 페이지의 매물들 */}
+              {wishlistLands
+                .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+                .map((land) => (
+                  <div key={land.id} className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden">
+                    <div className="relative">
+                      {/* 커스텀 체크박스 */}
+                      <div className="absolute top-3 left-3 z-10">
+                        <label className="relative flex items-center justify-center w-6 h-6 cursor-pointer group">
                           <input
                             type="checkbox"
                             checked={selectedLands.includes(land.id)}
                             onChange={() => handleSelectLand(land.id)}
-                            className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer shadow-sm"
+                            className="sr-only"
                           />
-                        </div>
-                        <LandImage
-                          key={land.id}
-                          id={land.id.toString()}
-                          images={land.images}
-                          price={formatPrice(land)}
-                          isLiked={true}
-                        />
+                          <div className={`w-6 h-6 border-2 rounded-lg backdrop-blur-sm transition-all duration-200 group-hover:scale-110 shadow-lg ${selectedLands.includes(land.id)
+                              ? 'bg-[#16375B] border-[#16375B]'
+                              : 'bg-black/20 border-white'
+                            }`}>
+                            <svg
+                              className={`w-full h-full text-white transition-opacity duration-200 ${selectedLands.includes(land.id) ? 'opacity-100' : 'opacity-0'
+                                }`}
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={3}
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                          </div>
+                        </label>
                       </div>
-                      {/* 주소 정보 */}
-                      <div className="px-3 pb-3">
-                        <p className="text-sm text-gray-600 truncate flex items-center gap-1" title={land.address}>
-                          <span className="text-blue-500">📍</span>
-                          {land.address || '주소 정보 없음'}
-                        </p>
-                      </div>
+                      <LandImage
+                        id={land.id.toString()}
+                        images={land.images}
+                        price={formatPrice(land)}
+                        isLiked={true}
+                      />
+                    </div>
+                    {/* 주소 정보 */}
+                    <div className="px-3 pb-3">
+                      <p className="text-sm text-gray-600 truncate flex items-center gap-1" title={land.address}>
+                        <span className="text-blue-500">📍</span>
+                        {land.address || '주소 정보 없음'}
+                      </p>
                     </div>
                   </div>
-                )}
-                emptyMessage={
-                  <div className="bg-white/50 border-2 border-white/40 backdrop-blur-md rounded-2xl p-12 text-center shadow-lg">
-                    <p className="text-slate-500 text-lg font-medium">찜한 매물이 없습니다.</p>
-                    <p className="text-slate-400 text-sm mt-2">마음에 드는 매물을 찜해보세요! ❤️</p>
-                  </div>
-                }
-              />
+                ))}
 
-              {/* 비교하기 버튼 */}
-              <div className="flex justify-center mt-8">
-                <Button
-                  variant="primary"
-                  onClick={() => setShowComparison(true)}
-                  disabled={selectedLands.length < 2}
-                >
-                  매물 비교하기 ({selectedLands.length}/3)
-                </Button>
-              </div>
-            </>
-          ) : (
-            <>
-              {/* 매물 비교 */}
-              <Comparison lands={getSelectedLandData()} />
+              {/* 빈 슬롯 (8개 채우기) */}
+              {Array.from({
+                length: Math.max(0, pageSize - wishlistLands.slice((currentPage - 1) * pageSize, currentPage * pageSize).length)
+              }).map((_, index) => (
+                <div key={`empty-${index}`} className="bg-slate-50/50 rounded-xl border-2 border-dashed border-slate-200 min-h-[280px]"></div>
+              ))}
+            </div>
 
-              {/* 목록으로 돌아가기 버튼 */}
-              <div className="flex justify-center mt-8">
-                <Button
-                  variant="secondary"
-                  onClick={() => setShowComparison(false)}
-                >
-                  목록으로 돌아가기
-                </Button>
+            {/* 빈 상태 메시지 */}
+            {wishlistLands.length === 0 && (
+              <div className="bg-white/50 border-2 border-white/40 backdrop-blur-md rounded-2xl p-12 text-center shadow-lg mb-6">
+                <p className="text-slate-500 text-lg font-medium">찜한 매물이 없습니다.</p>
+                <p className="text-slate-400 text-sm mt-2">마음에 드는 매물을 찜해보세요! ❤️</p>
               </div>
-            </>
-          )}
-        </div>
+            )}
+
+            {/* 페이지네이션 */}
+            {wishlistLands.length > 0 && (
+              <div className="flex items-center justify-center mb-8">
+                <div className="inline-flex items-center gap-1 p-2 rounded-2xl bg-white/60 backdrop-blur-md border border-white/40 shadow-lg">
+                  {/* 이전 버튼 */}
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-500 disabled:text-slate-300 disabled:cursor-not-allowed hover:bg-blue-50 hover:text-blue-600 transition-all duration-200"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+
+                  {/* 페이지 번호 */}
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <button
+                      key={page}
+                      type="button"
+                      onClick={() => setCurrentPage(page)}
+                      className={`
+                        w-9 h-9 rounded-xl text-sm font-semibold transition-all duration-200
+                        ${page === currentPage
+                          ? 'bg-[#16375B] text-white shadow-lg shadow-[#16375B]/30 scale-105'
+                          : 'text-slate-600 hover:bg-slate-50 hover:text-[#16375B]'
+                        }
+                      `}
+                    >
+                      {page}
+                    </button>
+                  ))}
+
+                  {/* 다음 버튼 */}
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-500 disabled:text-slate-300 disabled:cursor-not-allowed hover:bg-blue-50 hover:text-blue-600 transition-all duration-200"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* 비교하기 버튼 */}
+            <div className="flex justify-center mt-8">
+              <Button
+                variant="primary"
+                onClick={() => setShowComparison(true)}
+                disabled={selectedLands.length < 2}
+              >
+                매물 비교하기 ({selectedLands.length}/3)
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* 매물 비교 */}
+            <Comparison lands={getSelectedLandData()} />
+
+            {/* 목록으로 돌아가기 버튼 */}
+            <div className="flex justify-center mt-8">
+              <Button
+                variant="secondary"
+                onClick={() => setShowComparison(false)}
+              >
+                목록으로 돌아가기
+              </Button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )
