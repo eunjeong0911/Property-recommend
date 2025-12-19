@@ -109,11 +109,30 @@ export default function WishListPage() {
           id: land.id.toString(),
           images: land.images,
           price: formatPrice(land),
-          deposit: land.deposit?.toString(),
-          monthlyRent: land.monthly_rent?.toString(),
+          deposit: land.deposit ? `${land.deposit.toLocaleString()}만원` : undefined,
+          monthlyRent: land.monthly_rent ? `${land.monthly_rent.toLocaleString()}만원` : undefined,
           buildingType: land.building_type,
           area: land.area_exclusive || land.area_supply,
           floor: land.floor,
+          rooms: land.room_count,
+          bathrooms: undefined, // 중복 제거 - 이미지에서 방/욕실에서 표시됨
+          // 추가 필드
+          direction: land.direction?.includes('/') ? land.direction.split('/')[1] : land.direction,
+          parking: land.parking,
+          heating: land.heating_method,
+          elevator: land.elevator, // 관리비 제거, 엘리베이터 추가
+          moveInDate: land.move_in_date,
+          address: land.address,
+          // 중개사 온도 (temperature)
+          temperature: land.temperature,
+          // ML 가격 예측
+          pricePredictionLabel: land.price_prediction?.prediction_label_korean,
+          pricePredictionProb: land.price_prediction?.probability_underpriced ||
+            land.price_prediction?.probability_fair ||
+            land.price_prediction?.probability_overpriced,
+          // 중개사 신뢰도
+          brokerTrustScore: land.broker?.trust_score,
+          brokerTrustGrade: land.broker?.trust_grade,
         }
       })
       .filter(Boolean) as any[]
@@ -176,8 +195,8 @@ export default function WishListPage() {
                             className="sr-only"
                           />
                           <div className={`w-6 h-6 border-2 rounded-lg backdrop-blur-sm transition-all duration-200 group-hover:scale-110 shadow-lg ${selectedLands.includes(land.id)
-                              ? 'bg-[#16375B] border-[#16375B]'
-                              : 'bg-black/20 border-white'
+                            ? 'bg-[#16375B] border-[#16375B]'
+                            : 'bg-black/20 border-white'
                             }`}>
                             <svg
                               className={`w-full h-full text-white transition-opacity duration-200 ${selectedLands.includes(land.id) ? 'opacity-100' : 'opacity-0'

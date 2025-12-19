@@ -178,5 +178,3 @@ class LandViewSet(viewsets.ReadOnlyModelViewSet):
                 'results': [],
                 'error': str(e)
             }, status=500)
-    
-

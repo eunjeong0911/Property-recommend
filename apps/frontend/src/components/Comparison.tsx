@@ -5,10 +5,6 @@
  *
  * 주요 기능:
  * - 두 개 이상의 매물을 나란히 비교 표시 (최대 3개)
- * - 매물 이미지 표시
- * - 찜하기 버튼
- * - 매물 정보 표시 (월세, 보증금, 건축물 용도, 공급면적, 해당층/전체층, 방/욕실 수)
- * - AI 비교 분석 영역
  *
  * 사용 컴포넌트:
  * - LandImage: 매물 사진 표시
@@ -32,6 +28,19 @@ interface LandData {
   rooms?: number
   bathrooms?: number
   temperature?: number
+  // 추가 필드
+  direction?: string
+  parking?: string
+  heating?: string
+  elevator?: string
+  moveInDate?: string
+  address?: string
+  // ML 예측
+  pricePredictionLabel?: string
+  pricePredictionProb?: number
+  // 중개사 신뢰도
+  brokerTrustScore?: string
+  brokerTrustGrade?: string
 }
 
 interface ComparisonProps {
@@ -41,10 +50,17 @@ interface ComparisonProps {
 }
 
 export default function Comparison({ lands, land1, land2 }: ComparisonProps) {
-  const [likedStates, setLikedStates] = useState<Record<string, boolean>>({})
-
   // lands prop이 있으면 사용, 없으면 land1, land2 사용 (하위 호환성)
   const compareData = lands && lands.length >= 2 ? lands : (land1 && land2 ? [land1, land2] : [])
+
+  // 찜 목록에서 온 매물이므로 기본값은 모두 true (빨간 하트)
+  const [likedStates, setLikedStates] = useState<Record<string, boolean>>(() => {
+    const initialStates: Record<string, boolean> = {}
+    compareData.forEach(land => {
+      initialStates[land.id] = true
+    })
+    return initialStates
+  })
 
   // 매물이 2개 미만일 때
   if (compareData.length < 2) {
@@ -73,8 +89,15 @@ export default function Comparison({ lands, land1, land2 }: ComparisonProps) {
 
       {/* 매물 비교 */}
       <div className={`grid ${gridCols} gap-8 mb-8`}>
-        {compareData.map((land) => (
+        {compareData.map((land, index) => (
           <div key={land.id} className="bg-white rounded-lg shadow-md p-6">
+            {/* 매물 번호 라벨 */}
+            <div className="mb-3">
+              <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-bold">
+                매물{index + 1}
+              </span>
+            </div>
+
             {/* 매물 이미지 */}
             <LandImage
               id={land.id}
@@ -87,6 +110,13 @@ export default function Comparison({ lands, land1, land2 }: ComparisonProps) {
 
             {/* 매물 정보 */}
             <div className="mt-6 space-y-3">
+              {/* 위치 */}
+              {land.address && (
+                <div className="border-b pb-2">
+                  <span className="text-gray-600 block mb-1">위치</span>
+                  <span className="font-semibold text-sm break-words">{land.address}</span>
+                </div>
+              )}
               {land.deposit && (
                 <div className="flex justify-between border-b pb-2">
                   <span className="text-gray-600">보증금</span>
@@ -111,40 +141,91 @@ export default function Comparison({ lands, land1, land2 }: ComparisonProps) {
                   <span className="font-semibold">{land.area}</span>
                 </div>
               )}
-              {land.floor && land.totalFloor && (
+              {land.floor && (
                 <div className="flex justify-between border-b pb-2">
                   <span className="text-gray-600">층수</span>
-                  <span className="font-semibold">{land.floor}층 / 전체 {land.totalFloor}층</span>
+                  <span className="font-semibold">{land.floor}</span>
                 </div>
               )}
-              {land.rooms !== undefined && land.bathrooms !== undefined && (
+              {land.rooms && (
                 <div className="flex justify-between border-b pb-2">
-                  <span className="text-gray-600">방 / 욕실</span>
-                  <span className="font-semibold">{land.rooms}개 / {land.bathrooms}개</span>
+                  <span className="text-gray-600">방</span>
+                  <span className="font-semibold">{land.rooms}</span>
+                </div>
+              )}
+              {land.direction && (
+                <div className="flex justify-between border-b pb-2">
+                  <span className="text-gray-600">방향</span>
+                  <span className="font-semibold">{land.direction}</span>
+                </div>
+              )}
+              {land.parking && (
+                <div className="flex justify-between border-b pb-2">
+                  <span className="text-gray-600">주차</span>
+                  <span className="font-semibold">{land.parking}</span>
+                </div>
+              )}
+              {land.heating && (
+                <div className="flex justify-between border-b pb-2">
+                  <span className="text-gray-600">난방방식</span>
+                  <span className="font-semibold">{land.heating}</span>
+                </div>
+              )}
+              {land.elevator && (
+                <div className="flex justify-between border-b pb-2">
+                  <span className="text-gray-600">엘리베이터</span>
+                  <span className="font-semibold">{land.elevator}</span>
+                </div>
+              )}
+              {land.moveInDate && (
+                <div className="border-b pb-2">
+                  <span className="text-gray-600 block mb-1">입주가능일</span>
+                  <span className="font-semibold text-sm">{land.moveInDate}</span>
+                </div>
+              )}
+              {/* 중개사 온도 (신뢰도 위) */}
+              {land.temperature !== undefined && (
+                <div className="flex justify-between border-b pb-2 bg-orange-50 p-2 rounded">
+                  <span className="text-orange-700 font-medium">🌡️ 중개사 온도</span>
+                  <span className={`font-bold ${land.temperature >= 70 ? 'text-red-500' :
+                    land.temperature >= 50 ? 'text-orange-500' :
+                      land.temperature >= 30 ? 'text-yellow-600' :
+                        'text-blue-500'
+                    }`}>
+                    {land.temperature}°C
+                  </span>
+                </div>
+              )}
+              {/* 중개사 신뢰도 (온도 아래) */}
+              {land.brokerTrustScore && (
+                <div className="flex justify-between border-b pb-2 bg-purple-50 p-2 rounded">
+                  <span className="text-purple-700 font-medium">🏢 중개사 신뢰도</span>
+                  <span className={`font-bold ${land.brokerTrustScore === 'A' ? 'text-green-600' :
+                    land.brokerTrustScore === 'B' ? 'text-yellow-600' :
+                      'text-red-600'
+                    }`}>
+                    {land.brokerTrustScore}등급 {land.brokerTrustGrade ? `(${land.brokerTrustGrade})` : ''}
+                  </span>
+                </div>
+              )}
+              {/* 실거래가 판단 */}
+              {land.pricePredictionLabel && (
+                <div
+                  className="flex justify-between border-b pb-2 bg-blue-50 p-2 rounded cursor-help"
+                  title="해당 행정동의 건물용도별 평당가 대비 ML 모델이 분석한 결과입니다."
+                >
+                  <span className="text-blue-700 font-medium">📊 실거래가 판단</span>
+                  <span className={`font-bold ${land.pricePredictionLabel === '저렴' ? 'text-green-600' :
+                    land.pricePredictionLabel === '적정' ? 'text-blue-600' :
+                      'text-red-600'
+                    }`}>
+                    {land.pricePredictionLabel}
+                  </span>
                 </div>
               )}
             </div>
           </div>
         ))}
-      </div>
-
-      {/* AI 비교 분석 영역 */}
-      <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
-        <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-          <span className="text-blue-600">🤖</span>
-          AI 비교 분석
-        </h3>
-        <div className="space-y-3 text-gray-700">
-          <p>
-            <strong>가격 비교:</strong> 선택한 {compareData.length}개 매물의 가격대를 분석 중입니다.
-          </p>
-          <p>
-            <strong>위치 및 편의성:</strong> 각 매물의 위치와 주변 편의시설을 비교합니다.
-          </p>
-          <p>
-            <strong>추천:</strong> 사용자의 선호도에 맞는 최적의 매물을 추천해드립니다.
-          </p>
-        </div>
       </div>
     </div>
   )
