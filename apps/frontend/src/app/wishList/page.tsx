@@ -117,7 +117,7 @@ export default function WishListPage() {
           rooms: land.room_count,
           bathrooms: undefined, // 중복 제거 - 이미지에서 방/욕실에서 표시됨
           // 추가 필드
-          direction: land.direction,
+          direction: land.direction?.includes('/') ? land.direction.split('/')[1] : land.direction,
           parking: land.parking,
           heating: land.heating_method,
           elevator: land.elevator, // 관리비 제거, 엘리베이터 추가

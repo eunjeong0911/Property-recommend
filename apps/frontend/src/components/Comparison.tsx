@@ -112,9 +112,9 @@ export default function Comparison({ lands, land1, land2 }: ComparisonProps) {
             <div className="mt-6 space-y-3">
               {/* 위치 */}
               {land.address && (
-                <div className="flex justify-between border-b pb-2">
-                  <span className="text-gray-600">위치</span>
-                  <span className="font-semibold text-right max-w-[60%] truncate" title={land.address}>{land.address}</span>
+                <div className="border-b pb-2">
+                  <span className="text-gray-600 block mb-1">위치</span>
+                  <span className="font-semibold text-sm break-words">{land.address}</span>
                 </div>
               )}
               {land.deposit && (
@@ -178,9 +178,9 @@ export default function Comparison({ lands, land1, land2 }: ComparisonProps) {
                 </div>
               )}
               {land.moveInDate && (
-                <div className="flex justify-between border-b pb-2">
-                  <span className="text-gray-600">입주가능일</span>
-                  <span className="font-semibold">{land.moveInDate}</span>
+                <div className="border-b pb-2">
+                  <span className="text-gray-600 block mb-1">입주가능일</span>
+                  <span className="font-semibold text-sm">{land.moveInDate}</span>
                 </div>
               )}
               {/* 중개사 온도 (신뢰도 위) */}
@@ -188,9 +188,9 @@ export default function Comparison({ lands, land1, land2 }: ComparisonProps) {
                 <div className="flex justify-between border-b pb-2 bg-orange-50 p-2 rounded">
                   <span className="text-orange-700 font-medium">🌡️ 중개사 온도</span>
                   <span className={`font-bold ${land.temperature >= 70 ? 'text-red-500' :
-                      land.temperature >= 50 ? 'text-orange-500' :
-                        land.temperature >= 30 ? 'text-yellow-600' :
-                          'text-blue-500'
+                    land.temperature >= 50 ? 'text-orange-500' :
+                      land.temperature >= 30 ? 'text-yellow-600' :
+                        'text-blue-500'
                     }`}>
                     {land.temperature}°C
                   </span>
@@ -201,8 +201,8 @@ export default function Comparison({ lands, land1, land2 }: ComparisonProps) {
                 <div className="flex justify-between border-b pb-2 bg-purple-50 p-2 rounded">
                   <span className="text-purple-700 font-medium">🏢 중개사 신뢰도</span>
                   <span className={`font-bold ${land.brokerTrustScore === 'A' ? 'text-green-600' :
-                      land.brokerTrustScore === 'B' ? 'text-yellow-600' :
-                        'text-red-600'
+                    land.brokerTrustScore === 'B' ? 'text-yellow-600' :
+                      'text-red-600'
                     }`}>
                     {land.brokerTrustScore}등급 {land.brokerTrustGrade ? `(${land.brokerTrustGrade})` : ''}
                   </span>
@@ -216,8 +216,8 @@ export default function Comparison({ lands, land1, land2 }: ComparisonProps) {
                 >
                   <span className="text-blue-700 font-medium">📊 실거래가 판단</span>
                   <span className={`font-bold ${land.pricePredictionLabel === '저렴' ? 'text-green-600' :
-                      land.pricePredictionLabel === '적정' ? 'text-blue-600' :
-                        'text-red-600'
+                    land.pricePredictionLabel === '적정' ? 'text-blue-600' :
+                      'text-red-600'
                     }`}>
                     {land.pricePredictionLabel}
                   </span>
