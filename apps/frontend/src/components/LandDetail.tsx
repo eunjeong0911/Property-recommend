@@ -165,7 +165,7 @@ export default function LandDetail({ landId }: LandDetailProps) {
     return (
         <div className="space-y-6">
             {/* 헤더 섹션: 매물번호, 주소, 가격 */}
-            <div className="p-6">
+            <div className="p-4">
                 <div className="flex items-start gap-3">
                     <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
                         <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">

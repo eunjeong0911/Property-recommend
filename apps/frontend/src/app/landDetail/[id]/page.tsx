@@ -15,7 +15,6 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import Image from 'next/image';
 import LandDetail from '@/components/LandDetail';
 import Map from '@/components/Map';
 import MarkerInfo from '@/components/MarkerInfo';

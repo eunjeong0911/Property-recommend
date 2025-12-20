@@ -218,6 +218,12 @@ export default function Map({ landId, activeCategories }: MapProps) {
 
     // 매물 마커 표시 (상세 페이지에서만)
     useEffect(() => {
+        console.log('🔍 매물 마커 useEffect 실행:', {
+            hasMap: !!mapRef.current,
+            hasKakao: !!window.kakao,
+            landId,
+            locationsLength: locations.length
+        });
         if (!mapRef.current || !window.kakao || !landId || locations.length === 0) return;
 
         // 기존 매물 마커 제거
