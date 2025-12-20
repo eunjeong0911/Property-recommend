@@ -24,6 +24,11 @@ export interface Land {
     heating_method?: string;
     elevator?: string;
     description?: string;
+    additional_options?: string;
+    jeonse_loan?: string;        // 전세자금대출
+    move_in_report?: string;     // 전입신고 여부
+    approval_date?: string;      // 사용승인일
+    trade_info?: any;            // 거래 정보 JSON
 
     // 가격 예측 정보
     price_prediction?: {

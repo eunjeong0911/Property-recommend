@@ -188,3 +188,104 @@ class LandViewSet(viewsets.ReadOnlyModelViewSet):
                 'results': [],
                 'error': str(e)
             }, status=500)
+    
+    @action(detail=True, methods=['get'])
+    def nearby_facilities(self, request, pk=None):
+        """
+        매물 주변 시설 정보를 Neo4j에서 가져옵니다.
+        
+        Returns:
+            - medical: 의료시설 개수
+            - convenience: 편의시설 개수
+            - transportation: 대중교통 개수
+            - safety: 안전시설(CCTV) 개수
+        """
+        try:
+            land = Land.objects.get(land_id=pk)
+            land_num = land.land_num
+        except Land.DoesNotExist:
+            return Response({'error': f'매물 ID {pk}를 찾을 수 없습니다.'}, status=404)
+        
+        # Neo4j 연결
+        driver = Neo4jClient.get_driver()
+        
+        try:
+            with driver.session() as session:
+                # 매물 주변 시설 개수 조회 쿼리
+                # 대중교통: 지하철역, 버스정류장
+                # 의료시설: 병원, 약국, 종합병원
+                # 안전시설: CCTV, 경찰서, 소방서, 비상벨
+                # 편의시설: 편의점
+                query = """
+                MATCH (p:Property {id: $land_num})
+                OPTIONAL MATCH (p)-[:NEAR]->(subway:Subway)
+                OPTIONAL MATCH (p)-[:NEAR]->(bus:Bus)
+                OPTIONAL MATCH (p)-[:NEAR]->(hospital:Hospital)
+                OPTIONAL MATCH (p)-[:NEAR]->(pharmacy:Pharmacy)
+                OPTIONAL MATCH (p)-[:NEAR]->(general_hospital:GeneralHospital)
+                OPTIONAL MATCH (p)-[:NEAR]->(cctv:CCTV)
+                OPTIONAL MATCH (p)-[:NEAR]->(police:Police)
+                OPTIONAL MATCH (p)-[:NEAR]->(fire:Fire)
+                OPTIONAL MATCH (p)-[:NEAR]->(emergency:Emergency)
+                OPTIONAL MATCH (p)-[:NEAR]->(convenience:ConvenienceStore)
+                RETURN 
+                    count(DISTINCT subway) + count(DISTINCT bus) as transport_count,
+                    count(DISTINCT hospital) + count(DISTINCT pharmacy) + count(DISTINCT general_hospital) as medical_count,
+                    count(DISTINCT cctv) + count(DISTINCT police) + count(DISTINCT fire) + count(DISTINCT emergency) as safety_count,
+                    count(DISTINCT convenience) as convenience_count,
+                    p.latitude as latitude,
+                    p.longitude as longitude
+                """
+                
+                result = session.run(query, {"land_num": land_num})
+                record = result.single()
+                
+                if record:
+                    facilities = {
+                        'medical': {
+                            'count': record.get('medical_count', 0),
+                            'name': '의료시설',
+                            'icon': '/assets/map_pin/medical_facilities.png',
+                        },
+                        'convenience': {
+                            'count': record.get('convenience_count', 0),
+                            'name': '편의시설',
+                            'icon': '/assets/map_pin/convenience.png',
+                        },
+                        'transportation': {
+                            'count': record.get('transport_count', 0),
+                            'name': '대중교통',
+                            'icon': '/assets/map_pin/bus.png',
+                        },
+                        'safety': {
+                            'count': record.get('safety_count', 0),
+                            'name': 'CCTV',
+                            'icon': '/assets/map_pin/cctv.png',
+                        },
+                        'location': {
+                            'latitude': record.get('latitude'),
+                            'longitude': record.get('longitude')
+                        }
+                    }
+                    return Response(facilities)
+                else:
+                    return Response({
+                        'medical': {'count': 0, 'name': '의료시설', 'icon': '/assets/map_pin/medical_facilities.png'},
+                        'convenience': {'count': 0, 'name': '편의시설', 'icon': '/assets/map_pin/convenience.png'},
+                        'transportation': {'count': 0, 'name': '대중교통', 'icon': '/assets/map_pin/bus.png'},
+                        'safety': {'count': 0, 'name': 'CCTV', 'icon': '/assets/map_pin/cctv.png'},
+                        'location': None
+                    })
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Neo4j nearby_facilities 쿼리 오류: {e}")
+            return Response({
+                'error': str(e),
+                'medical': {'count': 0, 'name': '의료시설', 'icon': '/assets/map_pin/medical_facilities.png'},
+                'convenience': {'count': 0, 'name': '편의시설', 'icon': '/assets/map_pin/convenience.png'},
+                'transportation': {'count': 0, 'name': '대중교통', 'icon': '/assets/map_pin/bus.png'},
+                'safety': {'count': 0, 'name': 'CCTV', 'icon': '/assets/map_pin/cctv.png'},
+                'location': None
+            }, status=500)
+

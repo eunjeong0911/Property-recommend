@@ -6,7 +6,6 @@
  * 주요 기능:
  * - 지도 표시
  * - 마커 표시
- * - 온도 표시
  * - 지도 확대/축소 및 이동
  */
 
@@ -139,7 +138,7 @@ export default function Map({ landId }: MapProps) {
                     // 지도 이동/확대 제한 (서울 전역 고정)
                     map.setZoomable(false);
                     map.setDraggable(false);
-                    
+
                     drawDistrictPolygons(map);
                 }
             });
@@ -257,7 +256,7 @@ export default function Map({ landId }: MapProps) {
         // 새 매물 마커 추가
         locations.forEach((location) => {
             const position = new window.kakao.maps.LatLng(location.latitude, location.longitude);
-            
+
             // 마커 생성
             const marker = new window.kakao.maps.Marker({
                 position: position,
@@ -268,7 +267,7 @@ export default function Map({ landId }: MapProps) {
 
             // 커스텀 오버레이 생성 (클릭 가능한 상세 정보)
             const isDetailPage = !!landId;
-            
+
             // 오버레이 컨텐츠 생성
             const overlayContent = document.createElement('div');
             overlayContent.className = 'overlay-wrapper';
@@ -382,7 +381,7 @@ export default function Map({ landId }: MapProps) {
             // 상세 페이지에서는 오버레이를 자동으로 표시
             if (isDetailPage) {
                 customOverlay.setMap(mapRef.current);
-                
+
                 // 닫기 버튼 이벤트
                 setTimeout(() => {
                     const closeBtn = document.getElementById(`close-overlay-${location.id}`);
@@ -399,7 +398,7 @@ export default function Map({ landId }: MapProps) {
             // 마커 클릭 이벤트 - 상태 객체 참조
             const markerClickHandler = () => {
                 console.log('🔵 마커 클릭됨:', location.id, '현재 상태:', overlayState.isOpen);
-                
+
                 // 다른 모든 오버레이 닫기
                 markersRef.current.forEach(item => {
                     if (item.overlay !== customOverlay && item.overlay && item.overlayState) {
@@ -418,7 +417,7 @@ export default function Map({ landId }: MapProps) {
                     customOverlay.setMap(mapRef.current);
                     overlayState.isOpen = true;
                     console.log('✅ 오버레이 열림');
-                    
+
                     // 닫기 버튼 및 오버레이 클릭 이벤트 등록
                     setTimeout(() => {
                         if (isDetailPage) {
@@ -454,8 +453,8 @@ export default function Map({ landId }: MapProps) {
             }
 
             // 마커와 오버레이 저장 (상태 객체 포함)
-            markersRef.current.push({ 
-                marker, 
+            markersRef.current.push({
+                marker,
                 overlay: customOverlay,
                 overlayState: overlayState
             });
@@ -465,7 +464,7 @@ export default function Map({ landId }: MapProps) {
     }, [locations, landId]);
 
     return (
-        <div className="relative w-[600px] h-[500px] rounded-2xl border border-purple-200/60 bg-gradient-to-b from-purple-50/90 via-blue-50/90 to-cyan-50/90 backdrop-blur-md shadow-lg overflow-hidden p-2">
+        <div className="relative w-full h-[450px] rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden p-2">
             <div
                 ref={mapContainer}
                 className="w-full h-full rounded-xl overflow-hidden"

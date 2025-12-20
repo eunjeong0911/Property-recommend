@@ -51,13 +51,13 @@ class LandSerializer(serializers.ModelSerializer):
     deposit = serializers.SerializerMethodField()
     monthly_rent = serializers.SerializerMethodField()
     price = serializers.SerializerMethodField()
-    region = serializers.CharField(source='address')
-    transaction_type = serializers.CharField(source='deal_type')
+    region = serializers.CharField(source='address', allow_null=True, allow_blank=True)
+    transaction_type = serializers.CharField(source='deal_type', allow_null=True, allow_blank=True)
     
     # Detail fields
     land_num = serializers.CharField()
-    address = serializers.CharField()
-    building_type = serializers.CharField()
+    address = serializers.CharField(allow_null=True, allow_blank=True)
+    building_type = serializers.CharField(allow_null=True, allow_blank=True)
     floor = serializers.SerializerMethodField()
     room_count = serializers.SerializerMethodField()
     area_supply = serializers.SerializerMethodField()
@@ -68,7 +68,11 @@ class LandSerializer(serializers.ModelSerializer):
     maintenance_fee = serializers.SerializerMethodField()
     heating_method = serializers.SerializerMethodField()
     elevator = serializers.SerializerMethodField()
-    description = serializers.CharField()
+    description = serializers.CharField(allow_null=True, allow_blank=True)
+    approval_date = serializers.SerializerMethodField()  # 사용승인일
+    additional_options = serializers.CharField(allow_null=True, allow_blank=True)
+    jeonse_loan = serializers.SerializerMethodField()  # 전세자금대출
+    move_in_report = serializers.SerializerMethodField()  # 전입신고
     
     # 중개업소 정보
     broker = BrokerSerializer(source='landbroker', read_only=True)
@@ -103,6 +107,10 @@ class LandSerializer(serializers.ModelSerializer):
             'heating_method',
             'elevator',
             'description',
+            'approval_date',
+            'additional_options',
+            'jeonse_loan',
+            'move_in_report',
             'broker',
             'price_prediction'
         ]
@@ -211,6 +219,24 @@ class LandSerializer(serializers.ModelSerializer):
         total_floors = extract_total_floors(floor_info)
         if total_floors is not None:
             return '있음' if total_floors >= 5 else '없음'
+        return '-'
+    
+    def get_approval_date(self, obj):
+        """사용승인일 (listing_info에서 추출)"""
+        if obj.listing_info and isinstance(obj.listing_info, dict):
+            return obj.listing_info.get('사용승인일', '-')
+        return '-'
+    
+    def get_jeonse_loan(self, obj):
+        """전세자금대출 (trade_info에서 추출)"""
+        if obj.trade_info and isinstance(obj.trade_info, dict):
+            return obj.trade_info.get('전세자금대출', '-')
+        return '-'
+    
+    def get_move_in_report(self, obj):
+        """전입신고 (trade_info에서 추출)"""
+        if obj.trade_info and isinstance(obj.trade_info, dict):
+            return obj.trade_info.get('전입신고', '-')
         return '-'
     
     def get_price_prediction(self, obj):
