@@ -101,3 +101,32 @@ export async function fetchNearbyFacilities(landId: string): Promise<NearbyFacil
     return response.json();
 }
 
+export interface FacilityLocation {
+    name: string;
+    latitude: number;
+    longitude: number;
+    type: string;
+    category: string;
+}
+
+export interface FacilityLocationsResponse {
+    category: string;
+    count: number;
+    facilities: FacilityLocation[];
+}
+
+export async function fetchFacilityLocations(
+    landId: string,
+    category: 'transportation' | 'medical' | 'convenience' | 'safety'
+): Promise<FacilityLocationsResponse> {
+    const response = await fetch(
+        `${API_BASE_URL}/api/listings/lands/${landId}/facility_locations/?category=${category}`
+    );
+
+    if (!response.ok) {
+        throw new Error('Failed to fetch facility locations');
+    }
+
+    return response.json();
+}
+

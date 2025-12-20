@@ -83,7 +83,7 @@ export default function MarkerInfo({ landId, onCategoryClick }: MarkerInfoProps)
         },
         {
             id: 'safety',
-            name: 'CCTV',
+            name: '치안/안전',
             icon: '/assets/map_pin/cctv.png',
             count: facilities?.safety?.count ?? 0
         }

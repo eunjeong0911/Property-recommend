@@ -7,12 +7,13 @@
  * - 지도 표시
  * - 마커 표시
  * - 지도 확대/축소 및 이동
+ * - 주변 시설 마커 표시 (Neo4j 연동)
  */
 
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { fetchLandLocations, LandLocation } from '../api/landApi';
+import { fetchLandLocations, LandLocation, fetchFacilityLocations, FacilityLocation } from '../api/landApi';
 import { seoulDistricts, getTemperatureColor } from '../mapdata/seoulDistricts';
 
 declare global {
@@ -23,12 +24,14 @@ declare global {
 
 interface MapProps {
     landId?: string; // 매물 상세 페이지에서 전달되는 매물 ID
+    activeCategories?: Set<string>; // 활성화된 시설 카테고리
 }
 
-export default function Map({ landId }: MapProps) {
+export default function Map({ landId, activeCategories }: MapProps) {
     const mapContainer = useRef<HTMLDivElement>(null);
     const mapRef = useRef<any>(null);
     const markersRef = useRef<Array<{ marker: any; overlay: any; overlayState?: { isOpen: boolean; overlay: any } }>>([]);
+    const facilityMarkersRef = useRef<any[]>([]); // 시설 마커 저장
     const polygonsRef = useRef<any[]>([]);
     const overlaysRef = useRef<any[]>([]);
     const [locations, setLocations] = useState<LandLocation[]>([]);
@@ -441,6 +444,91 @@ export default function Map({ landId }: MapProps) {
 
         console.log(`매물 마커 ${locations.length}개 표시 완료`);
     }, [locations, landId]);
+
+    // 시설 마커 표시 (activeCategories 변경 시)
+    useEffect(() => {
+        if (!mapRef.current || !window.kakao || !landId || !activeCategories) {
+            console.log('시설 마커 표시 조건 미충족:', {
+                hasMap: !!mapRef.current,
+                hasKakao: !!window.kakao,
+                landId,
+                hasActiveCategories: !!activeCategories
+            });
+            return;
+        }
+
+        // 기존 시설 마커 제거
+        facilityMarkersRef.current.forEach(marker => marker.setMap(null));
+        facilityMarkersRef.current = [];
+
+        // 활성화된 카테고리가 없으면 종료
+        if (activeCategories.size === 0) {
+            console.log('활성화된 카테고리 없음');
+            return;
+        }
+
+        console.log('활성화된 카테고리:', Array.from(activeCategories));
+
+        // 카테고리별 아이콘 매핑
+        const categoryIcons: Record<string, string> = {
+            'transportation': '/assets/map_pin/bus.png',
+            'medical': '/assets/map_pin/medical_facilities.png',
+            'convenience': '/assets/map_pin/convenience.png',
+            'safety': '/assets/map_pin/cctv.png'
+        };
+
+        // 각 활성화된 카테고리에 대해 시설 위치 가져오기
+        activeCategories.forEach(async (category) => {
+            try {
+                console.log(`${category} 시설 데이터 요청 중...`);
+                const response = await fetchFacilityLocations(
+                    landId,
+                    category as 'transportation' | 'medical' | 'convenience' | 'safety'
+                );
+
+                console.log(`${category} 시설 데이터 응답:`, response);
+
+                if (response.facilities.length === 0) {
+                    console.warn(`${category} 시설이 없습니다.`);
+                    return;
+                }
+
+                // 시설 마커 생성
+                response.facilities.forEach((facility: FacilityLocation) => {
+                    const position = new window.kakao.maps.LatLng(facility.latitude, facility.longitude);
+
+                    // 커스텀 마커 이미지 생성
+                    const iconSrc = categoryIcons[category];
+                    const imageSize = new window.kakao.maps.Size(32, 32);
+                    const markerImage = new window.kakao.maps.MarkerImage(iconSrc, imageSize);
+
+                    // 마커 생성
+                    const marker = new window.kakao.maps.Marker({
+                        position: position,
+                        image: markerImage,
+                        title: facility.name
+                    });
+
+                    marker.setMap(mapRef.current);
+                    facilityMarkersRef.current.push(marker);
+
+                    // 마커 클릭 시 인포윈도우 표시 (선택사항)
+                    const infowindow = new window.kakao.maps.InfoWindow({
+                        content: `<div style="padding:5px;font-size:12px;">${facility.name}</div>`
+                    });
+
+                    window.kakao.maps.event.addListener(marker, 'click', () => {
+                        infowindow.open(mapRef.current, marker);
+                    });
+                });
+
+                console.log(`✅ ${category} 시설 마커 ${response.facilities.length}개 표시 완료`);
+            } catch (error) {
+                console.error(`❌ ${category} 시설 데이터 로드 실패:`, error);
+            }
+        });
+    }, [activeCategories, landId]);
+
 
     return (
         <div className="relative w-full h-[450px] rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden p-2">
