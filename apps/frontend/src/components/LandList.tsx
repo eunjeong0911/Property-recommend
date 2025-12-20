@@ -64,7 +64,7 @@ export default function LandList({ filterParams, recommendedLandIds }: LandListP
 
         loadLands();
     }, [filterParams, recommendedLandIds]);
-    // ✅ 로그인된 사용자 기준으로 DB에 있는 찜 목록 불러오기
+    // 로그인된 사용자 기준으로 DB에 있는 찜 목록 불러오기
     useEffect(() => {
         const loadFavoritesFromServer = async () => {
             if (!session) {
@@ -137,9 +137,9 @@ export default function LandList({ filterParams, recommendedLandIds }: LandListP
 
         try {
             if (isFavorite) {
-                await removeWishlist(landId);     // ✅ DB에서 찜 삭제
+                await removeWishlist(landId);     
             } else {
-                await addWishlist(landId);        // ✅ DB에 찜 추가
+                await addWishlist(landId);        
             }
         } catch (error) {
             console.error('Failed to toggle wishlist:', error);

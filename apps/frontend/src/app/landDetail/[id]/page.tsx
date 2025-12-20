@@ -41,14 +41,40 @@ export default function LandDetailPage() {
     const [communityPosts, setCommunityPosts] = useState<CommunityPost[]>([]);
     const [loadingPosts, setLoadingPosts] = useState(true);
     const [activeMapCategories, setActiveMapCategories] = useState<Set<string>>(new Set());
+    const [currentPostIndex, setCurrentPostIndex] = useState(0);
+    const [landDong, setLandDong] = useState<string>('');
 
-    // 커뮤니티 게시글 로드
+    // 커뮤니티 게시글 로드 - 매물의 행정동 기준으로 필터링
     useEffect(() => {
         const loadCommunityPosts = async () => {
             try {
                 setLoadingPosts(true);
-                // 지역 게시판에서 최근 게시글 가져오기
-                const response = await fetchCommunityPosts({ board: 'region' });
+
+                // 1. 먼저 매물 정보를 가져와서 행정동 추출
+                const landResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/listings/lands/${id}/`);
+                if (!landResponse.ok) {
+                    throw new Error('Failed to fetch land data');
+                }
+                const landData = await landResponse.json();
+
+                // 주소에서 행정동 추출 (예: "서울특별시 종로구 낙원동" -> "낙원동")
+                const extractDong = (address: string): string => {
+                    if (!address) return '';
+                    // 정규식으로 "동" 또는 "가"로 끝나는 행정동 추출
+                    const match = address.match(/([가-힣]+(?:동|가))/);
+                    return match ? match[1] : '';
+                };
+
+                const dong = extractDong(landData.address || '');
+                setLandDong(dong);
+
+                // 2. 행정동으로 필터링된 커뮤니티 게시글 가져오기
+                const postsParams: any = { board: 'region' };
+                if (dong) {
+                    postsParams.dong = dong;
+                }
+
+                const response = await fetchCommunityPosts(postsParams);
                 const posts = response.results || response || [];
                 setCommunityPosts(posts.slice(0, 3)); // 최대 3개만 표시
             } catch (error) {
@@ -60,7 +86,7 @@ export default function LandDetailPage() {
         };
 
         loadCommunityPosts();
-    }, []);
+    }, [id]);
 
     // 시설 카테고리 클릭 핸들러
     const handleCategoryClick = (category: string, isActive: boolean) => {
@@ -90,6 +116,15 @@ export default function LandDetailPage() {
         return date.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
     };
 
+    // 캐러셀 네비게이션
+    const handlePrevPost = () => {
+        setCurrentPostIndex((prev) => (prev === 0 ? communityPosts.length - 1 : prev - 1));
+    };
+
+    const handleNextPost = () => {
+        setCurrentPostIndex((prev) => (prev === communityPosts.length - 1 ? 0 : prev + 1));
+    };
+
     return (
         <div className="max-w-7xl mx-auto px-4 py-8">
             {/* 매물 상세 정보 */}
@@ -100,7 +135,7 @@ export default function LandDetailPage() {
                 <h3 className="text-xl font-bold mb-4 text-slate-800">위치 및 주변 시설</h3>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="lg:col-span-2">
-                        <Map landId={id} />
+                        <Map landId={id} activeCategories={activeMapCategories} />
                     </div>
                     <div className="lg:col-span-1">
                         <MarkerInfo landId={id} onCategoryClick={handleCategoryClick} />
@@ -108,12 +143,15 @@ export default function LandDetailPage() {
                 </div>
             </div>
 
-            {/* 커뮤니티 게시글 미리보기 */}
+            {/* 커뮤니티 게시글 미리보기 - 캐러셀 형식 */}
             <div className="mt-8">
                 <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xl font-bold text-slate-800">행정동 커뮤니티 게시글</h3>
+                    <h3 className="text-xl font-bold text-slate-800">
+                        행정동 커뮤니티 게시글
+                        {landDong && <span className="text-purple-600 ml-2">({landDong})</span>}
+                    </h3>
                     <a
-                        href="/community"
+                        href={`/community?board=region${landDong ? `&dong=${landDong}` : ''}`}
                         className="text-sm text-purple-600 hover:text-purple-800 font-medium transition-colors"
                     >
                         더보기 →
@@ -125,58 +163,98 @@ export default function LandDetailPage() {
                         <div className="w-6 h-6 border-3 border-purple-400 border-t-transparent rounded-full animate-spin"></div>
                     </div>
                 ) : communityPosts.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {communityPosts.map((post) => (
-                            <a
-                                key={post.id}
-                                href={`/community?post=${post.id}`}
-                                className="block rounded-2xl border border-gray-200 bg-white shadow-sm p-4 hover:shadow-md transition-all hover:border-gray-300"
+                    <div className="relative">
+                        {/* 캐러셀 컨테이너 */}
+                        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                            <div
+                                className="flex transition-transform duration-300 ease-in-out"
+                                style={{ transform: `translateX(-${currentPostIndex * 100}%)` }}
                             >
-                                {/* 지역 태그 */}
-                                <div className="flex flex-wrap gap-1 mb-2">
-                                    {post.region && (
-                                        <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">
-                                            {post.region}
-                                        </span>
-                                    )}
-                                    {post.dong && (
-                                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
-                                            {post.dong}
-                                        </span>
-                                    )}
+                                {communityPosts.map((post) => (
+                                    <a
+                                        key={post.id}
+                                        href={`/community?post=${post.id}`}
+                                        className="min-w-full block p-6 hover:bg-gray-50 transition-colors"
+                                    >
+                                        {/* 지역 태그 */}
+                                        <div className="flex flex-wrap gap-1 mb-3">
+                                            {post.region && (
+                                                <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">
+                                                    {post.region}
+                                                </span>
+                                            )}
+                                            {post.dong && (
+                                                <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
+                                                    {post.dong}
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        {/* 제목 */}
+                                        <h4 className="font-semibold text-slate-800 mb-2 text-lg line-clamp-1">
+                                            {post.title}
+                                        </h4>
+
+                                        {/* 내용 미리보기 */}
+                                        <p className="text-sm text-slate-600 line-clamp-3 mb-4">
+                                            {post.content}
+                                        </p>
+
+                                        {/* 하단 정보 */}
+                                        <div className="flex items-center justify-between text-xs text-slate-500">
+                                            <span>{post.author_name}</span>
+                                            <div className="flex items-center gap-3">
+                                                <span>{formatDate(post.created_at)}</span>
+                                            </div>
+                                        </div>
+                                    </a>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* 네비게이션 버튼 (게시글이 2개 이상일 때만 표시) */}
+                        {communityPosts.length > 1 && (
+                            <>
+                                <button
+                                    onClick={handlePrevPost}
+                                    className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white rounded-full w-10 h-10 flex items-center justify-center shadow-lg transition-all z-10"
+                                >
+                                    <svg className="w-6 h-6 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                    </svg>
+                                </button>
+                                <button
+                                    onClick={handleNextPost}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white rounded-full w-10 h-10 flex items-center justify-center shadow-lg transition-all z-10"
+                                >
+                                    <svg className="w-6 h-6 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </button>
+
+                                {/* 인디케이터 */}
+                                <div className="flex justify-center gap-2 mt-4">
+                                    {communityPosts.map((_, index) => (
+                                        <button
+                                            key={index}
+                                            onClick={() => setCurrentPostIndex(index)}
+                                            className={`w-2 h-2 rounded-full transition-all ${index === currentPostIndex
+                                                ? 'bg-purple-600 w-6'
+                                                : 'bg-gray-300 hover:bg-gray-400'
+                                                }`}
+                                        />
+                                    ))}
                                 </div>
-
-                                {/* 제목 */}
-                                <h4 className="font-semibold text-slate-800 mb-1 line-clamp-1">
-                                    {post.title}
-                                </h4>
-
-                                {/* 내용 미리보기 */}
-                                <p className="text-sm text-slate-600 line-clamp-2 mb-3">
-                                    {post.content}
-                                </p>
-
-                                {/* 하단 정보 */}
-                                <div className="flex items-center justify-between text-xs text-slate-500">
-                                    <span>{post.author_name}</span>
-                                    <div className="flex items-center gap-3">
-                                        <span className="flex items-center gap-1">
-                                            ❤️ {post.likes_count}
-                                        </span>
-                                        <span className="flex items-center gap-1">
-                                            💬 {post.comments_count}
-                                        </span>
-                                        <span>{formatDate(post.created_at)}</span>
-                                    </div>
-                                </div>
-                            </a>
-                        ))}
+                            </>
+                        )}
                     </div>
                 ) : (
                     <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-8 text-center">
-                        <p className="text-slate-500">아직 등록된 게시글이 없습니다.</p>
+                        <p className="text-slate-500">
+                            {landDong ? `${landDong} 지역에 ` : ''}아직 등록된 게시글이 없습니다.
+                        </p>
                         <a
-                            href="/community"
+                            href={`/community?board=region${landDong ? `&dong=${landDong}` : ''}`}
                             className="inline-block mt-2 text-purple-600 hover:text-purple-800 font-medium"
                         >
                             커뮤니티 바로가기 →
