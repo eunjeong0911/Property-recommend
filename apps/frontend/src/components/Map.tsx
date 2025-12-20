@@ -265,8 +265,48 @@ export default function Map({ landId }: MapProps) {
 
             marker.setMap(mapRef.current);
 
-            // 커스텀 오버레이 생성 (클릭 가능한 상세 정보)
+            // 상세 페이지에서는 오버레이를 생성하지 않음 (마커만 표시)
             const isDetailPage = !!landId;
+
+            if (isDetailPage) {
+                // 상세 페이지: 마커만 저장하고 오버레이는 생성하지 않음
+                markersRef.current.push({
+                    marker,
+                    overlay: null,
+                    overlayState: undefined
+                });
+                return; // 오버레이 생성 로직 건너뛰기
+            }
+
+            // 메인 페이지: 오버레이 생성 (기존 로직)
+            // CSS 애니메이션 추가 (한 번만)
+            if (!document.getElementById('overlay-animation-style')) {
+                const style = document.createElement('style');
+                style.id = 'overlay-animation-style';
+                style.textContent = `
+                    @keyframes popUp {
+                        0% {
+                            opacity: 0;
+                            transform: scale(0.3);
+                        }
+                        50% {
+                            transform: scale(1.05);
+                        }
+                        100% {
+                            opacity: 1;
+                            transform: scale(1);
+                        }
+                    }
+                    .overlay-close-btn:hover {
+                        transform: scale(1.15) rotate(90deg);
+                        background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+                    }
+                    .overlay-wrapper {
+                        filter: drop-shadow(0 12px 24px rgba(0,0,0,0.2));
+                    }
+                `;
+                document.head.appendChild(style);
+            }
 
             // 오버레이 컨텐츠 생성
             const overlayContent = document.createElement('div');
@@ -276,7 +316,7 @@ export default function Map({ landId }: MapProps) {
                 background: linear-gradient(to bottom, #ffffff 0%, #f8fafc 100%);
                 border-radius: 16px;
                 padding: 14px;
-                width: ${isDetailPage ? '260px' : '220px'};
+                width: 220px;
                 max-width: 300px;
                 animation: popUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
                 border: 2px solid transparent;
@@ -303,38 +343,7 @@ export default function Map({ landId }: MapProps) {
             `;
             overlayContent.appendChild(borderGradient);
 
-            const contentHTML = isDetailPage ? `
-                <div style="position: relative;">
-                    <button id="close-overlay-${location.id}" class="overlay-close-btn" style="position: absolute; top: -10px; right: -10px; width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; border: 2px solid white; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold; box-shadow: 0 3px 8px rgba(239, 68, 68, 0.4); transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); z-index: 10;">×</button>
-                    
-                    <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 10px 12px; border-radius: 10px 10px 0 0; margin: -14px -14px 10px -14px; box-shadow: 0 3px 8px rgba(59, 130, 246, 0.3);">
-                        <div style="font-weight: 700; font-size: 16px; letter-spacing: -0.3px;">${location.price || '매물 정보'}</div>
-                    </div>
-                    
-                    <div style="font-size: 12px; color: #1f2937; margin-bottom: 8px; line-height: 1.5; font-weight: 600; display: flex; align-items: start; gap: 6px; word-break: keep-all; overflow-wrap: break-word;">
-                        <span style="font-size: 14px; flex-shrink: 0;">📍</span>
-                        <span style="flex: 1; min-width: 0;">${location.address}</span>
-                    </div>
-                    
-                    <div style="display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap;">
-                        <span style="background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); color: #1e40af; padding: 5px 10px; border-radius: 8px; font-size: 11px; font-weight: 700; box-shadow: 0 1px 4px rgba(30, 64, 175, 0.15); border: 1px solid #93c5fd;">${location.deal_type || '거래유형'}</span>
-                        <span style="background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%); color: #0369a1; padding: 5px 10px; border-radius: 8px; font-size: 11px; font-weight: 700; box-shadow: 0 1px 4px rgba(3, 105, 161, 0.15); border: 1px solid #7dd3fc;">${location.building_type || '건물유형'}</span>
-                    </div>
-                    
-                    <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); padding: 8px; border-radius: 8px; font-size: 11px; color: #0c4a6e; line-height: 1.6; border: 1.5px solid #bae6fd;">
-                        <div style="display: flex; align-items: center; gap: 6px;">
-                            <span style="font-size: 16px;">📐</span>
-                            <div>
-                                <div style="font-weight: 700; color: #0369a1; font-size: 10px; margin-bottom: 1px;">면적</div>
-                                <div style="font-weight: 600; font-size: 12px;">${location.area || '-'}</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div style="color: #94a3b8; font-size: 9px; margin-top: 6px; text-align: center; font-weight: 500;">
-                        매물번호: ${location.id}
-                    </div>
-                </div>
-            ` : `
+            const contentHTML = `
                 <div style="position: relative; cursor: pointer;" id="overlay-${location.id}">
                     <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 8px 10px; border-radius: 10px 10px 0 0; margin: -14px -14px 8px -14px; box-shadow: 0 3px 8px rgba(59, 130, 246, 0.3);">
                         <div style="font-weight: 700; font-size: 14px; letter-spacing: -0.2px;">${location.price || '매물'}</div>
@@ -374,26 +383,9 @@ export default function Map({ landId }: MapProps) {
 
             // 오버레이 상태 관리 객체
             const overlayState = {
-                isOpen: isDetailPage,
+                isOpen: false,
                 overlay: customOverlay
             };
-
-            // 상세 페이지에서는 오버레이를 자동으로 표시
-            if (isDetailPage) {
-                customOverlay.setMap(mapRef.current);
-
-                // 닫기 버튼 이벤트
-                setTimeout(() => {
-                    const closeBtn = document.getElementById(`close-overlay-${location.id}`);
-                    if (closeBtn) {
-                        closeBtn.addEventListener('click', (e) => {
-                            e.stopPropagation();
-                            customOverlay.setMap(null);
-                            overlayState.isOpen = false;
-                        });
-                    }
-                }, 100);
-            }
 
             // 마커 클릭 이벤트 - 상태 객체 참조
             const markerClickHandler = () => {
@@ -418,27 +410,14 @@ export default function Map({ landId }: MapProps) {
                     overlayState.isOpen = true;
                     console.log('✅ 오버레이 열림');
 
-                    // 닫기 버튼 및 오버레이 클릭 이벤트 등록
+                    // 오버레이 클릭 시 상세 페이지로 이동
                     setTimeout(() => {
-                        if (isDetailPage) {
-                            const closeBtn = document.getElementById(`close-overlay-${location.id}`);
-                            if (closeBtn) {
-                                closeBtn.onclick = (e) => {
-                                    e.stopPropagation();
-                                    customOverlay.setMap(null);
-                                    overlayState.isOpen = false;
-                                    console.log('🔴 닫기 버튼으로 오버레이 닫힘');
-                                };
-                            }
-                        } else {
-                            // 메인 페이지에서 오버레이 클릭 시 상세 페이지로 이동
-                            const overlayElement = document.getElementById(`overlay-${location.id}`);
-                            if (overlayElement) {
-                                overlayElement.onclick = () => {
-                                    console.log('🔗 오버레이 클릭 - 상세 페이지로 이동:', location.id);
-                                    window.location.href = `/landDetail/${location.id}`;
-                                };
-                            }
+                        const overlayElement = document.getElementById(`overlay-${location.id}`);
+                        if (overlayElement) {
+                            overlayElement.onclick = () => {
+                                console.log('🔗 오버레이 클릭 - 상세 페이지로 이동:', location.id);
+                                window.location.href = `/landDetail/${location.id}`;
+                            };
                         }
                     }, 50);
                 }

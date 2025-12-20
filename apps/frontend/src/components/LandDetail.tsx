@@ -487,21 +487,21 @@ export default function LandDetail({ landId }: LandDetailProps) {
                             {land.broker?.trust_score && (
                                 <div className="flex items-center gap-2 pt-2 border-t border-gray-200">
                                     <span className="text-gray-500 w-24">신뢰도</span>
-                                    <span className={`px-3 py-1 rounded-full text-sm font-bold ${land.broker.trust_score === 'A' ? 'bg-yellow-500 text-white' :
-                                        land.broker.trust_score === 'B' ? 'bg-gray-400 text-white' :
-                                            'bg-amber-700 text-white'
-                                        }`}>
-                                        {land.broker.trust_score}등급 ({land.broker.trust_grade})
-                                    </span>
                                     {getTrustBadgeImage(land.broker.trust_score) && (
                                         <Image
                                             src={getTrustBadgeImage(land.broker.trust_score)!}
-                                            alt={`${land.broker.trust_score} 등급`}
+                                            alt={`${land.broker.trust_score}`}
                                             width={36}
                                             height={36}
                                             className="object-contain"
                                         />
                                     )}
+                                    <span className={`px-3 py-1 rounded-full text-sm font-bold ${land.broker.trust_score === 'A' ? 'bg-yellow-500 text-white' :
+                                        land.broker.trust_score === 'B' ? 'bg-gray-400 text-white' :
+                                            'bg-amber-700 text-white'
+                                        }`}>
+                                        {land.broker.trust_score === 'A' ? '골드' : land.broker.trust_score === 'B' ? '실버' : '브론즈'} ({land.broker.trust_grade})
+                                    </span>
                                 </div>
                             )}
                         </div>

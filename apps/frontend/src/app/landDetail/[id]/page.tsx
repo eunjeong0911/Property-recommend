@@ -111,7 +111,7 @@ export default function LandDetailPage() {
             {/* 커뮤니티 게시글 미리보기 */}
             <div className="mt-8">
                 <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xl font-bold text-slate-800">단지별 커뮤니티 게시글</h3>
+                    <h3 className="text-xl font-bold text-slate-800">행정동 커뮤니티 게시글</h3>
                     <a
                         href="/community"
                         className="text-sm text-purple-600 hover:text-purple-800 font-medium transition-colors"
