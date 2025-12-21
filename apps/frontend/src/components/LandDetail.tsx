@@ -10,6 +10,7 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Land } from '../types/land';
 import { fetchLandById } from '../api/landApi';
+import { recordListingView } from '../api/historyApi';
 
 interface LandDetailProps {
     landId: string;
@@ -41,6 +42,20 @@ export default function LandDetail({ landId }: LandDetailProps) {
         if (landId) {
             loadLand();
         }
+    }, [landId]);
+
+    // 매물 조회 이력 추적
+    useEffect(() => {
+        const startTime = Date.now();
+
+        // 컴포넌트 언마운트 시 총 조회 시간 저장
+        return () => {
+            const totalViewDuration = Math.floor((Date.now() - startTime) / 1000);
+            // 최소 1초 이상 조회한 경우만 기록
+            if (totalViewDuration >= 1) {
+                recordListingView(landId, totalViewDuration);
+            }
+        };
     }, [landId]);
 
     if (loading) {
