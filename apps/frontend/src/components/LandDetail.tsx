@@ -22,6 +22,7 @@ export default function LandDetail({ landId }: LandDetailProps) {
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [liked, setLiked] = useState(false);
     const [showPriceTooltip, setShowPriceTooltip] = useState(false);
+    const [radarTooltip, setRadarTooltip] = useState<string | null>(null);
 
     useEffect(() => {
         const loadLand = async () => {
@@ -146,13 +147,22 @@ export default function LandDetail({ landId }: LandDetailProps) {
 
     const availableOptions = getAvailableOptions();
 
-    // 레이더 차트용 더미 데이터 (실제 데이터로 교체 가능)
-    const radarData = {
-        교통: 75,
-        편의: 60,
-        치안: 80,
-        환경: 70,
-        교육: 65
+    // 레이더 차트 데이터 (백엔드에서 계산된 실제 데이터 사용)
+    const radarData = land.radar_chart_data || {
+        building_age: 50,
+        options: 50,
+        security: 50,
+        space_efficiency: 50,
+        transportation: 50
+    };
+
+    // 레이더 차트 라벨 및 설명
+    const radarLabels = {
+        building_age: { label: '건물연식', description: '신축일수록 높은 점수 (5년 이하: 100점)' },
+        options: { label: '옵션충실', description: '생활시설+기타+추가옵션 개수 기반 (12개 이상: 100점)' },
+        security: { label: '보안수준', description: '보안시설 개수 기반 (5개 이상: 100점)' },
+        space_efficiency: { label: '공간효율', description: '전용률 기반 (85% 이상: 100점)' },
+        transportation: { label: '교통접근', description: '지하철역 거리 기반 (300m 이내: 100점)' }
     };
 
     // 주소에서 구 정보 추출
@@ -270,57 +280,156 @@ export default function LandDetail({ landId }: LandDetailProps) {
 
                 {/* 레이더 차트 */}
                 <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-6 flex flex-col justify-center">
-                    <h3 className="font-bold text-slate-800 mb-4 text-center">주변 환경 분석</h3>
+                    <h3 className="font-bold text-slate-800 mb-4 text-center">매물 종합 평가</h3>
                     <div className="flex justify-center items-center flex-1">
-                        <div className="relative w-64 h-64">
-                            <svg viewBox="0 0 200 200" className="w-full h-full">
-                                {/* 배경 다각형 (5각형) */}
+                        <div className="relative w-[450px] h-[450px]">
+                            <svg viewBox="0 0 350 350" className="w-full h-full">
+                                {/* 배경 다각형 (5각형) - 크기 증가 */}
                                 <polygon
-                                    points="100,20 180,70 155,160 45,160 20,70"
+                                    points="175,40 280,115 245,260 105,260 70,115"
                                     fill="none"
                                     stroke="#e5e7eb"
                                     strokeWidth="1"
                                 />
                                 <polygon
-                                    points="100,40 160,80 140,150 60,150 40,80"
+                                    points="175,70 250,130 225,245 125,245 100,130"
                                     fill="none"
                                     stroke="#e5e7eb"
                                     strokeWidth="1"
                                 />
                                 <polygon
-                                    points="100,60 140,90 125,140 75,140 60,90"
+                                    points="175,100 220,145 205,230 145,230 130,145"
                                     fill="none"
                                     stroke="#e5e7eb"
                                     strokeWidth="1"
                                 />
                                 <polygon
-                                    points="100,80 120,100 110,130 90,130 80,100"
+                                    points="175,130 190,160 185,215 165,215 160,160"
                                     fill="none"
                                     stroke="#e5e7eb"
                                     strokeWidth="1"
                                 />
 
-                                {/* 데이터 다각형 */}
+                                {/* 데이터 다각형 - 크기 증가 */}
                                 <polygon
                                     points={`
-                                        100,${100 - radarData.교통 * 0.8}
-                                        ${100 + radarData.편의 * 0.76},${100 - radarData.편의 * 0.24}
-                                        ${100 + radarData.치안 * 0.47},${100 + radarData.치안 * 0.62}
-                                        ${100 - radarData.환경 * 0.47},${100 + radarData.환경 * 0.62}
-                                        ${100 - radarData.교육 * 0.76},${100 - radarData.교육 * 0.24}
+                                        175,${175 - radarData.building_age * 1.35}
+                                        ${175 + radarData.options * 1.05},${175 - radarData.options * 0.75}
+                                        ${175 + radarData.security * 0.7},${175 + radarData.security * 0.85}
+                                        ${175 - radarData.space_efficiency * 0.7},${175 + radarData.space_efficiency * 0.85}
+                                        ${175 - radarData.transportation * 1.05},${175 - radarData.transportation * 0.75}
                                     `}
                                     fill="rgba(59, 130, 246, 0.3)"
                                     stroke="#3b82f6"
                                     strokeWidth="2"
                                 />
 
-                                {/* 축 라벨 */}
-                                <text x="100" y="12" textAnchor="middle" fontSize="12" fill="#374151" fontWeight="600">교통</text>
-                                <text x="188" y="72" textAnchor="start" fontSize="12" fill="#374151" fontWeight="600">편의</text>
-                                <text x="160" y="175" textAnchor="middle" fontSize="12" fill="#374151" fontWeight="600">치안</text>
-                                <text x="40" y="175" textAnchor="middle" fontSize="12" fill="#374151" fontWeight="600">환경</text>
-                                <text x="12" y="72" textAnchor="end" fontSize="12" fill="#374151" fontWeight="600">교육</text>
+                                {/* 축 라벨 with tooltips - 위치 조정 */}
+                                <g>
+                                    <text x="175" y="25" textAnchor="middle" fontSize="14" fill="#374151" fontWeight="600">
+                                        {radarLabels.building_age.label}
+                                    </text>
+                                    <circle
+                                        cx="205" cy="21" r="7" fill="#9ca3af" cursor="pointer"
+                                        onMouseEnter={() => setRadarTooltip('building_age')}
+                                        onMouseLeave={() => setRadarTooltip(null)}
+                                    />
+                                    <text x="205" y="24" textAnchor="middle" fontSize="11" fill="white" fontWeight="bold" pointerEvents="none">?</text>
+                                </g>
+
+                                <g>
+                                    <text x="295" y="118" textAnchor="start" fontSize="14" fill="#374151" fontWeight="600">
+                                        {radarLabels.options.label}
+                                    </text>
+                                    <circle
+                                        cx="295" cy="128" r="7" fill="#9ca3af" cursor="pointer"
+                                        onMouseEnter={() => setRadarTooltip('options')}
+                                        onMouseLeave={() => setRadarTooltip(null)}
+                                    />
+                                    <text x="295" y="131" textAnchor="middle" fontSize="11" fill="white" fontWeight="bold" pointerEvents="none">?</text>
+                                </g>
+
+                                <g>
+                                    <text x="250" y="285" textAnchor="middle" fontSize="14" fill="#374151" fontWeight="600">
+                                        {radarLabels.security.label}
+                                    </text>
+                                    <circle
+                                        cx="250" cy="295" r="7" fill="#9ca3af" cursor="pointer"
+                                        onMouseEnter={() => setRadarTooltip('security')}
+                                        onMouseLeave={() => setRadarTooltip(null)}
+                                    />
+                                    <text x="250" y="298" textAnchor="middle" fontSize="11" fill="white" fontWeight="bold" pointerEvents="none">?</text>
+                                </g>
+
+                                <g>
+                                    <text x="100" y="285" textAnchor="middle" fontSize="14" fill="#374151" fontWeight="600">
+                                        {radarLabels.space_efficiency.label}
+                                    </text>
+                                    <circle
+                                        cx="100" cy="295" r="7" fill="#9ca3af" cursor="pointer"
+                                        onMouseEnter={() => setRadarTooltip('space_efficiency')}
+                                        onMouseLeave={() => setRadarTooltip(null)}
+                                    />
+                                    <text x="100" y="298" textAnchor="middle" fontSize="11" fill="white" fontWeight="bold" pointerEvents="none">?</text>
+                                </g>
+
+                                <g>
+                                    <text x="55" y="118" textAnchor="end" fontSize="14" fill="#374151" fontWeight="600">
+                                        {radarLabels.transportation.label}
+                                    </text>
+                                    <circle
+                                        cx="55" cy="128" r="7" fill="#9ca3af" cursor="pointer"
+                                        onMouseEnter={() => setRadarTooltip('transportation')}
+                                        onMouseLeave={() => setRadarTooltip(null)}
+                                    />
+                                    <text x="55" y="131" textAnchor="middle" fontSize="11" fill="white" fontWeight="bold" pointerEvents="none">?</text>
+                                </g>
                             </svg>
+
+                            {/* 툴팁 표시 - 동적 위치 */}
+                            {radarTooltip && (
+                                <div
+                                    className="absolute bg-slate-800 text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap z-10 pointer-events-none"
+                                    style={{
+                                        top: radarTooltip === 'building_age' ? '0%' :
+                                            radarTooltip === 'options' ? '25%' :
+                                                radarTooltip === 'security' ? '75%' :
+                                                    radarTooltip === 'space_efficiency' ? '75%' :
+                                                        '25%',
+                                        left: radarTooltip === 'building_age' ? '50%' :
+                                            radarTooltip === 'options' ? '85%' :
+                                                radarTooltip === 'security' ? '65%' :
+                                                    radarTooltip === 'space_efficiency' ? '15%' :
+                                                        '15%',
+                                        transform: radarTooltip === 'building_age' ? 'translate(-50%, -120%)' :
+                                            radarTooltip === 'options' ? 'translate(-100%, -50%)' :
+                                                radarTooltip === 'security' ? 'translate(-50%, 20%)' :
+                                                    radarTooltip === 'space_efficiency' ? 'translate(-50%, 20%)' :
+                                                        'translate(0%, -50%)'
+                                    }}
+                                >
+                                    {radarLabels[radarTooltip as keyof typeof radarLabels].description}
+                                    <div
+                                        className="absolute w-0 h-0 border-4 border-transparent"
+                                        style={{
+                                            borderTopColor: radarTooltip === 'building_age' ? '#1e293b' : 'transparent',
+                                            borderBottomColor: (radarTooltip === 'security' || radarTooltip === 'space_efficiency') ? '#1e293b' : 'transparent',
+                                            borderRightColor: (radarTooltip === 'options') ? '#1e293b' : 'transparent',
+                                            borderLeftColor: (radarTooltip === 'transportation') ? '#1e293b' : 'transparent',
+                                            top: radarTooltip === 'building_age' ? '100%' :
+                                                (radarTooltip === 'security' || radarTooltip === 'space_efficiency') ? '-8px' :
+                                                    '50%',
+                                            left: radarTooltip === 'building_age' ? '50%' :
+                                                radarTooltip === 'options' ? '100%' :
+                                                    radarTooltip === 'transportation' ? '-8px' :
+                                                        '50%',
+                                            transform: radarTooltip === 'building_age' ? 'translateX(-50%)' :
+                                                (radarTooltip === 'options' || radarTooltip === 'transportation') ? 'translateY(-50%)' :
+                                                    'translateX(-50%)'
+                                        }}
+                                    ></div>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -329,7 +438,7 @@ export default function LandDetail({ landId }: LandDetailProps) {
                         {Object.entries(radarData).map(([key, value]) => (
                             <div key={key} className="flex flex-col items-center">
                                 <span className="text-blue-600 font-bold">{value}</span>
-                                <span className="text-gray-500">{key}</span>
+                                <span className="text-gray-500">{radarLabels[key as keyof typeof radarLabels].label}</span>
                             </div>
                         ))}
                     </div>
@@ -500,7 +609,7 @@ export default function LandDetail({ landId }: LandDetailProps) {
                                         land.broker.trust_score === 'B' ? 'bg-gray-400 text-white' :
                                             'bg-amber-700 text-white'
                                         }`}>
-                                        {land.broker.trust_score === 'A' ? '골드' : land.broker.trust_score === 'B' ? '실버' : '브론즈'} ({land.broker.trust_grade})
+                                        {land.broker.trust_score === 'A' ? '골드' : land.broker.trust_score === 'B' ? '실버' : '브론즈'}
                                     </span>
                                 </div>
                             )}

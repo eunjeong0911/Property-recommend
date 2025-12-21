@@ -11,6 +11,7 @@ from .utils.price_utils import (
     extract_area_exclusive,
     extract_total_floors,
 )
+from .utils.radar_chart_utils import calculate_radar_chart_data
 import random
 
 
@@ -79,6 +80,9 @@ class LandSerializer(serializers.ModelSerializer):
     
     # 가격 분류 정보
     price_prediction = serializers.SerializerMethodField()
+    
+    # 레이더 차트 데이터
+    radar_chart_data = serializers.SerializerMethodField()
 
     class Meta:
         model = Land
@@ -112,7 +116,8 @@ class LandSerializer(serializers.ModelSerializer):
             'jeonse_loan',
             'move_in_report',
             'broker',
-            'price_prediction'
+            'price_prediction',
+            'radar_chart_data'
         ]
 
     def get_title(self, obj):
@@ -266,4 +271,19 @@ class LandSerializer(serializers.ModelSerializer):
         except Exception as e:
             print(f"Error fetching price classification: {e}")
         return None
+    
+    def get_radar_chart_data(self, obj):
+        """레이더 차트 데이터 계산"""
+        try:
+            return calculate_radar_chart_data(obj)
+        except Exception as e:
+            print(f"Error calculating radar chart data: {e}")
+            # 기본값 반환
+            return {
+                'building_age': 50,
+                'options': 50,
+                'security': 50,
+                'space_efficiency': 50,
+                'transportation': 50
+            }
     
