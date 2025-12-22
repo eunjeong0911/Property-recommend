@@ -1,70 +1,91 @@
 /**
- * Header 컴포넌트
+ * Header 컴포넌트 - PropTech Bank-Level Design
  *
- * 상단 헤더 영역을 담당하는 컴포넌트
+ * 상단 헤더 영역
  *
  * 주요 기능:
- * - 로고 표시 (로고 클릭 시 메인 페이지로 이동)
- * - 네비게이션 메뉴 (커뮤니티)
+ * - 로고 표시
+ * - 네비게이션 메뉴
  * - 사용자 인증 상태 표시
- *   - 비로그인: 로그인 버튼
- *   - 로그인: 마이페이지 링크
- * - 로그인 페이지에서는 Header 숨김
  */
 
 'use client'
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useStore } from '@/store/useStore'
+import { useSession } from 'next-auth/react'
 
 export default function Header() {
   const pathname = usePathname()
-  const { user, setUser } = useStore()
+  const { data: session, status } = useSession()
 
-  // 로그인 페이지에서는 Header를 표시하지 않음
-  if (pathname === '/login') {
-    return null
-  }
+  const isLoginPage = pathname === '/login'
 
   return (
-    <header className="bg-white/30 backdrop-blur-md border-b border-white/20 py-4">
-      <div className="max-w-7xl mx-auto px-4 flex justify-between items-center">
+    <header className="bg-white border-b border-[var(--color-border-light)] shadow-[var(--shadow-sm)] sticky top-0 z-40">
+      <div className="max-w-[1440px] mx-auto px-8 flex justify-between items-center" style={{ height: '72px' }}>
         {/* 로고 */}
         <Link
           href="/"
-          className="text-2xl font-bold text-blue-600 hover:text-blue-700 transition-colors"
+          className="flex items-center gap-3 text-2xl font-bold text-[var(--color-primary)] hover:text-[var(--color-primary-dark)] transition-colors"
         >
-          Ondo House
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="32" height="32" rx="6" fill="currentColor" />
+            <path d="M16 8L8 14V24H12V18H20V24H24V14L16 8Z" fill="white" />
+          </svg>
+          <span>GoZip</span>
         </Link>
 
-        {/* 버튼 영역 */}
-        <div className="flex gap-4">
-          {/* 커뮤니티 버튼 */}
+        {/* 네비게이션 */}
+        <nav className="flex items-center gap-2">
+
+          <Link
+            href="/serviceIns"
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${pathname === '/serviceIns'
+                ? 'bg-[var(--color-primary)] text-white'
+                : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-primary)]'
+              }`}
+          >
+            서비스 소개
+          </Link>
           <Link
             href="/community"
-            className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors font-medium"
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${pathname === '/community'
+                ? 'bg-[var(--color-primary)] text-white'
+                : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-primary)]'
+              }`}
           >
             커뮤니티
           </Link>
+          <Link
+            href="/temperature"
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${pathname === '/temperature'
+                ? 'bg-[var(--color-primary)] text-white'
+                : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-primary)]'
+              }`}
+          >
+            온도 상세보기
+          </Link>
 
-          {/* 로그인/마이페이지 버튼 */}
-          {user ? (
+          {/* 마이페이지 / 로그인 버튼 */}
+          {session ? (
             <Link
               href="/my"
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
+              className="ml-4 px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary-dark)] transition-colors font-medium text-sm shadow-[var(--shadow-md)]"
             >
               마이페이지
             </Link>
           ) : (
-            <Link
-              href="/login"
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
-            >
-              로그인
-            </Link>
+            !isLoginPage && status !== 'loading' && (
+              <Link
+                href="/login"
+                className="ml-4 px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary-dark)] transition-colors font-medium text-sm shadow-[var(--shadow-md)]"
+              >
+                로그인
+              </Link>
+            )
           )}
-        </div>
+        </nav>
       </div>
     </header>
   )

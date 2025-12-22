@@ -11,40 +11,44 @@
 
 'use client'
 
+import { useParticleEffect } from '../hooks/useParticleEffect'
+
 interface CommunityTabProps {
   activeTab: 'free' | 'region'
   onTabChange: (tab: 'free' | 'region') => void
 }
 
 export default function CommunityTab({ activeTab, onTabChange }: CommunityTabProps) {
+  const handleTabChange = (tab: 'free' | 'region', event: React.MouseEvent<HTMLButtonElement>) => {
+    onTabChange(tab)
+  }
+
   return (
-    <div className="bg-white rounded-lg shadow-sm mb-6 p-2">
-      <div className="flex gap-2">
-        <button
-          onClick={() => onTabChange('free')}
-          className={`
-            flex-1 px-6 py-3 font-medium text-sm rounded-md transition-all
-            ${activeTab === 'free'
-              ? 'bg-blue-500 text-white shadow-sm'
-              : 'text-gray-600 hover:bg-gray-50'
-            }
-          `}
-        >
-          자유게시판
-        </button>
-        <button
-          onClick={() => onTabChange('region')}
-          className={`
-            flex-1 px-6 py-3 font-medium text-sm rounded-md transition-all
-            ${activeTab === 'region'
-              ? 'bg-blue-500 text-white shadow-sm'
-              : 'text-gray-600 hover:bg-gray-50'
-            }
-          `}
-        >
-          행정동 커뮤니티
-        </button>
-      </div>
+    <div className="flex gap-2">
+      <button
+        onClick={(e) => handleTabChange('free', e)}
+        className={`
+          px-6 py-2.5 font-semibold text-sm rounded-t-lg transition-all duration-200 whitespace-nowrap
+          ${activeTab === 'free'
+            ? 'bg-[#16375B] text-white'
+            : 'bg-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+          }
+        `}
+      >
+        자유게시판
+      </button>
+      <button
+        onClick={(e) => handleTabChange('region', e)}
+        className={`
+          px-6 py-2.5 font-semibold text-sm rounded-t-lg transition-all duration-200
+          ${activeTab === 'region'
+            ? 'bg-[#16375B] text-white'
+            : 'bg-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+          }
+        `}
+      >
+        행정동 커뮤니티
+      </button>
     </div>
   )
 }

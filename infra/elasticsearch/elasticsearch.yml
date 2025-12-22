@@ -1,0 +1,30 @@
+# =============================================================================
+# Elasticsearch 기본 설정 파일
+# =============================================================================
+# 
+# 역할: Elasticsearch 클러스터 및 노드 설정
+# 
+# 설정 내용:
+# - 클러스터 이름
+# - 네트워크 바인딩
+# - 메모리 설정
+# - 보안 설정 (개발환경용)
+# =============================================================================
+
+cluster.name: "realestate-cluster"
+network.host: 0.0.0.0
+
+# 단일 노드 모드 설정
+discovery.type: single-node
+
+# 보안 비활성화 (개발 환경용)
+xpack.security.enabled: false
+xpack.security.enrollment.enabled: false
+
+# 메모리 락 설정
+bootstrap.memory_lock: false
+
+# HTTP 설정
+http.port: 9200
+http.cors.enabled: true
+http.cors.allow-origin: "*"

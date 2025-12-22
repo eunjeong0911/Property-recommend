@@ -1,7 +1,7 @@
 /**
  * SideTab 컴포넌트
  *
- * 사이드 탭 컴포넌트
+ * 가로 탭 컴포넌트 (CommunityTab 스타일)
  *
  * 주요 기능:
  * - 마이페이지 탭
@@ -27,28 +27,26 @@ export default function SideTab() {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-4 w-64">
-      <div className="flex flex-col gap-2">
-        {NAV_ITEMS.map(({ label, path }) => {
-          const isActive = pathname === path
+    <div className="flex gap-2 border-b border-slate-200 mb-6">
+      {NAV_ITEMS.map(({ label, path }) => {
+        const isActive = pathname === path
 
-          return (
-            <button
-              key={path}
-              onClick={() => handleNavigate(path)}
-              className={`
-                px-6 py-3 font-medium text-sm rounded-md transition-all text-left
-                ${isActive
-                  ? 'bg-blue-500 text-white shadow-sm'
-                  : 'text-gray-600 hover:bg-gray-50'
-                }
-              `}
-            >
-              {label}
-            </button>
-          )
-        })}
-      </div>
+        return (
+          <button
+            key={path}
+            onClick={() => handleNavigate(path)}
+            className={`
+              px-6 py-2.5 font-semibold text-sm rounded-t-lg transition-all duration-200 whitespace-nowrap
+              ${isActive
+                ? 'bg-[#16375B] text-white shadow-md'
+                : 'bg-transparent text-slate-600 hover:bg-slate-50 hover:text-[#16375B]'
+              }
+            `}
+          >
+            {label}
+          </button>
+        )
+      })}
     </div>
   )
 }

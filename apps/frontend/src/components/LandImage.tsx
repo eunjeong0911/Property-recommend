@@ -14,7 +14,6 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import TemperatureList from './TemperatureList';
 import { useParticleEffect } from '../hooks/useParticleEffect';
 
 interface LandImageProps {
@@ -26,21 +25,19 @@ interface LandImageProps {
     isLiked?: boolean;
 }
 
+const DEFAULT_PLACEHOLDER = '/images/placeholder.svg';
+
 export default function LandImage({
     id = '1',
-    images = [
-        'https://img.peterpanz.com/photo/20250115/16772468/67871b38ee314_origin.jpg',
-        'https://img.peterpanz.com/photo/20250115/16772468/67871b3976aac_origin.jpg',
-        'https://img.peterpanz.com/photo/20250115/16772468/67871b39eb65a_origin.jpg',
-        'https://img.peterpanz.com/photo/20250115/16772468/67871b3a65cad_origin.jpg'
-    ],
+    images: propImages,
     price,
     onLike,
     isLiked = false
 }: LandImageProps) {
+    // 이미지가 없거나 빈 배열이면 placeholder 사용
+    const images = propImages && propImages.length > 0 ? propImages : [DEFAULT_PLACEHOLDER];
     const router = useRouter();
     const [liked, setLiked] = useState(isLiked);
-    const [isHovered, setIsHovered] = useState(false);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const { triggerEffect } = useParticleEffect();
 
@@ -81,13 +78,12 @@ export default function LandImage({
         <div className="relative cursor-pointer" onClick={handleClick}>
             <div
                 className="relative w-full aspect-square bg-gray-200 rounded-lg overflow-hidden group"
-                onMouseEnter={() => setIsHovered(true)}
-                onMouseLeave={() => setIsHovered(false)}
             >
                 <Image
                     src={images[currentImageIndex]}
                     alt="매물 이미지"
                     fill
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
                     className="object-cover"
                 />
 
@@ -136,13 +132,6 @@ export default function LandImage({
                 </button>
 
             </div>
-
-            {/* 온도 정보 - hover 시 표시 (이미지 왼쪽에 겹치게) */}
-            {isHovered && (
-                <div className="absolute left-0 top-8 -translate-x-[calc(100%-30px)] z-20 w-64">
-                    <TemperatureList />
-                </div>
-            )}
 
             {/* 가격 정보 */}
             <div className="mt-3 text-center">

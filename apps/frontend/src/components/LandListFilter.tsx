@@ -1,219 +1,191 @@
 /**
-/**
- * LandListFilter 컴포넌트
+ * LandListFilter 컴포넌트 - PropTech Bank-Level Design
  *
  * 매물 목록 필터링 컴포넌트
  *
  * 주요 기능:
- * - 검색어 입력
- * - 필터 옵션 선택 (거래유형, 건물유형, 지역)
- * - 선택된 필터 태그 표시 및 삭제
+ * - 자치구 선택
+ * - 행정동 선택 (자치구 선택 시 활성화)
+ * - 거래유형 선택
+ * - 건물유형 선택
  * - 필터 초기화
  */
 
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { Search, X, ChevronDown } from 'lucide-react';
-import { useParticleEffect } from '../hooks/useParticleEffect';
+import { useState, useEffect } from 'react';
+import { LandFilterParams } from '../types/land';
 
-const REGION_OPTIONS = ['서울', '경기', '인천', '부산', '대구', '광주', '대전', '울산', '세종', '강원', '충북', '충남', '전북', '전남', '경북', '경남', '제주'];
-const TRANSACTION_OPTIONS = ['매매', '전세', '월세'];
-const BUILDING_OPTIONS = ['아파트', '오피스텔', '빌라', '원룸', '투룸'];
+// 서울특별시 25개 자치구
+const SEOUL_DISTRICTS = [
+    '강남구', '강동구', '강북구', '강서구', '관악구', '광진구', '구로구', '금천구',
+    '노원구', '도봉구', '동대문구', '동작구', '마포구', '서대문구', '서초구', '성동구',
+    '성북구', '송파구', '양천구', '영등포구', '용산구', '은평구', '종로구', '중구', '중랑구'
+];
 
-export default function LandListFilter() {
-    const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+// 서울특별시 행정동 목록 (자치구별)
+const DONG_MAP: Record<string, string[]> = {
+    '강남구': ['역삼동', '삼성동', '대치동', '청담동', '논현동', '압구정동', '신사동', '개포동', '세곡동', '일원동', '수서동', '도곡동'],
+    '강동구': ['명일동', '고덕동', '상일동', '길동', '둔촌동', '암사동', '성내동', '천호동', '강일동'],
+    '강북구': ['미아동', '번동', '수유동', '우이동'],
+    '강서구': ['염창동', '등촌동', '화곡동', '가양동', '마곡동', '내발산동', '외발산동', '공항동', '방화동'],
+    '관악구': ['봉천동', '신림동', '남현동'],
+    '광진구': ['중곡동', '능동', '구의동', '광장동', '자양동', '화양동'],
+    '구로구': ['신도림동', '구로동', '가리봉동', '고척동', '개봉동', '오류동', '궁동', '온수동', '천왕동', '항동'],
+    '금천구': ['가산동', '독산동', '시흥동'],
+    '노원구': ['월계동', '공릉동', '하계동', '상계동', '중계동'],
+    '도봉구': ['쌍문동', '방학동', '창동', '도봉동'],
+    '동대문구': ['용신동', '제기동', '전농동', '답십리동', '장안동', '청량리동', '회기동', '휘경동', '이문동'],
+    '동작구': ['노량진동', '상도동', '흑석동', '사당동', '대방동', '신대방동'],
+    '마포구': ['공덕동', '아현동', '도화동', '용강동', '대흥동', '염리동', '신수동', '서강동', '서교동', '합정동', '망원동', '연남동', '성산동', '상암동'],
+    '서대문구': ['충현동', '천연동', '신촌동', '연희동', '홍제동', '홍은동', '북아현동', '북가좌동', '남가좌동'],
+    '서초구': ['서초동', '잠원동', '반포동', '방배동', '양재동', '내곡동'],
+    '성동구': ['왕십리도선동', '왕십리동', '마장동', '사근동', '행당동', '응봉동', '금호동', '옥수동', '성수동', '송정동', '용답동'],
+    '성북구': ['성북동', '삼선동', '동선동', '돈암동', '안암동', '보문동', '정릉동', '길음동', '종암동', '월곡동', '장위동', '석관동'],
+    '송파구': ['잠실동', '신천동', '풍납동', '송파동', '석촌동', '삼전동', '가락동', '문정동', '장지동', '오금동', '방이동', '거여동', '마천동'],
+    '양천구': ['목동', '신월동', '신정동'],
+    '영등포구': ['영등포동', '영등포본동', '여의도동', '당산동', '도림동', '문래동', '양평동', '신길동', '대림동'],
+    '용산구': ['후암동', '용산2가동', '남영동', '청파동', '원효로동', '효창동', '용문동', '한강로동', '이촌동', '이태원동', '한남동', '서빙고동', '보광동'],
+    '은평구': ['수색동', '녹번동', '불광동', '갈현동', '구산동', '대조동', '응암동', '역촌동', '신사동', '증산동'],
+    '종로구': ['청운효자동', '사직동', '삼청동', '부암동', '평창동', '무악동', '교남동', '가회동', '종로1·2·3·4가동', '종로5·6가동', '이화동', '혜화동', '창신동', '숭인동'],
+    '중구': ['소공동', '회현동', '명동', '필동', '장충동', '광희동', '을지로동', '신당동', '다산동', '약수동', '청구동', '신당5동', '동화동', '황학동', '중림동'],
+    '중랑구': ['면목동', '상봉동', '중화동', '묵동', '망우동', '신내동']
+};
+
+const TRANSACTION_OPTIONS = ['매매', '전세', '월세', '단기임대'];
+const BUILDING_OPTIONS = ['아파트', '오피스텔', '빌라주택', '원투룸'];
+
+interface LandListFilterProps {
+    onFilterChange?: (params: LandFilterParams) => void;
+}
+
+export default function LandListFilter({ onFilterChange }: LandListFilterProps) {
     const [selectedRegion, setSelectedRegion] = useState<string>('');
+    const [selectedDong, setSelectedDong] = useState<string>('');
     const [selectedTransaction, setSelectedTransaction] = useState<string>('');
     const [selectedBuilding, setSelectedBuilding] = useState<string>('');
 
-    const dropdownRef = useRef<HTMLDivElement>(null);
-    const { triggerEffect } = useParticleEffect();
-
-    // Close dropdown when clicking outside
+    // 필터 변경 시 부모 컴포넌트에 알림
     useEffect(() => {
-        function handleClickOutside(event: MouseEvent) {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-                setActiveDropdown(null);
-            }
+        if (onFilterChange) {
+            onFilterChange({
+                region: selectedRegion,
+                dong: selectedDong,
+                transaction_type: selectedTransaction,
+                building_type: selectedBuilding,
+            });
         }
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
-    }, []);
+    }, [selectedRegion, selectedDong, selectedTransaction, selectedBuilding, onFilterChange]);
 
-    const toggleDropdown = (name: string, event: React.MouseEvent<HTMLElement>) => {
-        setActiveDropdown(activeDropdown === name ? null : name);
-        triggerEffect(event.currentTarget as HTMLElement);
-    };
+    // 자치구 변경 시 행정동 초기화
+    useEffect(() => {
+        setSelectedDong('');
+    }, [selectedRegion]);
 
-    const handleSelect = (type: 'region' | 'transaction' | 'building', value: string, event: React.MouseEvent<HTMLElement>) => {
-        if (type === 'region') setSelectedRegion(value);
-        if (type === 'transaction') setSelectedTransaction(value);
-        if (type === 'building') setSelectedBuilding(value);
-        setActiveDropdown(null);
-        triggerEffect(event.currentTarget as HTMLElement);
-    };
-
-    const handleReset = (event: React.MouseEvent<HTMLElement>) => {
+    const handleReset = () => {
         setSelectedRegion('');
+        setSelectedDong('');
         setSelectedTransaction('');
         setSelectedBuilding('');
-        triggerEffect(event.currentTarget as HTMLElement);
     };
 
-    const removeFilter = (type: 'region' | 'transaction' | 'building', event: React.MouseEvent<HTMLElement>) => {
-        event.stopPropagation(); // Prevent dropdown toggle if clicking close inside a button (though these are separate tags)
-        if (type === 'region') setSelectedRegion('');
-        if (type === 'transaction') setSelectedTransaction('');
-        if (type === 'building') setSelectedBuilding('');
-        triggerEffect(event.currentTarget as HTMLElement);
-    };
+    const dongList = selectedRegion ? (DONG_MAP[selectedRegion] || []) : [];
 
     return (
-        <div className="p-6 rounded-2xl border-white/40 border-2 bg-gradient-to-b from-sky-100/60 to-blue-200/60 backdrop-blur-md shadow-xl relative z-20" ref={dropdownRef}>
-            <div className="flex flex-col gap-4">
-                {/* Search Bar */}
-                <div className="relative">
-                    <input
-                        type="text"
-                        placeholder="지역, 지하철역, 학교 검색"
-                        className="w-full py-3 pl-12 pr-4 bg-white/80 border-white/60 border-2 rounded-xl text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent shadow-sm transition-all"
-                    />
-                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
-                </div>
+        <div className="bg-white border border-[var(--color-border-light)] rounded-xl p-6 shadow-[var(--shadow-md)]">
+            <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-[var(--color-primary)]">매물 필터</h3>
+                <button
+                    onClick={handleReset}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 border border-red-300 rounded-lg hover:bg-red-50 hover:border-red-400 transition-colors"
+                >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M14 8C14 11.3137 11.3137 14 8 14C4.68629 14 2 11.3137 2 8C2 4.68629 4.68629 2 8 2C11.3137 2 14 4.68629 14 8Z" stroke="currentColor" strokeWidth="1.5" />
+                        <path d="M10 6L6 10M6 6L10 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    </svg>
+                    초기화
+                </button>
+            </div>
 
-                {/* Filter Options */}
-                <div className="flex flex-wrap gap-2">
-                    {/* Region Dropdown */}
-                    <div className="relative">
-                        <button
-                            onClick={(e) => toggleDropdown('region', e)}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-full border-2 transition-all ${activeDropdown === 'region' || selectedRegion
-                                    ? 'bg-blue-100 border-blue-300 text-blue-700'
-                                    : 'bg-white/60 border-white/60 text-slate-600 hover:bg-white/80'
-                                }`}
-                        >
-                            <span>{selectedRegion || '지역'}</span>
-                            <ChevronDown className={`w-4 h-4 transition-transform ${activeDropdown === 'region' ? 'rotate-180' : ''}`} />
-                        </button>
-                        {activeDropdown === 'region' && (
-                            <div className="absolute top-full left-0 mt-2 w-48 bg-white/90 backdrop-blur-sm border border-white/60 rounded-xl shadow-lg p-2 z-50 max-h-60 overflow-y-auto scrollbar-hide">
-                                <div className="grid grid-cols-2 gap-1">
-                                    {REGION_OPTIONS.map((option) => (
-                                        <button
-                                            key={option}
-                                            onClick={(e) => handleSelect('region', option, e)}
-                                            className={`px-3 py-2 rounded-lg text-sm text-left transition-colors ${selectedRegion === option
-                                                    ? 'bg-blue-100 text-blue-700 font-medium'
-                                                    : 'text-slate-600 hover:bg-slate-100'
-                                                }`}
-                                        >
-                                            {option}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Transaction Type Dropdown */}
-                    <div className="relative">
-                        <button
-                            onClick={(e) => toggleDropdown('transaction', e)}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-full border-2 transition-all ${activeDropdown === 'transaction' || selectedTransaction
-                                    ? 'bg-blue-100 border-blue-300 text-blue-700'
-                                    : 'bg-white/60 border-white/60 text-slate-600 hover:bg-white/80'
-                                }`}
-                        >
-                            <span>{selectedTransaction || '거래유형'}</span>
-                            <ChevronDown className={`w-4 h-4 transition-transform ${activeDropdown === 'transaction' ? 'rotate-180' : ''}`} />
-                        </button>
-                        {activeDropdown === 'transaction' && (
-                            <div className="absolute top-full left-0 mt-2 w-32 bg-white/90 backdrop-blur-sm border border-white/60 rounded-xl shadow-lg p-2 z-50">
-                                <div className="flex flex-col gap-1">
-                                    {TRANSACTION_OPTIONS.map((option) => (
-                                        <button
-                                            key={option}
-                                            onClick={(e) => handleSelect('transaction', option, e)}
-                                            className={`px-3 py-2 rounded-lg text-sm text-left transition-colors ${selectedTransaction === option
-                                                    ? 'bg-blue-100 text-blue-700 font-medium'
-                                                    : 'text-slate-600 hover:bg-slate-100'
-                                                }`}
-                                        >
-                                            {option}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Building Type Dropdown */}
-                    <div className="relative">
-                        <button
-                            onClick={(e) => toggleDropdown('building', e)}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-full border-2 transition-all ${activeDropdown === 'building' || selectedBuilding
-                                    ? 'bg-blue-100 border-blue-300 text-blue-700'
-                                    : 'bg-white/60 border-white/60 text-slate-600 hover:bg-white/80'
-                                }`}
-                        >
-                            <span>{selectedBuilding || '건물유형'}</span>
-                            <ChevronDown className={`w-4 h-4 transition-transform ${activeDropdown === 'building' ? 'rotate-180' : ''}`} />
-                        </button>
-                        {activeDropdown === 'building' && (
-                            <div className="absolute top-full left-0 mt-2 w-32 bg-white/90 backdrop-blur-sm border border-white/60 rounded-xl shadow-lg p-2 z-50">
-                                <div className="flex flex-col gap-1">
-                                    {BUILDING_OPTIONS.map((option) => (
-                                        <button
-                                            key={option}
-                                            onClick={(e) => handleSelect('building', option, e)}
-                                            className={`px-3 py-2 rounded-lg text-sm text-left transition-colors ${selectedBuilding === option
-                                                    ? 'bg-blue-100 text-blue-700 font-medium'
-                                                    : 'text-slate-600 hover:bg-slate-100'
-                                                }`}
-                                        >
-                                            {option}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Reset Button */}
-                    <button
-                        onClick={handleReset}
-                        className="px-4 py-2 rounded-full border-2 border-red-200 bg-white/60 text-red-500 hover:bg-red-50 transition-all text-sm font-medium ml-auto"
+            <div className="flex items-end gap-4">
+                {/* 자치구 선택 */}
+                <div className="flex-1 space-y-2">
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
+                        자치구
+                    </label>
+                    <select
+                        value={selectedRegion}
+                        onChange={(e) => setSelectedRegion(e.target.value)}
+                        className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg text-sm text-[var(--color-text-primary)] bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent transition-all"
                     >
-                        초기화
-                    </button>
+                        <option value="">전체</option>
+                        {SEOUL_DISTRICTS.map((district) => (
+                            <option key={district} value={district}>
+                                {district}
+                            </option>
+                        ))}
+                    </select>
                 </div>
 
-                {/* Selected Filters Tags */}
-                {(selectedRegion || selectedTransaction || selectedBuilding) && (
-                    <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200/50">
-                        {selectedRegion && (
-                            <span className="flex items-center gap-1 px-3 py-1 rounded-full bg-blue-500 text-white text-sm shadow-sm">
-                                {selectedRegion}
-                                <button onClick={(e) => removeFilter('region', e)} className="hover:text-blue-200"><X className="w-3 h-3" /></button>
-                            </span>
-                        )}
-                        {selectedTransaction && (
-                            <span className="flex items-center gap-1 px-3 py-1 rounded-full bg-blue-500 text-white text-sm shadow-sm">
-                                {selectedTransaction}
-                                <button onClick={(e) => removeFilter('transaction', e)} className="hover:text-blue-200"><X className="w-3 h-3" /></button>
-                            </span>
-                        )}
-                        {selectedBuilding && (
-                            <span className="flex items-center gap-1 px-3 py-1 rounded-full bg-blue-500 text-white text-sm shadow-sm">
-                                {selectedBuilding}
-                                <button onClick={(e) => removeFilter('building', e)} className="hover:text-blue-200"><X className="w-3 h-3" /></button>
-                            </span>
-                        )}
-                    </div>
-                )}
+                {/* 행정동 선택 */}
+                <div className="flex-1 space-y-2">
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
+                        행정동
+                    </label>
+                    <select
+                        value={selectedDong}
+                        onChange={(e) => setSelectedDong(e.target.value)}
+                        disabled={!selectedRegion || dongList.length === 0}
+                        className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg text-sm text-[var(--color-text-primary)] bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent disabled:bg-[var(--color-bg-secondary)] disabled:cursor-not-allowed transition-all"
+                    >
+                        <option value="">
+                            {selectedRegion ? '전체' : '선택'}
+                        </option>
+                        {dongList.map((dong) => (
+                            <option key={dong} value={dong}>
+                                {dong}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
+                {/* 거래유형 드롭다운 */}
+                <div className="flex-1 space-y-2">
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
+                        거래유형
+                    </label>
+                    <select
+                        value={selectedTransaction}
+                        onChange={(e) => setSelectedTransaction(e.target.value)}
+                        className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg text-sm text-[var(--color-text-primary)] bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent transition-all"
+                    >
+                        <option value="">전체</option>
+                        {TRANSACTION_OPTIONS.map((option) => (
+                            <option key={option} value={option}>
+                                {option}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
+                {/* 건물용도 드롭다운 */}
+                <div className="flex-1 space-y-2">
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
+                        건물용도
+                    </label>
+                    <select
+                        value={selectedBuilding}
+                        onChange={(e) => setSelectedBuilding(e.target.value)}
+                        className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg text-sm text-[var(--color-text-primary)] bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent transition-all"
+                    >
+                        <option value="">전체</option>
+                        {BUILDING_OPTIONS.map((option) => (
+                            <option key={option} value={option}>
+                                {option}
+                            </option>
+                        ))}
+                    </select>
+                </div>
             </div>
         </div>
     );
