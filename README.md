@@ -2,11 +2,18 @@
 
 > **AI 기반 부동산 매물 검색 및 추천 서비스**  
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
 [![Django](https://img.shields.io/badge/django-4.2-green.svg)](https://www.djangoproject.com/)
+[![FastAPI](https://img.shields.io/badge/fastapi-0.109-green.svg)](https://fastapi.tiangolo.com/)
+[![TypeScript](https://img.shields.io/badge/typescript-5.3-blue.svg)](https://www.typescriptlang.org/)
 [![Next.js](https://img.shields.io/badge/next.js-14-black.svg)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/react-18-blue.svg)](https://reactjs.org/)
+[![TailwindCSS](https://img.shields.io/badge/tailwindcss-3.4-blue.svg)](https://tailwindcss.com/)
 [![Neo4j](https://img.shields.io/badge/neo4j-5.15-blue.svg)](https://neo4j.com/)
+[![PostgreSQL](https://img.shields.io/badge/postgresql-16-blue.svg)](https://www.postgresql.org/)
+[![OpenSearch](https://img.shields.io/badge/opensearch-2.11-blue.svg)](https://opensearch.org/)
+[![LangChain](https://img.shields.io/badge/langchain-0.3-yellow.svg)](https://www.langchain.com/)
+[![Docker](https://img.shields.io/badge/docker-24-blue.svg)](https://www.docker.com/)
 
 ---
 
@@ -160,51 +167,100 @@
 ┌─────────────────────────────────────┐
 │      Frontend (Next.js 14)          │
 │  - 챗봇 인터페이스                    │
+│  - 매물 검색 & 필터링                 │
 │  - 커뮤니티, 찜 목록                  │
 └──────┬──────────────────────────────┘
-       │ REST API
+       │ REST API / WebSocket
        ▼
 ┌─────────────────────────────────────┐
 │    Backend (Django REST API)        │
-│  - 사용자 인증/인가                   │
-│  - 매물 데이터 조회                   │
+│  - 사용자 인증/인가 (JWT)             │
+│  - 매물 CRUD API                     │
+│  - 커뮤니티 API                       │
 └──┬────┬─────────┬──────────────┬────┘
    │    │         │              │
-   │    │         │              │
    ▼    ▼         ▼              ▼
-┌────┐┌────┐  ┌────────┐    ┌────────┐
-│PG  ││Neo4j│  │RAG     │    │Reco    │
-│SQL ││     │  │Server  │    │Server  │
-└────┘└────┘  │(FastAPI)│    │(FastAPI)│
-              │- 챗봇    │    │- 추천   │
-              │- 검색    │    │- ML     │
-              └────┬───┘     └────────┘
-                   │             
-                   ▼             
-              ┌─────────────────────┐
-              │  OpenAI             │
-              └─────────────────────┘
+┌────────────────────────────────────┐
+│        Data Layer                  │
+│  ┌──────┐ ┌──────┐ ┌──────┐      │
+│  │ PG   │ │Neo4j │ │Redis │      │
+│  │+vec  │ │Graph │ │Cache │      │
+│  └──────┘ └──────┘ └──────┘      │
+│  ┌──────────────────────┐         │
+│  │ OpenSearch 2.11      │         │
+│  │ - 하이브리드 검색     │         │
+│  │ - k-NN 벡터 검색     │         │
+│  └──────────────────────┘         │
+└────────────────────────────────────┘
+   ▲              ▲
+   │              │
+   ▼              ▼
+┌────────┐    ┌────────┐
+│RAG     │    │Reco    │
+│Server  │    │Server  │
+│(FastAPI)│    │(FastAPI)│
+│- 챗봇   │    │- ML 추천│
+│- 검색   │    │- 신뢰도 │
+└────┬───┘    │- 가격   │
+     │        └────────┘
+     ▼
+┌─────────────────────┐
+│  OpenAI             │
+│  - GPT-4o-mini      │
+│  - text-embedding   │
+└─────────────────────┘
 ```
+
+### 주요 컴포넌트
+
+**1. Frontend Layer**
+- Next.js 14 (App Router)
+- TypeScript + Tailwind CSS
+- NextAuth.js (Google OAuth)
+
+**2. Backend Layer**
+- Django 4.2 + DRF
+- JWT 인증
+- RESTful API
+
+**3. Data Layer**
+- **PostgreSQL 16**: 매물 데이터, 사용자 정보
+- **Neo4j 5.15**: 매물-시설 관계 그래프
+- **OpenSearch 2.11**: 하이브리드 검색 (키워드 + 벡터)
+- **Redis 7**: 세션 캐시
+
+**4. AI/ML Services**
+- **RAG Server**: LangGraph 기반 챗봇
+- **Reco Server**: ML 모델 (신뢰도, 가격)
 
 ### 데이터 흐름
 
-1. **매물 검색 흐름**
-   ```
-   사용자 → Frontend → Backend → PostgreSQL/Neo4j → Backend → Frontend
-   ```
+**1. 매물 검색 흐름**
+```
+사용자 → Frontend → Backend → PostgreSQL/Neo4j/OpenSearch
+→ 하이브리드 검색 (Neo4j 60% + ES 40%)
+→ Backend → Frontend → 사용자
+```
 
-2. **챗봇 대화 흐름**
-   ```
-   사용자 → Frontend → RAG Server → LangGraph
-   → [질문 분류 → 검색(Neo4j/PostgreSQL/OpenSearch) → 분석(ML 모델) → 응답 생성(GPT-4)]
-   → RAG Server → Frontend → 사용자
-   ```
+**2. 챗봇 대화 흐름**
+```
+사용자 질문 → Frontend → RAG Server
+→ LangGraph Pipeline:
+  1. classify_node (질문 분류)
+  2. parallel_search (Neo4j + Vector 병렬)
+  3. es_rerank (텍스트 재정렬)
+  4. sql_search (상세 정보)
+  5. generate_node (GPT-4 응답)
+→ Frontend → 사용자
+```
 
-3. **온도 지표 계산 흐름**
-   ```
-   매물 위치 → Neo4j (주변 시설 쿼리) → PostgreSQL (시설 상세 정보)
-   → Backend (온도 계산 알고리즘) → Frontend (시각화)
-   ```
+**3. ML 모델 추론 흐름**
+```
+매물 데이터 → Reco Server
+→ Trust Model (중개사 신뢰도: A/B/C)
+→ Price Model (가격 적정성: 저렴/적정/비쌈)
+→ Backend → Frontend
+```
 ---
 
 ## 🤖 ML 모델
