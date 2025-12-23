@@ -80,11 +80,11 @@ def calculate_options_score(living_facilities: str, other_facilities: str = None
     Returns:
         0-100점 사이의 점수 (20점 단위)
         - 0점: 최저주거기준 미달
-        - 20점: 1분위 (0~1개 옵션)
-        - 40점: 2분위 (2~3개 옵션)
-        - 60점: 3분위 (4~5개 옵션)
-        - 80점: 4분위 (6~7개 옵션)
-        - 100점: 5분위 (8개 이상 옵션)
+        - 20점: 1분위 (0~2개 옵션)
+        - 40점: 2분위 (3~4개 옵션)
+        - 60점: 3분위 (5~7개 옵션) ← 평균 6.2개
+        - 80점: 4분위 (8~10개 옵션)
+        - 100점: 5분위 (11개 이상 옵션)
     
     Note:
         최저주거기준은 calculate_radar_chart_data()에서 검증
@@ -111,16 +111,16 @@ def calculate_options_score(living_facilities: str, other_facilities: str = None
     unique_facilities = list(set(all_facilities))
     count = len(unique_facilities)
     
-    # 5분위수 분류
-    if count <= 1:
+    # 5분위수 분류 (평균 6.2개가 3분위 중앙에 위치)
+    if count <= 2:
         return 20  # 1분위
-    elif count <= 3:
+    elif count <= 4:
         return 40  # 2분위
-    elif count <= 5:
-        return 60  # 3분위
     elif count <= 7:
+        return 60  # 3분위 (평균)
+    elif count <= 10:
         return 80  # 4분위
-    else:  # 8개 이상
+    else:  # 11개 이상
         return 100  # 5분위
 
 
@@ -138,9 +138,9 @@ def calculate_security_score(security_facilities: str, other_facilities: str = N
     
     Returns:
         0-100점 사이의 점수 (20점 단위)
-        - 20점: 1분위 (0~1개 보안시설)
-        - 40점: 2분위 (2개 보안시설)
-        - 60점: 3분위 (3~4개 보안시설)
+        - 20점: 1분위 (0개 보안시설)
+        - 40점: 2분위 (1~2개 보안시설)
+        - 60점: 3분위 (3~4개 보안시설) ← 평균 2.8개
         - 80점: 4분위 (5~6개 보안시설)
         - 100점: 5분위 (7개 이상 보안시설)
     """
@@ -160,13 +160,13 @@ def calculate_security_score(security_facilities: str, other_facilities: str = N
     unique_facilities = list(set(all_facilities))
     count = len(unique_facilities)
     
-    # 5분위수 분류
-    if count <= 1:
+    # 5분위수 분류 (평균 2.8개가 3분위 중앙에 위치)
+    if count == 0:
         return 20  # 1분위
-    elif count == 2:
+    elif count <= 2:
         return 40  # 2분위
     elif count <= 4:
-        return 60  # 3분위
+        return 60  # 3분위 (평균)
     elif count <= 6:
         return 80  # 4분위
     else:  # 7개 이상
