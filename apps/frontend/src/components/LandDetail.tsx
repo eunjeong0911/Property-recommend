@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { Land } from '../types/land';
 import { fetchLandById } from '../api/landApi';
@@ -24,6 +24,8 @@ export default function LandDetail({ landId }: LandDetailProps) {
     const [liked, setLiked] = useState(false);
     const [showPriceTooltip, setShowPriceTooltip] = useState(false);
     const [radarTooltip, setRadarTooltip] = useState<string | null>(null);
+    const [maxScrollDepth, setMaxScrollDepth] = useState(0);
+    const maxScrollDepthRef = useRef(0);
 
     useEffect(() => {
         const loadLand = async () => {
@@ -44,19 +46,42 @@ export default function LandDetail({ landId }: LandDetailProps) {
         }
     }, [landId]);
 
+    // 스크롤 깊이 추적
+    useEffect(() => {
+        const handleScroll = () => {
+            const windowHeight = window.innerHeight;
+            const documentHeight = document.documentElement.scrollHeight;
+            const scrollTop = window.scrollY;
+
+            // 현재 스크롤 위치를 퍼센트로 계산
+            const scrollPercentage = Math.round(
+                ((scrollTop + windowHeight) / documentHeight) * 100
+            );
+
+            // 최대 스크롤 깊이 업데이트 (state와 ref 모두)
+            const newMaxDepth = Math.max(maxScrollDepthRef.current, Math.min(scrollPercentage, 100));
+            maxScrollDepthRef.current = newMaxDepth;
+            setMaxScrollDepth(newMaxDepth);
+        };
+
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
+
     // 매물 조회 이력 추적
     useEffect(() => {
         const startTime = Date.now();
 
-        // 컴포넌트 언마운트 시 총 조회 시간 저장
+        // 컴포넌트 언마운트 시 총 조회 시간 및 스크롤 깊이 저장
         return () => {
             const totalViewDuration = Math.floor((Date.now() - startTime) / 1000);
             // 최소 1초 이상 조회한 경우만 기록
             if (totalViewDuration >= 1) {
-                recordListingView(landId, totalViewDuration);
+                // ref에서 최종 스크롤 깊이 가져오기
+                recordListingView(landId, totalViewDuration, maxScrollDepthRef.current);
             }
         };
-    }, [landId]);
+    }, [landId]); // maxScrollDepth 제거!
 
     if (loading) {
         return (

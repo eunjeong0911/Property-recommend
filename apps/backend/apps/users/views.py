@@ -192,16 +192,36 @@ class ListingViewHistoryView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        """매물 조회 이력 저장"""
-        history = ListingViewHistory.objects.create(
+        """
+        매물 조회 이력 저장 (Upsert)
+        - 기존 row가 있으면 UPDATE (view_count++, total_view_duration+=, max_scroll_depth 갱신)
+        - 없으면 INSERT
+        """
+        listing_id = request.data.get('listing_id')
+        view_duration = request.data.get('view_duration', 0) or 0
+        scroll_depth = request.data.get('scroll_depth', 0) or 0
+        
+        # get_or_create로 기존 row 조회 또는 생성
+        history, created = ListingViewHistory.objects.get_or_create(
             user=request.user,
-            listing_id=request.data.get('listing_id'),
-            view_duration=request.data.get('view_duration'),
-            scroll_depth=request.data.get('scroll_depth')
+            listing_id=listing_id,
+            defaults={
+                'view_count': 1,
+                'total_view_duration': view_duration,
+                'max_scroll_depth': scroll_depth,
+            }
         )
+        
+        # 기존 row가 있으면 집계 데이터 업데이트
+        if not created:
+            history.view_count += 1
+            history.total_view_duration += view_duration
+            history.max_scroll_depth = max(history.max_scroll_depth, scroll_depth)
+            history.save()
+        
         return Response(
             ListingViewHistorySerializer(history).data,
-            status=status.HTTP_201_CREATED
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK
         )
 
 
