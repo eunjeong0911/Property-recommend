@@ -67,7 +67,10 @@ def calculate_building_age_score(approval_date: str) -> int:
 
 def calculate_options_score(living_facilities: str, other_facilities: str = None, additional_options: str = None) -> int:
     """
-    옵션 충실도 점수 계산 (생활시설 + 기타 + 추가옵션 통합)
+    옵션 충실도 점수 계산 (5분위수 방식 + 최저주거기준)
+    
+    1단계: 최저주거기준 검증 (난방, 채광, 환기)
+    2단계: 옵션 개수에 따른 5분위수 분류
     
     Args:
         living_facilities: 생활시설 문자열 (예: "냉장고, 세탁기, 싱크대, ...")
@@ -75,12 +78,17 @@ def calculate_options_score(living_facilities: str, other_facilities: str = None
         additional_options: 추가 옵션 문자열 (additional_options 컬럼)
     
     Returns:
-        0-100점 사이의 점수
-        - 12개 이상 (풀옵션): 100점
-        - 9-11개 (준풀옵션): 80점
-        - 6-8개 (기본옵션): 60점
-        - 3-5개 (최소옵션): 40점
-        - 2개 이하 (옵션부족): 20점
+        0-100점 사이의 점수 (20점 단위)
+        - 0점: 최저주거기준 미달
+        - 20점: 1분위 (0~1개 옵션)
+        - 40점: 2분위 (2~3개 옵션)
+        - 60점: 3분위 (4~5개 옵션)
+        - 80점: 4분위 (6~7개 옵션)
+        - 100점: 5분위 (8개 이상 옵션)
+    
+    Note:
+        최저주거기준은 calculate_radar_chart_data()에서 검증
+        이 함수는 옵션 개수만 계산
     """
     all_facilities = []
     
@@ -103,66 +111,89 @@ def calculate_options_score(living_facilities: str, other_facilities: str = None
     unique_facilities = list(set(all_facilities))
     count = len(unique_facilities)
     
-    if count >= 12:
-        return 100  # 풀옵션
-    elif count >= 9:
-        return 80   # 준풀옵션
-    elif count >= 6:
-        return 60   # 기본옵션
-    elif count >= 3:
-        return 40   # 최소옵션
-    else:
-        return 20   # 옵션부족
+    # 5분위수 분류
+    if count <= 1:
+        return 20  # 1분위
+    elif count <= 3:
+        return 40  # 2분위
+    elif count <= 5:
+        return 60  # 3분위
+    elif count <= 7:
+        return 80  # 4분위
+    else:  # 8개 이상
+        return 100  # 5분위
 
 
-def calculate_security_score(security_facilities: str) -> int:
+
+def calculate_security_score(security_facilities: str, other_facilities: str = None) -> int:
     """
-    보안 수준 점수 계산
+    보안 수준 점수 계산 (5분위수 방식, 컬럼 기반 카운팅)
+    
+    최소기준 없이 순수하게 보안 시설 개수로만 점수 계산
+    컬럼에서 쉼표로 구분된 항목을 그대로 카운팅 (키워드 하드코딩 없음)
     
     Args:
         security_facilities: 보안시설 문자열 (예: "현관보안, CCTV, 인터폰, ...")
+        other_facilities: 기타 시설 문자열 (보안 관련 항목 포함 가능)
     
     Returns:
-        0-100점 사이의 점수
-        - 5개 이상 (최고 보안): 100점
-        - 4개 (우수 보안): 80점
-        - 3개 (양호 보안): 60점
-        - 2개 (기본 보안): 40점
-        - 1개 이하 (보안 취약): 20점
+        0-100점 사이의 점수 (20점 단위)
+        - 20점: 1분위 (0~1개 보안시설)
+        - 40점: 2분위 (2개 보안시설)
+        - 60점: 3분위 (3~4개 보안시설)
+        - 80점: 4분위 (5~6개 보안시설)
+        - 100점: 5분위 (7개 이상 보안시설)
     """
-    if not security_facilities or security_facilities == '-':
-        return 20  # 보안시설 없음
+    all_facilities = []
     
-    # 쉼표로 구분하여 개수 세기
-    facilities_list = [f.strip() for f in security_facilities.split(',') if f.strip()]
-    count = len(facilities_list)
+    # 보안시설 추가
+    if security_facilities and security_facilities != '-':
+        facilities = [f.strip() for f in security_facilities.split(',') if f.strip()]
+        all_facilities.extend(facilities)
     
-    if count >= 5:
-        return 100  # 최고 보안
-    elif count >= 4:
-        return 80   # 우수 보안
-    elif count >= 3:
-        return 60   # 양호 보안
-    elif count >= 2:
-        return 40   # 기본 보안
-    else:
-        return 20   # 보안 취약
+    # 기타 시설에서 보안 관련 항목 추가 (있다면)
+    if other_facilities and other_facilities != '-':
+        facilities = [f.strip() for f in other_facilities.split(',') if f.strip()]
+        all_facilities.extend(facilities)
+    
+    # 중복 제거
+    unique_facilities = list(set(all_facilities))
+    count = len(unique_facilities)
+    
+    # 5분위수 분류
+    if count <= 1:
+        return 20  # 1분위
+    elif count == 2:
+        return 40  # 2분위
+    elif count <= 4:
+        return 60  # 3분위
+    elif count <= 6:
+        return 80  # 4분위
+    else:  # 7개 이상
+        return 100  # 5분위
 
 
 def calculate_space_efficiency_score(area_info: str) -> int:
     """
     공간 효율성 점수 계산
     
+    전국 평균 전용률(77.6%)을 기준으로 점수 산정:
+    - 평균(77.6%) = 80점
+    - 우수(85% 이상) = 100점
+    - 양호(70-77%) = 60점
+    - 보통(60-70%) = 40점
+    - 낮음(60% 미만) = 20점
+    
     Args:
         area_info: 전용/공급면적 문자열 (예: "40.14m2/59.96m2 (12.14평/18.14평)")
     
     Returns:
         0-100점 사이의 점수
-        - 85% 이상: 100점
-        - 75-84%: 80점
-        - 65-74%: 60점
-        - 55-64%: 40점
-        - 55% 미만: 20점
+        - 85% 이상: 100점 (우수 - 평균보다 약 10% 높음)
+        - 77-84%: 80점 (평균 수준 - 전국 평균 77.6%)
+        - 70-76%: 60점 (양호 - 소형 아파트 평균 74.5%)
+        - 60-69%: 40점 (보통 - 최소 허용 수준)
+        - 60% 미만: 20점 (낮음 - 공용면적 과다)
     """
     if not area_info or area_info == '-':
         return 50  # 기본값
@@ -180,16 +211,17 @@ def calculate_space_efficiency_score(area_info: str) -> int:
             if supply_area > 0:
                 efficiency = (exclusive_area / supply_area) * 100
                 
+                # 전국 평균(77.6%) 기준 점수 산정
                 if efficiency >= 85:
-                    return 100
-                elif efficiency >= 75:
-                    return 80
-                elif efficiency >= 65:
-                    return 60
-                elif efficiency >= 55:
-                    return 40
+                    return 100  # 우수 (평균보다 10% 높음)
+                elif efficiency >= 77:
+                    return 80   # 평균 수준 (전국 평균 77.6%)
+                elif efficiency >= 70:
+                    return 60   # 양호 (소형 아파트 평균 74.5%)
+                elif efficiency >= 60:
+                    return 40   # 보통 (최소 허용 수준)
                 else:
-                    return 20
+                    return 20   # 낮음 (공용면적 과다)
         
         return 50  # 파싱 실패 시 기본값
     
@@ -222,7 +254,7 @@ def calculate_transportation_score(land_address: str) -> int:
 
 def calculate_radar_chart_data(land) -> Dict[str, int]:
     """
-    매물의 레이더 차트 데이터 계산
+    매물의 레이더 차트 데이터 계산 (5분위수 + 최저주거기준)
     
     Args:
         land: Land 모델 인스턴스
@@ -236,15 +268,33 @@ def calculate_radar_chart_data(land) -> Dict[str, int]:
     approval_date = listing_info.get('사용승인일', '-')
     building_age = calculate_building_age_score(approval_date)
     
-    # 2. 옵션 충실도 (생활시설 + 기타 + 추가옵션 통합)
-    living_facilities = listing_info.get('생활시설', '-')
+    # 2. 옵션 충실도 (최저주거기준 검증 + 5분위수)
+    # 2-1. 최저주거기준 검증
+    heating = listing_info.get('난방방식', '-')
+    direction = listing_info.get('주실기준/방향', '-')
     other_facilities = listing_info.get('기타', '-')
-    additional_options = land.additional_options or '-'
-    options = calculate_options_score(living_facilities, other_facilities, additional_options)
+    description = land.description or ''
     
-    # 3. 보안 수준
+    # 필수 조건 확인
+    has_heating = heating and heating != '-'
+    has_lighting = direction and direction != '-'
+    
+    ventilation_keywords = ['환기', '창문', '창', '발코니', '베란다']
+    has_ventilation = any(keyword in description or keyword in other_facilities 
+                          for keyword in ventilation_keywords)
+    
+    # 최저주거기준 미충족 시 0점
+    if not (has_heating and has_lighting and has_ventilation):
+        options = 0
+    else:
+        # 최저주거기준 충족 시 옵션 개수로 5분위수 계산
+        living_facilities = listing_info.get('생활시설', '-')
+        additional_options = land.additional_options or '-'
+        options = calculate_options_score(living_facilities, other_facilities, additional_options)
+    
+    # 3. 보안 수준 (컬럼 기반 카운팅, 최소기준 없음)
     security_facilities = listing_info.get('보안시설', '-')
-    security = calculate_security_score(security_facilities)
+    security = calculate_security_score(security_facilities, other_facilities)
     
     # 4. 공간 효율성
     area_info = listing_info.get('전용/공급면적', '-')

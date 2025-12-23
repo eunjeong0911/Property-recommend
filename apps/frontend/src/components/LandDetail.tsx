@@ -196,12 +196,12 @@ export default function LandDetail({ landId }: LandDetailProps) {
         transportation: 50
     };
 
-    // 레이더 차트 라벨 및 설명
+    // 레이더 차트 라벨 및 설명 (5분위수 방식)
     const radarLabels = {
         building_age: { label: '건물연식', description: '신축일수록 높은 점수 (5년 이하: 100점)' },
-        options: { label: '옵션충실', description: '생활시설+기타+추가옵션 개수 기반 (12개 이상: 100점)' },
-        security: { label: '보안수준', description: '보안시설 개수 기반 (5개 이상: 100점)' },
-        space_efficiency: { label: '공간효율', description: '전용률 기반 (85% 이상: 100점)' },
+        options: { label: '옵션충실', description: '최저기준(난방/채광/환기) 필수, 옵션 8개 이상: 100점' },
+        security: { label: '보안수준', description: '보안시설 개수 기반 (7개 이상: 100점)' },
+        space_efficiency: { label: '공간효율', description: '전용률 기반 (평균 77.6%, 85% 이상: 100점)' },
         transportation: { label: '교통접근', description: '지하철역 거리 기반 (300m 이내: 100점)' }
     };
 
