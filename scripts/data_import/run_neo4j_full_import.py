@@ -155,8 +155,16 @@ def main():
             current_dir = os.path.dirname(os.path.abspath(__file__))
             pipeline_script = os.path.join(current_dir, "importers", "import_properties_full.py")
             
-            # 서브프로세스로 실행 (환경변수 상속)
-            subprocess.run([sys.executable, pipeline_script], check=True)
+            # 서브프로세스로 실행 (환경변수 상속 및 PYTHONPATH 추가)
+            env = os.environ.copy()
+            current_path = os.path.dirname(os.path.abspath(__file__))
+            scripts_path = os.path.dirname(os.path.dirname(current_path)) # scripts/
+            if "PYTHONPATH" in env:
+                env["PYTHONPATH"] += os.pathsep + scripts_path
+            else:
+                env["PYTHONPATH"] = scripts_path
+                
+            subprocess.run([sys.executable, pipeline_script], check=True, env=env)
             
             stats["property_neo4j"]["success"] = 1
             print("✓ 매물 데이터 Import 완료\n")
