@@ -164,6 +164,11 @@ def save_progress(data: list, output_path: Path):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
+
+
+
+
+
 async def process_file(input_path: Path, output_path: Path):
     """파일 처리 (비동기)"""
     print(f"\n처리 중: {input_path.name}")

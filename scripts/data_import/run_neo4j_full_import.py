@@ -12,6 +12,7 @@ from importers.amenity_importer import AmenityImporter
 from importers.safety_importer import SafetyImporter
 # from importers.property_importer import PropertyImporter
 from importers.postgres_importer import PostgresImporter
+from importers.opensearch_importer import OpenSearchImporter
 from database import Database
 
 
@@ -33,7 +34,10 @@ def main():
         "safety_police": {"success": 0, "failed": 0},
         "safety_fire": {"success": 0, "failed": 0},
         "property_neo4j": {"success": 0, "failed": 0},
+        "es_preprocessing": {"success": 0, "failed": 0},
         "property_postgres": {"success": 0, "failed": 0},
+        "property_opensearch": {"success": 0, "failed": 0},
+        "embedding_generation": {"success": 0, "failed": 0},
         "linking": {"success": 0, "failed": 0}
     }
     
@@ -175,13 +179,43 @@ def main():
             print(f"✗ 매물 데이터 Import 실패: {e}\n")
             stats["property_neo4j"]["failed"] = 1
         
-        # Property (PostgreSQL)
+        # 5. Data Preprocessing (ES Search Text)
         print("=" * 70)
-        print("5. 매물 데이터 Import (PostgreSQL)")
+        print("5. 데이터 전처리 (ES Search Text 생성)")
+        print("=" * 70)
+        try:
+            print("\n[5-1] 매물 데이터 전처리 (Search Text 생성) 실행 중...")
+            
+            # search_text 생성 스크립트 실행
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            scripts_dir = os.path.dirname(current_dir)
+            preprocessing_script = os.path.join(scripts_dir, "ES전처리", "generate_search_text_parallel.py")
+            
+            # PYTHONPATH 설정 (scripts 폴더 포함)
+            env = os.environ.copy()
+            if "PYTHONPATH" in env:
+                env["PYTHONPATH"] += os.pathsep + scripts_dir
+            else:
+                env["PYTHONPATH"] = scripts_dir
+                
+            subprocess.run([sys.executable, preprocessing_script], check=True, env=env)
+            
+            stats["es_preprocessing"]["success"] = 1
+            print("✓ 데이터 전처리 완료\n")
+        except subprocess.CalledProcessError as e:
+            print(f"✗ 데이터 전처리 실행 실패 (Exit Code: {e.returncode})\n")
+            stats["es_preprocessing"]["failed"] = 1
+        except Exception as e:
+            print(f"✗ 데이터 전처리 실패: {e}\n")
+            stats["es_preprocessing"]["failed"] = 1
+
+        # 6. Property (PostgreSQL)
+        print("=" * 70)
+        print("6. 매물 데이터 Import (PostgreSQL)")
         print("=" * 70)
         pg_importer = None
         try:
-            print("\n[5-1] 매물 데이터 Import 중...")
+            print("\n[6-1] 매물 데이터 Import 중...")
             pg_importer = PostgresImporter()
             pg_importer.import_properties()
             stats["property_postgres"]["success"] = 1
@@ -192,24 +226,70 @@ def main():
         finally:
             if pg_importer:
                 pg_importer.close()
-        
-        # Linking
+
+        # 7. Property (OpenSearch)
         print("=" * 70)
-        print("6. 데이터 연결 (Linking)")
+        print("7. 매물 데이터 Import (OpenSearch)")
         print("=" * 70)
         try:
-            print("\n[6-1] 교통 데이터 연결 중...")
+             print("\n[7-1] 매물 데이터 Import (OpenSearch) 중...")
+             opensearch_importer = OpenSearchImporter()
+             opensearch_importer.import_properties()
+             stats["property_opensearch"]["success"] = 1
+             print("✓ 매물 데이터 Import (OpenSearch) 완료\n")
+        except Exception as e:
+             print(f"✗ 매물 데이터 Import (OpenSearch) 실패: {e}\n")
+             stats["property_opensearch"]["failed"] = 1
+        
+        # 8. Embedding Generation (OpenSearch)
+        print("=" * 70)
+        print("8. 임베딩 생성 (OpenSearch)")
+        print("=" * 70)
+        try:
+            print("\n[8-1] 매물 데이터 임베딩 생성 실행 중...")
+            
+            # 경로 설정
+            # current_dir = scripts/data_import
+            # scripts_dir = scripts
+            # project_root = SKN18-FINAL-1TEAM
+            embedding_script = os.path.join(scripts_dir, "ES답변테스트", "build_embeddings.py")
+            project_root = os.path.dirname(scripts_dir)
+
+            # PYTHONPATH에 프로젝트 루트 추가 (libs 모듈 import 위해)
+            env = os.environ.copy()
+            if "PYTHONPATH" in env:
+                env["PYTHONPATH"] = project_root + os.pathsep + env["PYTHONPATH"]
+            else:
+                env["PYTHONPATH"] = project_root
+                
+            subprocess.run([sys.executable, embedding_script], check=True, env=env)
+            
+            stats["embedding_generation"]["success"] = 1
+            print("✓ 임베딩 생성 완료\n")
+        except subprocess.CalledProcessError as e:
+             print(f"✗ 임베딩 생성 실행 실패 (Exit Code: {e.returncode})\n")
+             stats["embedding_generation"]["failed"] = 1
+        except Exception as e:
+             print(f"✗ 임베딩 생성 실패: {e}\n")
+             stats["embedding_generation"]["failed"] = 1
+
+        # 9. Linking
+        print("=" * 70)
+        print("9. 데이터 연결 (Linking)")
+        print("=" * 70)
+        try:
+            print("\n[9-1] 교통 데이터 연결 중...")
             transport.link_subway()
             transport.link_bus()
             
-            print("\n[6-2] 편의시설 데이터 연결 중...")
+            print("\n[9-2] 편의시설 데이터 연결 중...")
             amenity.link_hospital()
             amenity.link_pharmacy()
             amenity.link_college()
             amenity.link_convenience()
             amenity.link_park()
             
-            print("\n[6-3] 안전시설 데이터 연결 중...")
+            print("\n[9-3] 안전시설 데이터 연결 중...")
             safety.link_cctv()
             safety.link_bell()
             safety.link_police()
@@ -259,7 +339,10 @@ def main():
     
     print("  매물 데이터:")
     print(f"    - Neo4j: {'✓' if stats['property_neo4j']['success'] else '✗'}")
+    print(f"    - ES 전처리: {'✓' if stats['es_preprocessing']['success'] else '✗'}")
     print(f"    - PostgreSQL: {'✓' if stats['property_postgres']['success'] else '✗'}")
+    print(f"    - OpenSearch: {'✓' if stats['property_opensearch']['success'] else '✗'}")
+    print(f"    - Embedding: {'✓' if stats['embedding_generation']['success'] else '✗'}")
     
     print("  데이터 연결:")
     print(f"    - Linking: {'✓' if stats['linking']['success'] else '✗'}")

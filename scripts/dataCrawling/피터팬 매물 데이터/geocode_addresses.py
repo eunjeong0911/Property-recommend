@@ -190,6 +190,7 @@ def process_category(input_dir: str, output_dir: str, filename: str) -> Dict:
     
     print(f"  📊 총 {len(listings)}개 매물 처리 시작...")
     
+    # 결과 저장용 리스트 (Neo4j용 경량 파일)
     results = []
     stats = {"total": len(listings), "success": 0, "failed": 0, "skipped": 0}
     
@@ -199,13 +200,13 @@ def process_category(input_dir: str, output_dir: str, filename: str) -> Dict:
             stats["failed"] += 1
             continue
         
-        # 이미 좌표가 있으면 스킵
+        # 1. 기존 좌표 확인 (재사용)
         if listing_id in existing_coords:
             results.append(existing_coords[listing_id])
             stats["skipped"] += 1
             continue
         
-        # 주소 추출
+        # 2. 좌표가 없다면 Geocoding 수행
         address_info = listing.get("주소_정보", {})
         address = address_info.get("전체주소", "") if isinstance(address_info, dict) else ""
         
@@ -213,11 +214,13 @@ def process_category(input_dir: str, output_dir: str, filename: str) -> Dict:
             stats["failed"] += 1
             continue
         
-        # Geocoding
+        # API 호출
         coords = geocode_address(address)
         
         if coords:
             lat, lng = coords
+            
+            # Neo4j용 결과에 추가
             results.append({
                 "매물번호": listing_id,
                 "좌표_정보": {
@@ -227,7 +230,7 @@ def process_category(input_dir: str, output_dir: str, filename: str) -> Dict:
             })
             stats["success"] += 1
         else:
-            # 좌표 변환 실패해도 기록 (좌표 없이)
+            # 실패 시에도 기록 (좌표 없이)
             results.append({
                 "매물번호": listing_id,
                 "좌표_정보": {
@@ -237,18 +240,21 @@ def process_category(input_dir: str, output_dir: str, filename: str) -> Dict:
             })
             stats["failed"] += 1
         
-        # 진행 상황 출력 (100개마다)
+        # 진행 상황 출력
         if (i + 1) % 100 == 0:
             print(f"    진행: {i + 1}/{len(listings)} ({stats['success']} 성공, {stats['failed']} 실패)")
         
-        # API Rate Limit 방지
-        time.sleep(API_DELAY)
+        # API Rate Limit
+        if coords: # API 호출했을 때만 딜레이
+             time.sleep(API_DELAY)
     
-    # 결과 저장
+    # Neo4j용 파일 저장 (GraphDB_data/land)
+    # 디렉토리 존재 확인
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(results, f, ensure_ascii=False, indent=2)
     
-    print(f"  ✅ 저장 완료: {output_filename}")
+    print(f"  ✅ 저장 완료: {filename}")
     print(f"     성공: {stats['success']}, 실패: {stats['failed']}, 스킵: {stats['skipped']}")
     
     return stats
