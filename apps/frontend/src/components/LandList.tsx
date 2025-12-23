@@ -28,15 +28,39 @@ interface LandListProps {
 
 const ITEMS_PER_PAGE = 5; // 페이지당 5개 표시 (화면에 맞춤)
 
+// sessionStorage에서 페이지 상태 로드
+const loadPageStateFromStorage = () => {
+    if (typeof window === 'undefined') return { page: 1, group: 0 };
+    try {
+        const saved = sessionStorage.getItem('landListPageState');
+        return saved ? JSON.parse(saved) : { page: 1, group: 0 };
+    } catch {
+        return { page: 1, group: 0 };
+    }
+};
+
 export default function LandList({ filterParams, recommendedLandIds }: LandListProps) {
     const router = useRouter();
     const { data: session } = useSession();
     const [lands, setLands] = useState<Land[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
-    const [currentPage, setCurrentPage] = useState<number>(1);
-    const [currentPageGroup, setCurrentPageGroup] = useState<number>(0); // 페이지 그룹 (0 = 1-10, 1 = 11-20, ...)
+
+    // 페이지 상태를 sessionStorage에서 로드
+    const savedPageState = loadPageStateFromStorage();
+    const [currentPage, setCurrentPage] = useState<number>(savedPageState.page);
+    const [currentPageGroup, setCurrentPageGroup] = useState<number>(savedPageState.group);
     const [favorites, setFavorites] = useState<Set<number>>(new Set());
+
+    // 페이지 상태 변경 시 sessionStorage에 저장
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        sessionStorage.setItem('landListPageState', JSON.stringify({
+            page: currentPage,
+            group: currentPageGroup
+        }));
+    }, [currentPage, currentPageGroup]);
+
 
     useEffect(() => {
         const loadLands = async () => {
@@ -53,7 +77,6 @@ export default function LandList({ filterParams, recommendedLandIds }: LandListP
                 }
 
                 setError(null);
-                setCurrentPage(1);
             } catch (err) {
                 console.error('Failed to fetch lands:', err);
                 setError('매물 정보를 불러오는데 실패했습니다.');
@@ -64,6 +87,27 @@ export default function LandList({ filterParams, recommendedLandIds }: LandListP
 
         loadLands();
     }, [filterParams, recommendedLandIds]);
+
+    // 필터가 변경되면 페이지를 1로 리셋 (첫 마운트 제외)
+    useEffect(() => {
+        // 저장된 필터와 현재 필터를 비교
+        const savedFilter = sessionStorage.getItem('landListFilter');
+        if (savedFilter) {
+            const parsed = JSON.parse(savedFilter);
+            const currentFilter = {
+                selectedRegion: filterParams?.region || '',
+                selectedDong: filterParams?.dong || '',
+                selectedTransaction: filterParams?.transaction_type || '',
+                selectedBuilding: filterParams?.building_type || '',
+            };
+
+            // 필터가 실제로 변경된 경우에만 페이지 리셋
+            if (JSON.stringify(parsed) !== JSON.stringify(currentFilter)) {
+                setCurrentPage(1);
+                setCurrentPageGroup(0);
+            }
+        }
+    }, [filterParams]);
     // 로그인된 사용자 기준으로 DB에 있는 찜 목록 불러오기
     useEffect(() => {
         const loadFavoritesFromServer = async () => {
@@ -137,9 +181,9 @@ export default function LandList({ filterParams, recommendedLandIds }: LandListP
 
         try {
             if (isFavorite) {
-                await removeWishlist(landId);     
+                await removeWishlist(landId);
             } else {
-                await addWishlist(landId);        
+                await addWishlist(landId);
             }
         } catch (error) {
             console.error('Failed to toggle wishlist:', error);
