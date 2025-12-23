@@ -188,21 +188,27 @@ export default function LandDetail({ landId }: LandDetailProps) {
     const availableOptions = getAvailableOptions();
 
     // 레이더 차트 데이터 (백엔드에서 계산된 실제 데이터 사용)
-    const radarData = land.radar_chart_data || {
+    const radarData = (land.radar_chart_data || {
         building_age: 50,
-        options: 50,
-        security: 50,
+        required_options: 50,
+        security_facilities: 50,
         space_efficiency: 50,
-        transportation: 50
+        optional_facilities: 50
+    }) as {
+        building_age: number;
+        required_options: number;
+        security_facilities: number;
+        space_efficiency: number;
+        optional_facilities: number;
     };
 
-    // 레이더 차트 라벨 및 설명 (5분위수 방식)
+    // 레이더 차트 라벨 및 설명
     const radarLabels = {
         building_age: { label: '건물연식', description: '신축일수록 높은 점수 (5년 이하: 100점)' },
-        options: { label: '옵션충실', description: '최저기준(난방/채광/환기) 필수, 옵션 11개 이상: 100점' },
-        security: { label: '보안수준', description: '보안시설 개수 기반 (7개 이상: 100점)' },
+        required_options: { label: '필수옵션', description: '난방/채광/환기 (3개 모두: 100점)' },
+        security_facilities: { label: '보안시설', description: '보안시설 개수 기반 (7개 이상: 100점)' },
         space_efficiency: { label: '공간효율', description: '전용률 기반 (평균 77.6%, 85% 이상: 100점)' },
-        transportation: { label: '교통접근', description: '지하철역 거리 기반 (300m 이내: 100점)' }
+        optional_facilities: { label: '선택옵션', description: '생활시설 개수 기반 (11개 이상: 100점)' }
     };
 
     // 주소에서 구 정보 추출
@@ -354,10 +360,10 @@ export default function LandDetail({ landId }: LandDetailProps) {
                                 <polygon
                                     points={`
                                         175,${175 - radarData.building_age * 1.35}
-                                        ${175 + radarData.options * 1.05},${175 - radarData.options * 0.75}
-                                        ${175 + radarData.security * 0.7},${175 + radarData.security * 0.85}
+                                        ${175 + radarData.required_options * 1.05},${175 - radarData.required_options * 0.75}
+                                        ${175 + radarData.security_facilities * 0.7},${175 + radarData.security_facilities * 0.85}
                                         ${175 - radarData.space_efficiency * 0.7},${175 + radarData.space_efficiency * 0.85}
-                                        ${175 - radarData.transportation * 1.05},${175 - radarData.transportation * 0.75}
+                                        ${175 - radarData.optional_facilities * 1.05},${175 - radarData.optional_facilities * 0.75}
                                     `}
                                     fill="rgba(59, 130, 246, 0.3)"
                                     stroke="#3b82f6"
@@ -379,11 +385,11 @@ export default function LandDetail({ landId }: LandDetailProps) {
 
                                 <g>
                                     <text x="295" y="118" textAnchor="start" fontSize="14" fill="#374151" fontWeight="600">
-                                        {radarLabels.options.label}
+                                        {radarLabels.required_options.label}
                                     </text>
                                     <circle
                                         cx="295" cy="128" r="7" fill="#9ca3af" cursor="pointer"
-                                        onMouseEnter={() => setRadarTooltip('options')}
+                                        onMouseEnter={() => setRadarTooltip('required_options')}
                                         onMouseLeave={() => setRadarTooltip(null)}
                                     />
                                     <text x="295" y="131" textAnchor="middle" fontSize="11" fill="white" fontWeight="bold" pointerEvents="none">?</text>
@@ -391,11 +397,11 @@ export default function LandDetail({ landId }: LandDetailProps) {
 
                                 <g>
                                     <text x="250" y="285" textAnchor="middle" fontSize="14" fill="#374151" fontWeight="600">
-                                        {radarLabels.security.label}
+                                        {radarLabels.security_facilities.label}
                                     </text>
                                     <circle
                                         cx="250" cy="295" r="7" fill="#9ca3af" cursor="pointer"
-                                        onMouseEnter={() => setRadarTooltip('security')}
+                                        onMouseEnter={() => setRadarTooltip('security_facilities')}
                                         onMouseLeave={() => setRadarTooltip(null)}
                                     />
                                     <text x="250" y="298" textAnchor="middle" fontSize="11" fill="white" fontWeight="bold" pointerEvents="none">?</text>
@@ -415,11 +421,11 @@ export default function LandDetail({ landId }: LandDetailProps) {
 
                                 <g>
                                     <text x="55" y="118" textAnchor="end" fontSize="14" fill="#374151" fontWeight="600">
-                                        {radarLabels.transportation.label}
+                                        {radarLabels.optional_facilities.label}
                                     </text>
                                     <circle
                                         cx="55" cy="128" r="7" fill="#9ca3af" cursor="pointer"
-                                        onMouseEnter={() => setRadarTooltip('transportation')}
+                                        onMouseEnter={() => setRadarTooltip('optional_facilities')}
                                         onMouseLeave={() => setRadarTooltip(null)}
                                     />
                                     <text x="55" y="131" textAnchor="middle" fontSize="11" fill="white" fontWeight="bold" pointerEvents="none">?</text>
@@ -475,12 +481,17 @@ export default function LandDetail({ landId }: LandDetailProps) {
 
                     {/* 레이더 차트 범례 */}
                     <div className="grid grid-cols-5 gap-2 mt-4 text-xs text-center">
-                        {Object.entries(radarData).map(([key, value]) => (
-                            <div key={key} className="flex flex-col items-center">
-                                <span className="text-blue-600 font-bold">{value}</span>
-                                <span className="text-gray-500">{radarLabels[key as keyof typeof radarLabels].label}</span>
-                            </div>
-                        ))}
+                        {Object.entries(radarData).map(([key, value]) => {
+                            const label = radarLabels[key as keyof typeof radarLabels];
+                            if (!label) return null; // 라벨이 없으면 스킵
+
+                            return (
+                                <div key={key} className="flex flex-col items-center">
+                                    <span className="text-blue-600 font-bold">{value}</span>
+                                    <span className="text-gray-500">{label.label}</span>
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             </div>

@@ -3,10 +3,10 @@
 
 매물의 5가지 핵심 지표를 0-100점으로 계산:
 1. 건물연식 (Building Age)
-2. 옵션 충실도 (Options Completeness)
-3. 보안 수준 (Security Level)
+2. 필수옵션 (Required Options) - 난방/채광/환기
+3. 보안시설 (Security Facilities)
 4. 공간 효율성 (Space Efficiency)
-5. 교통 접근성 (Transportation Accessibility)
+5. 선택옵션 (Optional Facilities) - 생활시설 개수
 """
 
 from datetime import datetime
@@ -65,47 +65,85 @@ def calculate_building_age_score(approval_date: str) -> int:
         return 50  # 파싱 실패 시 기본값
 
 
-def calculate_options_score(living_facilities: str, other_facilities: str = None, additional_options: str = None) -> int:
+def calculate_required_options_score(heating: str, direction: str, description: str = '', other_facilities: str = '') -> int:
     """
-    옵션 충실도 점수 계산 (5분위수 방식 + 최저주거기준)
+    필수옵션 점수 계산 (난방, 채광, 환기)
     
-    1단계: 최저주거기준 검증 (난방, 채광, 환기)
-    2단계: 옵션 개수에 따른 5분위수 분류
+    Args:
+        heating: 난방방식
+        direction: 주실기준/방향
+        description: 상세설명
+        other_facilities: 기타 시설
+    
+    Returns:
+        0-100점 사이의 점수
+        - 0점: 3개 모두 없음
+        - 33점: 1개만 있음
+        - 67점: 2개만 있음
+        - 100점: 3개 모두 있음
+    """
+    score = 0
+    
+    # 난방 (33점)
+    if heating and heating != '-':
+        score += 33
+    
+    # 채광 (33점)
+    if direction and direction != '-':
+        score += 33
+    
+    # 환기 (34점)
+    ventilation_keywords = ['환기', '창문', '창', '발코니', '베란다']
+    has_ventilation = any(keyword in description or keyword in other_facilities 
+                          for keyword in ventilation_keywords)
+    if has_ventilation:
+        score += 34
+    
+    return score
+
+
+def calculate_optional_facilities_score(living_facilities: str, other_facilities: str = None, additional_options = None) -> int:
+    """
+    선택옵션 점수 계산 (생활시설 개수 기반 5분위수)
     
     Args:
         living_facilities: 생활시설 문자열 (예: "냉장고, 세탁기, 싱크대, ...")
         other_facilities: 기타 시설 문자열 (listing_info의 '기타' 필드)
-        additional_options: 추가 옵션 문자열 (additional_options 컬럼)
+        additional_options: 추가 옵션 (문자열 또는 리스트)
     
     Returns:
         0-100점 사이의 점수 (20점 단위)
-        - 0점: 최저주거기준 미달
-        - 20점: 1분위 (0~2개 옵션)
-        - 40점: 2분위 (3~4개 옵션)
-        - 60점: 3분위 (5~7개 옵션) ← 평균 6.2개
-        - 80점: 4분위 (8~10개 옵션)
-        - 100점: 5분위 (11개 이상 옵션)
-    
-    Note:
-        최저주거기준은 calculate_radar_chart_data()에서 검증
-        이 함수는 옵션 개수만 계산
+        - 20점: 1분위 (0~2개)
+        - 40점: 2분위 (3~4개)
+        - 60점: 3분위 (5~7개) ← 평균 6.2개
+        - 80점: 4분위 (8~10개)
+        - 100점: 5분위 (11개 이상)
     """
     all_facilities = []
     
     # 생활시설 추가
     if living_facilities and living_facilities != '-':
-        facilities = [f.strip() for f in living_facilities.split(',') if f.strip()]
-        all_facilities.extend(facilities)
+        if isinstance(living_facilities, str):
+            facilities = [f.strip() for f in living_facilities.split(',') if f.strip()]
+            all_facilities.extend(facilities)
+        elif isinstance(living_facilities, list):
+            all_facilities.extend(living_facilities)
     
     # 기타 시설 추가
     if other_facilities and other_facilities != '-':
-        facilities = [f.strip() for f in other_facilities.split(',') if f.strip()]
-        all_facilities.extend(facilities)
+        if isinstance(other_facilities, str):
+            facilities = [f.strip() for f in other_facilities.split(',') if f.strip()]
+            all_facilities.extend(facilities)
+        elif isinstance(other_facilities, list):
+            all_facilities.extend(other_facilities)
     
-    # 추가 옵션 추가
+    # 추가 옵션 추가 (리스트 또는 문자열 처리)
     if additional_options and additional_options != '-':
-        facilities = [f.strip() for f in additional_options.split(',') if f.strip()]
-        all_facilities.extend(facilities)
+        if isinstance(additional_options, str):
+            facilities = [f.strip() for f in additional_options.split(',') if f.strip()]
+            all_facilities.extend(facilities)
+        elif isinstance(additional_options, list):
+            all_facilities.extend(additional_options)
     
     # 중복 제거
     unique_facilities = list(set(all_facilities))
@@ -125,7 +163,7 @@ def calculate_options_score(living_facilities: str, other_facilities: str = None
 
 
 
-def calculate_security_score(security_facilities: str, other_facilities: str = None) -> int:
+def calculate_security_score(security_facilities = None, other_facilities = None) -> int:
     """
     보안 수준 점수 계산 (5분위수 방식, 컬럼 기반 카운팅)
     
@@ -133,8 +171,8 @@ def calculate_security_score(security_facilities: str, other_facilities: str = N
     컬럼에서 쉼표로 구분된 항목을 그대로 카운팅 (키워드 하드코딩 없음)
     
     Args:
-        security_facilities: 보안시설 문자열 (예: "현관보안, CCTV, 인터폰, ...")
-        other_facilities: 기타 시설 문자열 (보안 관련 항목 포함 가능)
+        security_facilities: 보안시설 (문자열 또는 리스트)
+        other_facilities: 기타 시설 (문자열 또는 리스트)
     
     Returns:
         0-100점 사이의 점수 (20점 단위)
@@ -146,15 +184,21 @@ def calculate_security_score(security_facilities: str, other_facilities: str = N
     """
     all_facilities = []
     
-    # 보안시설 추가
+    # 보안시설 추가 (리스트 또는 문자열 처리)
     if security_facilities and security_facilities != '-':
-        facilities = [f.strip() for f in security_facilities.split(',') if f.strip()]
-        all_facilities.extend(facilities)
+        if isinstance(security_facilities, str):
+            facilities = [f.strip() for f in security_facilities.split(',') if f.strip()]
+            all_facilities.extend(facilities)
+        elif isinstance(security_facilities, list):
+            all_facilities.extend(security_facilities)
     
-    # 기타 시설에서 보안 관련 항목 추가 (있다면)
+    # 기타 시설에서 보안 관련 항목 추가 (리스트 또는 문자열 처리)
     if other_facilities and other_facilities != '-':
-        facilities = [f.strip() for f in other_facilities.split(',') if f.strip()]
-        all_facilities.extend(facilities)
+        if isinstance(other_facilities, str):
+            facilities = [f.strip() for f in other_facilities.split(',') if f.strip()]
+            all_facilities.extend(facilities)
+        elif isinstance(other_facilities, list):
+            all_facilities.extend(other_facilities)
     
     # 중복 제거
     unique_facilities = list(set(all_facilities))
@@ -254,45 +298,34 @@ def calculate_transportation_score(land_address: str) -> int:
 
 def calculate_radar_chart_data(land) -> Dict[str, int]:
     """
-    매물의 레이더 차트 데이터 계산 (5분위수 + 최저주거기준)
+    매물의 레이더 차트 데이터 계산
     
     Args:
-        land: Land 모델 인스턴스
+        land: Land 모델 인스턴스 (Django ORM 객체)
     
     Returns:
         5가지 지표의 점수 딕셔너리
     """
-    listing_info = land.listing_info or {}
+    # Django 모델 객체에서 listing_info 가져오기
+    listing_info = land.listing_info if hasattr(land, 'listing_info') else {}
+    if not listing_info:
+        listing_info = {}
     
     # 1. 건물연식
     approval_date = listing_info.get('사용승인일', '-')
     building_age = calculate_building_age_score(approval_date)
     
-    # 2. 옵션 충실도 (최저주거기준 검증 + 5분위수)
-    # 2-1. 최저주거기준 검증
+    # 2. 필수옵션 (난방, 채광, 환기)
     heating = listing_info.get('난방방식', '-')
     direction = listing_info.get('주실기준/방향', '-')
     other_facilities = listing_info.get('기타', '-')
-    description = land.description or ''
+    description = land.description if hasattr(land, 'description') else ''
+    if not description:
+        description = ''
     
-    # 필수 조건 확인
-    has_heating = heating and heating != '-'
-    has_lighting = direction and direction != '-'
+    required_options = calculate_required_options_score(heating, direction, description, other_facilities)
     
-    ventilation_keywords = ['환기', '창문', '창', '발코니', '베란다']
-    has_ventilation = any(keyword in description or keyword in other_facilities 
-                          for keyword in ventilation_keywords)
-    
-    # 최저주거기준 미충족 시 0점
-    if not (has_heating and has_lighting and has_ventilation):
-        options = 0
-    else:
-        # 최저주거기준 충족 시 옵션 개수로 5분위수 계산
-        living_facilities = listing_info.get('생활시설', '-')
-        additional_options = land.additional_options or '-'
-        options = calculate_options_score(living_facilities, other_facilities, additional_options)
-    
-    # 3. 보안 수준 (컬럼 기반 카운팅, 최소기준 없음)
+    # 3. 보안시설
     security_facilities = listing_info.get('보안시설', '-')
     security = calculate_security_score(security_facilities, other_facilities)
     
@@ -300,13 +333,17 @@ def calculate_radar_chart_data(land) -> Dict[str, int]:
     area_info = listing_info.get('전용/공급면적', '-')
     space_efficiency = calculate_space_efficiency_score(area_info)
     
-    # 5. 교통 접근성
-    transportation = calculate_transportation_score(land.address or '')
+    # 5. 선택옵션 (생활시설 개수)
+    living_facilities = listing_info.get('생활시설', '-')
+    additional_options = land.additional_options if hasattr(land, 'additional_options') else '-'
+    if not additional_options:
+        additional_options = '-'
+    optional_facilities = calculate_optional_facilities_score(living_facilities, other_facilities, additional_options)
     
     return {
         'building_age': building_age,
-        'options': options,
-        'security': security,
+        'required_options': required_options,
+        'security_facilities': security,
         'space_efficiency': space_efficiency,
-        'transportation': transportation
+        'optional_facilities': optional_facilities
     }

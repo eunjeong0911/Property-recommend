@@ -277,13 +277,15 @@ class LandSerializer(serializers.ModelSerializer):
         try:
             return calculate_radar_chart_data(obj)
         except Exception as e:
+            import traceback
             print(f"Error calculating radar chart data: {e}")
+            print(traceback.format_exc())
             # 기본값 반환
             return {
                 'building_age': 50,
-                'options': 50,
-                'security': 50,
+                'required_options': 50,
+                'security_facilities': 50,
                 'space_efficiency': 50,
-                'transportation': 50
+                'optional_facilities': 50
             }
     
