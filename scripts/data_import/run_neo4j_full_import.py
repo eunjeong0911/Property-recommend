@@ -10,6 +10,7 @@ from db_health_check import DatabaseHealthCheck
 from importers.transport_importer import TransportImporter
 from importers.amenity_importer import AmenityImporter
 from importers.safety_importer import SafetyImporter
+from temperature.safety_score_importer import SafetyScoreImporter
 # from importers.property_importer import PropertyImporter
 from importers.postgres_importer import PostgresImporter
 from importers.opensearch_importer import OpenSearchImporter
@@ -300,6 +301,22 @@ def main():
         except Exception as e:
             print(f"✗ 데이터 연결 실패: {e}\n")
             stats["linking"]["failed"] = 1
+
+        # 10. Score Calculation
+        print("=" * 70)
+        print("10. 점수/온도 계산 (Score Calculation)")
+        print("=" * 70)
+        try:
+            print("\n[10-1] 안전 온도 계산 및 Import 중...")
+            score_imp = SafetyScoreImporter()
+            # score_imp.update_property_gu() # Coordinate-based logic handles this internally or differently now
+            score_imp.import_safety_score()
+            score_imp.close()
+            print("✓ 안전 온도 계산 완료\n")
+        except Exception as e:
+            print(f"✗ 점수 계산 실패: {e}\n")
+            # We didn't initialize stats entry for this, but it's fine.
+
         
     except Exception as e:
         print(f"\n✗ 치명적 오류 발생: {e}\n")
