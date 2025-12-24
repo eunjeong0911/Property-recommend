@@ -23,7 +23,6 @@ export default function LandDetail({ landId }: LandDetailProps) {
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [liked, setLiked] = useState(false);
     const [showPriceTooltip, setShowPriceTooltip] = useState(false);
-    const [radarTooltip, setRadarTooltip] = useState<string | null>(null);
     const [maxScrollDepth, setMaxScrollDepth] = useState(0);
     const maxScrollDepthRef = useRef(0);
 
@@ -187,30 +186,6 @@ export default function LandDetail({ landId }: LandDetailProps) {
 
     const availableOptions = getAvailableOptions();
 
-    // 레이더 차트 데이터 (백엔드에서 계산된 실제 데이터 사용)
-    const radarData = (land.radar_chart_data || {
-        building_age: 50,
-        required_options: 50,
-        security_facilities: 50,
-        space_efficiency: 50,
-        optional_facilities: 50
-    }) as {
-        building_age: number;
-        required_options: number;
-        security_facilities: number;
-        space_efficiency: number;
-        optional_facilities: number;
-    };
-
-    // 레이더 차트 라벨 및 설명
-    const radarLabels = {
-        building_age: { label: '건물연식', description: '신축일수록 높은 점수 (5년 이하: 100점)' },
-        required_options: { label: '필수옵션', description: '난방/채광/환기 (3개 모두: 100점)' },
-        security_facilities: { label: '보안시설', description: '보안시설 개수 기반 (7개 이상: 100점)' },
-        space_efficiency: { label: '공간효율', description: '전용률 기반 (평균 77.6%, 85% 이상: 100점)' },
-        optional_facilities: { label: '선택옵션', description: '생활시설 개수 기반 (11개 이상: 100점)' }
-    };
-
     // 주소에서 구 정보 추출
     const extractDistrict = (address: string | undefined) => {
         if (!address) return '서울특별시';
@@ -273,7 +248,7 @@ export default function LandDetail({ landId }: LandDetailProps) {
                 </div>
             </div>
 
-            {/* 이미지 + 레이더 차트 (동일 크기) */}
+            {/* 이미지 + 부동산 온도 지수 (2컬럼) */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* 이미지 캐러셀 */}
                 <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
@@ -324,174 +299,54 @@ export default function LandDetail({ landId }: LandDetailProps) {
                     </div>
                 </div>
 
-                {/* 레이더 차트 */}
-                <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-6 flex flex-col justify-center">
-                    <h3 className="font-bold text-slate-800 mb-4 text-center">매물 종합 평가</h3>
-                    <div className="flex justify-center items-center flex-1">
-                        <div className="relative w-[450px] h-[450px]">
-                            <svg viewBox="0 0 350 350" className="w-full h-full">
-                                {/* 배경 다각형 (5각형) - 크기 증가 */}
-                                <polygon
-                                    points="175,40 280,115 245,260 105,260 70,115"
-                                    fill="none"
-                                    stroke="#e5e7eb"
-                                    strokeWidth="1"
-                                />
-                                <polygon
-                                    points="175,70 250,130 225,245 125,245 100,130"
-                                    fill="none"
-                                    stroke="#e5e7eb"
-                                    strokeWidth="1"
-                                />
-                                <polygon
-                                    points="175,100 220,145 205,230 145,230 130,145"
-                                    fill="none"
-                                    stroke="#e5e7eb"
-                                    strokeWidth="1"
-                                />
-                                <polygon
-                                    points="175,130 190,160 185,215 165,215 160,160"
-                                    fill="none"
-                                    stroke="#e5e7eb"
-                                    strokeWidth="1"
-                                />
-
-                                {/* 데이터 다각형 - 크기 증가 */}
-                                <polygon
-                                    points={`
-                                        175,${175 - radarData.building_age * 1.35}
-                                        ${175 + radarData.required_options * 1.05},${175 - radarData.required_options * 0.75}
-                                        ${175 + radarData.security_facilities * 0.7},${175 + radarData.security_facilities * 0.85}
-                                        ${175 - radarData.space_efficiency * 0.7},${175 + radarData.space_efficiency * 0.85}
-                                        ${175 - radarData.optional_facilities * 1.05},${175 - radarData.optional_facilities * 0.75}
-                                    `}
-                                    fill="rgba(59, 130, 246, 0.3)"
-                                    stroke="#3b82f6"
-                                    strokeWidth="2"
-                                />
-
-                                {/* 축 라벨 with tooltips - 위치 조정 */}
-                                <g>
-                                    <text x="175" y="25" textAnchor="middle" fontSize="14" fill="#374151" fontWeight="600">
-                                        {radarLabels.building_age.label}
-                                    </text>
-                                    <circle
-                                        cx="205" cy="21" r="7" fill="#9ca3af" cursor="pointer"
-                                        onMouseEnter={() => setRadarTooltip('building_age')}
-                                        onMouseLeave={() => setRadarTooltip(null)}
-                                    />
-                                    <text x="205" y="24" textAnchor="middle" fontSize="11" fill="white" fontWeight="bold" pointerEvents="none">?</text>
-                                </g>
-
-                                <g>
-                                    <text x="295" y="118" textAnchor="start" fontSize="14" fill="#374151" fontWeight="600">
-                                        {radarLabels.required_options.label}
-                                    </text>
-                                    <circle
-                                        cx="295" cy="128" r="7" fill="#9ca3af" cursor="pointer"
-                                        onMouseEnter={() => setRadarTooltip('required_options')}
-                                        onMouseLeave={() => setRadarTooltip(null)}
-                                    />
-                                    <text x="295" y="131" textAnchor="middle" fontSize="11" fill="white" fontWeight="bold" pointerEvents="none">?</text>
-                                </g>
-
-                                <g>
-                                    <text x="250" y="285" textAnchor="middle" fontSize="14" fill="#374151" fontWeight="600">
-                                        {radarLabels.security_facilities.label}
-                                    </text>
-                                    <circle
-                                        cx="250" cy="295" r="7" fill="#9ca3af" cursor="pointer"
-                                        onMouseEnter={() => setRadarTooltip('security_facilities')}
-                                        onMouseLeave={() => setRadarTooltip(null)}
-                                    />
-                                    <text x="250" y="298" textAnchor="middle" fontSize="11" fill="white" fontWeight="bold" pointerEvents="none">?</text>
-                                </g>
-
-                                <g>
-                                    <text x="100" y="285" textAnchor="middle" fontSize="14" fill="#374151" fontWeight="600">
-                                        {radarLabels.space_efficiency.label}
-                                    </text>
-                                    <circle
-                                        cx="100" cy="295" r="7" fill="#9ca3af" cursor="pointer"
-                                        onMouseEnter={() => setRadarTooltip('space_efficiency')}
-                                        onMouseLeave={() => setRadarTooltip(null)}
-                                    />
-                                    <text x="100" y="298" textAnchor="middle" fontSize="11" fill="white" fontWeight="bold" pointerEvents="none">?</text>
-                                </g>
-
-                                <g>
-                                    <text x="55" y="118" textAnchor="end" fontSize="14" fill="#374151" fontWeight="600">
-                                        {radarLabels.optional_facilities.label}
-                                    </text>
-                                    <circle
-                                        cx="55" cy="128" r="7" fill="#9ca3af" cursor="pointer"
-                                        onMouseEnter={() => setRadarTooltip('optional_facilities')}
-                                        onMouseLeave={() => setRadarTooltip(null)}
-                                    />
-                                    <text x="55" y="131" textAnchor="middle" fontSize="11" fill="white" fontWeight="bold" pointerEvents="none">?</text>
-                                </g>
-                            </svg>
-
-                            {/* 툴팁 표시 - 동적 위치 */}
-                            {radarTooltip && (
-                                <div
-                                    className="absolute bg-slate-800 text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap z-10 pointer-events-none"
-                                    style={{
-                                        top: radarTooltip === 'building_age' ? '0%' :
-                                            radarTooltip === 'options' ? '25%' :
-                                                radarTooltip === 'security' ? '75%' :
-                                                    radarTooltip === 'space_efficiency' ? '75%' :
-                                                        '25%',
-                                        left: radarTooltip === 'building_age' ? '50%' :
-                                            radarTooltip === 'options' ? '85%' :
-                                                radarTooltip === 'security' ? '65%' :
-                                                    radarTooltip === 'space_efficiency' ? '15%' :
-                                                        '15%',
-                                        transform: radarTooltip === 'building_age' ? 'translate(-50%, -120%)' :
-                                            radarTooltip === 'options' ? 'translate(-100%, -50%)' :
-                                                radarTooltip === 'security' ? 'translate(-50%, 20%)' :
-                                                    radarTooltip === 'space_efficiency' ? 'translate(-50%, 20%)' :
-                                                        'translate(0%, -50%)'
-                                    }}
-                                >
-                                    {radarLabels[radarTooltip as keyof typeof radarLabels].description}
-                                    <div
-                                        className="absolute w-0 h-0 border-4 border-transparent"
-                                        style={{
-                                            borderTopColor: radarTooltip === 'building_age' ? '#1e293b' : 'transparent',
-                                            borderBottomColor: (radarTooltip === 'security' || radarTooltip === 'space_efficiency') ? '#1e293b' : 'transparent',
-                                            borderRightColor: (radarTooltip === 'options') ? '#1e293b' : 'transparent',
-                                            borderLeftColor: (radarTooltip === 'transportation') ? '#1e293b' : 'transparent',
-                                            top: radarTooltip === 'building_age' ? '100%' :
-                                                (radarTooltip === 'security' || radarTooltip === 'space_efficiency') ? '-8px' :
-                                                    '50%',
-                                            left: radarTooltip === 'building_age' ? '50%' :
-                                                radarTooltip === 'options' ? '100%' :
-                                                    radarTooltip === 'transportation' ? '-8px' :
-                                                        '50%',
-                                            transform: radarTooltip === 'building_age' ? 'translateX(-50%)' :
-                                                (radarTooltip === 'options' || radarTooltip === 'transportation') ? 'translateY(-50%)' :
-                                                    'translateX(-50%)'
-                                        }}
-                                    ></div>
-                                </div>
-                            )}
-                        </div>
+                {/* 부동산 온도 지수 (기존 레이더 차트 대체) */}
+                <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col">
+                    <div className="bg-slate-700 text-white px-4 py-3">
+                        <h3 className="font-bold flex items-center gap-2">
+                            <span className="text-xl">🌡️</span>
+                            <span>부동산 온도</span>
+                        </h3>
                     </div>
-
-                    {/* 레이더 차트 범례 */}
-                    <div className="grid grid-cols-5 gap-2 mt-4 text-xs text-center">
-                        {Object.entries(radarData).map(([key, value]) => {
-                            const label = radarLabels[key as keyof typeof radarLabels];
-                            if (!label) return null; // 라벨이 없으면 스킵
-
-                            return (
-                                <div key={key} className="flex flex-col items-center">
-                                    <span className="text-blue-600 font-bold">{value}</span>
-                                    <span className="text-gray-500">{label.label}</span>
+                    <div className="p-6 flex-1 flex flex-col justify-around space-y-7">
+                        {[
+                            { id: 'safety', label: '안전 온도', value: land.temperatures?.safety || 36.5, icon: '🛡️', desc: '치안 및 인프라' },
+                            { id: 'convenience', label: '편의 온도', value: land.temperatures?.convenience || 36.5, icon: '🛒', desc: '생활 밀접 시설' },
+                            { id: 'pet', label: '반려동물 온도', value: land.temperatures?.pet || 36.5, icon: '🐾', desc: '반려견 산책 및 병원' },
+                            { id: 'traffic', label: '교통 온도', value: land.temperatures?.traffic || 36.5, icon: '🚇', desc: '대중교통 접근성' },
+                        ].map((temp) => (
+                            <div key={temp.id} className="group cursor-default">
+                                <div className="flex justify-between items-end mb-2">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-xl shadow-sm border border-gray-100 group-hover:scale-110 transition-transform duration-300">
+                                            {temp.icon}
+                                        </div>
+                                        <div>
+                                            <div className="font-bold text-slate-700">{temp.label}</div>
+                                            <div className="text-[10px] text-gray-400">{temp.desc}</div>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className={`text-xl font-black ${temp.value >= 70 ? 'text-red-500' :
+                                            temp.value >= 40 ? 'text-orange-500' : 'text-blue-500'
+                                            }`}>
+                                            {temp.value.toFixed(1)}
+                                        </span>
+                                        <span className="text-xs text-gray-400 ml-1">°C</span>
+                                    </div>
                                 </div>
-                            );
-                        })}
+                                <div className="h-3.5 bg-gray-100 rounded-full p-[2px] shadow-inner">
+                                    <div
+                                        className={`h-full rounded-full transition-all duration-1000 ease-out relative ${temp.value >= 70 ? 'bg-gradient-to-r from-red-400 via-red-500 to-red-600' :
+                                            temp.value >= 40 ? 'bg-gradient-to-r from-yellow-400 via-orange-400 to-orange-500' :
+                                                'bg-gradient-to-r from-blue-300 via-blue-400 to-blue-500'
+                                            }`}
+                                        style={{ width: `${Math.min(100, Math.max(0, temp.value))}%` }}
+                                    >
+                                        <div className="absolute top-0 right-0 w-8 h-full bg-white/20 skew-x-[-20deg] animate-pulse"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </div>
