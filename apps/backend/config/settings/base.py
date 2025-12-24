@@ -143,9 +143,9 @@ else:
     }
 
 # Neo4j 설정 (Django 백엔드에서 GraphDB 접근 시 사용)
-NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")      # Neo4j 접속 주소 (기본값: 로컬)
-NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")                    # Neo4j 사용자 ID
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "neo4j")            # Neo4j 비밀번호
+NEO4J_URI = os.getenv("NEO4J_URI", "bolt://neo4j:7687")      # Neo4j 접속 주소
+NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")                # Neo4j 사용자 ID
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")                 # Neo4j 비밀번호 (환경변수 필수)
 
 LANGUAGE_CODE = "ko-kr"
 TIME_ZONE = "Asia/Seoul"
@@ -214,11 +214,6 @@ CORS_ALLOW_CREDENTIALS = True
 # Google OAuth 설정
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-
-# Neo4j 설정 (기존에 있던 내용 유지)
-NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "neo4j")
 
 # =============================================================================
 # Logging Configuration (Requirements 5.1, 5.3)

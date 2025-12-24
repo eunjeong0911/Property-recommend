@@ -23,7 +23,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-realestate}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-realestate}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -41,26 +41,22 @@ services:
     environment:
       NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:?NEO4J_PASSWORD is required}
       NEO4J_PLUGINS: '["apoc"]'
-      NEO4J_dbms_memory_heap_initial__size: 512m
-      NEO4J_dbms_memory_heap_max__size: 1G
+      # 메모리 제한 제거 - 시스템 리소스 자유롭게 사용
     ports:
       - "7474:7474"
       - "7687:7687"
     volumes:
       - neo4j_data:/data
-      - ./infra/neo4j/init.cypher:/var/lib/neo4j/import/init.cypher:ro
+      # init.cypher는 scripts 프로필로 별도 실행
+      # - ./infra/neo4j/init.cypher:/var/lib/neo4j/import/init.cypher:ro
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:7474 || exit 1"]
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:7474 || exit 1" ]
       interval: 10s
       timeout: 10s
       retries: 5
       start_period: 40s
     networks:
       - backend-network
-    deploy:
-      resources:
-        limits:
-          memory: 2G
 
   redis:
     image: redis:7-alpine
@@ -71,7 +67,7 @@ services:
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -82,13 +78,13 @@ services:
         limits:
           memory: 512M
 
-  opensearch:
-    image: opensearchproject/opensearch:2.11.0
-    container_name: realestate-opensearch
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.17.0
+    container_name: realestate-elasticsearch
     environment:
       - discovery.type=single-node
-      - plugins.security.disabled=true
-      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
       - bootstrap.memory_lock=true
     ulimits:
       memlock:
@@ -99,11 +95,10 @@ services:
         hard: 65536
     ports:
       - "9200:9200"
-      - "9600:9600"
     volumes:
-      - opensearch_data:/usr/share/opensearch/data
+      - elasticsearch_data:/usr/share/elasticsearch/data
     healthcheck:
-      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -qE '\"status\":\"(green|yellow)\"'"]
+      test: [ "CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -qE '\"status\":\"(green|yellow)\"'" ]
       interval: 10s
       timeout: 10s
       retries: 5
@@ -115,19 +110,28 @@ services:
         limits:
           memory: 1G
 
-  opensearch-dashboards:
-    image: opensearchproject/opensearch-dashboards:2.11.0
-    container_name: realestate-opensearch-dashboards
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.17.0
+    container_name: realestate-kibana
     environment:
-      - OPENSEARCH_HOSTS=["http://opensearch:9200"]
-      - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
     ports:
       - "5601:5601"
     depends_on:
-      opensearch:
+      elasticsearch:
         condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -s http://localhost:5601/api/status | grep -q 'available'" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
     networks:
       - backend-network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
     profiles:
       - dashboards
 
@@ -155,15 +159,17 @@ services:
       - POSTGRES_HOST=postgres
       - NEO4J_URI=bolt://neo4j:7687
       - REDIS_URL=redis://redis:6379/0
-      - OPENSEARCH_HOST=opensearch
+      - ELASTICSEARCH_HOST=elasticsearch
       - PYTHONUNBUFFERED=1
       - DJANGO_DEBUG=True
     depends_on:
       postgres:
         condition: service_healthy
+      neo4j:
+        condition: service_healthy
       redis:
         condition: service_healthy
-      opensearch:
+      elasticsearch:
         condition: service_healthy
     networks:
       - backend-network
@@ -191,7 +197,7 @@ services:
       - NEO4J_URI=bolt://neo4j:7687
       - POSTGRES_HOST=postgres
       - REDIS_URL=redis://redis:6379/0
-      - OPENSEARCH_HOST=opensearch
+      - ELASTICSEARCH_HOST=elasticsearch
       - PYTHONUNBUFFERED=1
     depends_on:
       postgres:
@@ -200,7 +206,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      opensearch:
+      elasticsearch:
         condition: service_healthy
     networks:
       - backend-network
@@ -219,12 +225,14 @@ services:
     volumes:
       - ./apps/reco:/app
       - ./libs:/libs:ro
+      - ./data:/data:ro
     ports:
       - "8002:8002"
     env_file:
       - .env
     environment:
       - PYTHONUNBUFFERED=1
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
     networks:
       - backend-network
     deploy:
@@ -287,6 +295,10 @@ services:
       - .env
     networks:
       - backend-network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
     profiles:
       - analytics
 
@@ -304,16 +316,21 @@ services:
     environment:
       - NEO4J_URI=bolt://neo4j:7687
       - POSTGRES_HOST=postgres
-      - OPENSEARCH_HOST=opensearch
+      - ELASTICSEARCH_HOST=elasticsearch
+      - PYTHONUNBUFFERED=1
     depends_on:
       postgres:
         condition: service_healthy
       neo4j:
         condition: service_healthy
-      opensearch:
+      elasticsearch:
         condition: service_healthy
     networks:
       - backend-network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
     profiles:
       - scripts
 
@@ -327,8 +344,14 @@ services:
       - ./data:/data
     env_file:
       - .env
+    environment:
+      - PYTHONUNBUFFERED=1
     networks:
       - backend-network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
     profiles:
       - crawling
 
@@ -353,7 +376,7 @@ volumes:
     name: realestate-neo4j-data
   redis_data:
     name: realestate-redis-data
-  opensearch_data:
-    name: realestate-opensearch-data
+  elasticsearch_data:
+    name: realestate-elasticsearch-data
   frontend_node_modules:
     name: realestate-frontend-modules

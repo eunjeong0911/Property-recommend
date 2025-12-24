@@ -44,16 +44,18 @@ class PropertyImporter:
             total_imported = 0
             total_skipped = 0
 
-            for json_file in json_files:
-                print(f"\nProcessing {json_file.name}...")
+            for file_idx, json_file in enumerate(json_files, 1):
+                print(f"\n[{file_idx}/{len(json_files)}] Processing {json_file.name}...")
                 
                 try:
                     with open(json_file, "r", encoding="utf-8") as f:
                         data = json.load(f)
 
                     batch = []
-                    batch_size = 1000
+                    batch_size = 500  # Reduced from 1000 for stability
                     skipped = 0
+                    file_total = len(data)
+                    file_processed = 0
 
                     for item in data:
                         listing_id = item.get("매물번호")
@@ -74,7 +76,6 @@ class PropertyImporter:
                         lng = coords_info.get("경도")
                         
                         if lat is None or lng is None:
-                            print(f"  Skipping {listing_id}: Missing coordinates")
                             skipped += 1
                             continue
                         
@@ -89,15 +90,19 @@ class PropertyImporter:
                         if len(batch) >= batch_size:
                             self._insert_batch(session, batch)
                             total_imported += len(batch)
+                            file_processed += len(batch)
+                            print(f"  Property progress: {file_processed}/{file_total} ({file_processed*100//file_total}%)")
                             batch = []
                     
                     # 남은 배치 insert
                     if batch:
                         self._insert_batch(session, batch)
                         total_imported += len(batch)
+                        file_processed += len(batch)
+                        print(f"  Property progress: {file_processed}/{file_total} (100%)")
                     
                     total_skipped += skipped
-                    print(f"  Imported: {len(data) - skipped}, Skipped: {skipped}")
+                    print(f"  Imported: {file_total - skipped}, Skipped: {skipped}")
 
                 except Exception as e:
                     print(f"  Error processing file {json_file.name}: {e}")

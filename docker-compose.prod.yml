@@ -8,8 +8,8 @@ services:
   backend:
     build:
       target: runtime
-    command: []  # Use Dockerfile CMD
-    volumes: []  # No volume mounts in production
+    command: [] # Use Dockerfile CMD
+    volumes: [] # No volume mounts in production
     environment:
       - DJANGO_DEBUG=False
     deploy:
@@ -28,7 +28,7 @@ services:
   rag:
     build:
       target: runtime
-    command: []  # Use Dockerfile CMD
+    command: [] # Use Dockerfile CMD
     volumes: []
     deploy:
       resources:
@@ -46,7 +46,7 @@ services:
   reco:
     build:
       target: runtime
-    command: []  # Use Dockerfile CMD
+    command: [] # Use Dockerfile CMD
     volumes: []
     deploy:
       resources:
@@ -64,7 +64,7 @@ services:
   frontend:
     build:
       target: runner
-    command: []  # Use Dockerfile CMD
+    command: [] # Use Dockerfile CMD
     volumes: []
     deploy:
       resources:
@@ -84,13 +84,17 @@ services:
     container_name: realestate-nginx
     ports:
       - "80:80"
-      - "443:443"
+      # HTTPS 사용시 주석 해제
+      # - "443:443"
     volumes:
       - ./infra/nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
-      - ./infra/nginx/ssl:/etc/nginx/ssl:ro
+      # SSL 인증서가 있는 경우에만 주석 해제
+      # - ./infra/nginx/ssl:/etc/nginx/ssl:ro
     depends_on:
       - backend
       - frontend
+      - rag
+      - reco
     networks:
       - frontend-network
       - backend-network
@@ -104,7 +108,8 @@ services:
         delay: 5s
         max_attempts: 3
     healthcheck:
-      test: ["CMD", "nginx", "-t"]
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost/health || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 10s

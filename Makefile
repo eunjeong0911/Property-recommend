@@ -68,7 +68,7 @@ up:
 	@echo "  Backend:    http://localhost:8000"
 	@echo "  RAG API:    http://localhost:8001"
 	@echo "  Reco API:   http://localhost:8002"
-	@echo "  OpenSearch: http://localhost:9200"
+	@echo "  Elasticsearch: http://localhost:9200"
 	@echo "  Neo4j:      http://localhost:7474"
 
 down:
