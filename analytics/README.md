@@ -6,3 +6,5 @@
 
 
 
+# etc
+- 기존 jupyter notebook 파일
