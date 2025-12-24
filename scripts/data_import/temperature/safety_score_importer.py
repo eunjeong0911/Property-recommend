@@ -23,7 +23,7 @@ Safety Score Importer (안전 온도 계산기)
    A. 지역 치안 점수 (District Score, 50%)
       - 데이터: 자치구별 5대 범죄 발생 건수 (살인, 강간, 강도, 절도, 폭력)
       - 1단계 (위험도 계산):
-        Risk = (살인*100) + (강간*40) + (강도*20) + (절도*3) + (폭력*1)
+        Risk = (살인*3.0) + (강간*2.0) + (강도*1.8) + (폭력*1.0) + (절도*0.7)
       - 2단계 (정규화 및 반전):
         Score = (1 - (Risk - Min_Risk) / (Max_Risk - Min_Risk)) * 100
       - 의미: 범죄 위험도가 가장 낮은 구가 100점, 가장 높은 구가 0점.
@@ -55,11 +55,11 @@ class SafetyScoreImporter:
         # Property nodes already have lat/lon in Neo4j.
         
         self.crime_weights = {
-            'murder': 100, 
-            'rape': 40, 
-            'robbery': 20, 
-            'theft': 3, 
-            'violence': 1
+            'murder': 3.0, 
+            'rape': 2.0, 
+            'robbery': 1.8, 
+            'theft': 0.7, 
+            'violence': 1.0
         }
         self.gu_crime_scores = {}
         self.max_crime_score = 1
@@ -121,16 +121,23 @@ class SafetyScoreImporter:
             c_theft = pd.to_numeric(sub_df.iloc[:, 10], errors='coerce').fillna(0)
             c_violence = pd.to_numeric(sub_df.iloc[:, 12], errors='coerce').fillna(0)
             
+            # MinMax Scaling per crime type (0-1 range)
+            def minmax_scale(series):
+                return (series - series.min()) / (series.max() - series.min())
+
             scores = (
-                (c_murder * self.crime_weights['murder']) +
-                (c_rape * self.crime_weights['rape']) +
-                (c_robbery * self.crime_weights['robbery']) +
-                (c_theft * self.crime_weights['theft']) +
-                (c_violence * self.crime_weights['violence'])
+                (minmax_scale(c_murder) * self.crime_weights['murder']) +
+                (minmax_scale(c_rape) * self.crime_weights['rape']) +
+                (minmax_scale(c_robbery) * self.crime_weights['robbery']) +
+                (minmax_scale(c_theft) * self.crime_weights['theft']) +
+                (minmax_scale(c_violence) * self.crime_weights['violence'])
             )
             
             self.gu_crime_scores = dict(zip(sub_df['Gu'], scores))
             
+            # Since scores are already based on normalized inputs, we don't strictly need 
+            # to normalize the Final Score again for calculation, but we do need to 
+            # map it to a 0-100 scale for the output.
             if self.gu_crime_scores:
                 self.max_crime_score = max(self.gu_crime_scores.values())
                 self.min_crime_score = min(self.gu_crime_scores.values())
