@@ -104,12 +104,12 @@ class PostgresImporter:
         # 테이블 확인
         self._create_land_table()
         
-        # Docker 환경에서는 /data/RDB/land, 로컬에서는 data/RDB/land
+        # Docker 환경에서는 /data/RDB/land, 로컬에서는 data/RDB/land 사용 (전처리 완료된 데이터)
         if os.path.exists("/data/RDB/land"):
             data_dir = "/data/RDB/land"
             print("Docker 환경 감지: /data/RDB/land 사용")
         else:
-            # 로컬에서는 data/RDB/land 사용 (전체 매물 정보)
+            # 로컬에서는 data/RDB/land 사용
             data_dir = os.path.join(Config.BASE_DIR, "data", "RDB", "land")
             print(f"로컬 환경 감지: {data_dir} 사용")
         

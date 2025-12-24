@@ -39,8 +39,8 @@ MODEL = "gpt-5-mini"
 CONCURRENT_LIMIT = 20   # 동시 처리 수 (배치당)
 SAVE_INTERVAL = 20     # 저장 간격
 
-DATA_DIR = Path(__file__).parent.parent.parent / "data" / "landData"
-OUTPUT_DIR = Path(__file__).parent.parent.parent / "data" / "landData_enriched"
+DATA_DIR = Path(__file__).parent.parent.parent / "scripts" / "dataCrawling" / "피터팬 매물 데이터" / "data"
+OUTPUT_DIR = Path(__file__).parent.parent.parent / "data" / "RDB" / "land"
 
 # OpenAI 비동기 클라이언트
 client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -162,6 +162,11 @@ def save_progress(data: list, output_path: Path):
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+
+
+
 
 
 async def process_file(input_path: Path, output_path: Path):
