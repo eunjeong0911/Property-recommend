@@ -9,7 +9,7 @@
 
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import LandListFilter from '@/components/LandListFilter';
 import LandList from '@/components/LandList';
@@ -21,10 +21,36 @@ const Chatbot = dynamic(() => import('@/components/Chatbot'), {
     ssr: false,
 });
 
+// sessionStorage에서 필터 값 로드
+const loadFilterFromStorage = (): LandFilterParams => {
+    if (typeof window === 'undefined') return {};
+    try {
+        const saved = sessionStorage.getItem('landListFilter');
+        if (!saved) return {};
+        const parsed = JSON.parse(saved);
+        return {
+            region: parsed.selectedRegion || undefined,
+            dong: parsed.selectedDong || undefined,
+            transaction_type: parsed.selectedTransaction || undefined,
+            building_type: parsed.selectedBuilding || undefined,
+        };
+    } catch {
+        return {};
+    }
+};
+
 export default function MainPage() {
     useBackendUserGuard();
     const [filterParams, setFilterParams] = useState<LandFilterParams>({});
     const [recommendedLandIds, setRecommendedLandIds] = useState<number[]>([]);
+
+    // 컴포넌트 마운트 시 sessionStorage에서 필터 로드
+    useEffect(() => {
+        const savedFilter = loadFilterFromStorage();
+        if (Object.keys(savedFilter).length > 0) {
+            setFilterParams(savedFilter);
+        }
+    }, []);
 
     const handleFilterChange = useCallback((params: LandFilterParams) => {
         setFilterParams(params);

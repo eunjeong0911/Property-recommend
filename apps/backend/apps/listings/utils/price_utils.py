@@ -176,26 +176,30 @@ def get_price_display(land) -> str:
     """
     deal_type = land.deal_type or ''
     
-    # 단기임대는 deal_type에 이미 가격이 포함되어 있음
-    if '단기임대' in deal_type:
-        return deal_type
-    
     # 데이터베이스 컬럼에서 직접 가격 가져오기 (만원 단위)
     deposit = getattr(land, 'deposit', 0) or 0
     monthly_rent = getattr(land, 'monthly_rent', 0) or 0
     jeonse_price = getattr(land, 'jeonse_price', 0) or 0
     sale_price = getattr(land, 'sale_price', 0) or 0
+
+    # 단기임대
+    if deal_type == '단기임대':
+        if deposit > 0 or monthly_rent > 0:
+            deposit_str = format_price_in_manwon(deposit * 10000)
+            monthly_str = format_price_in_manwon(monthly_rent * 10000)
+            return f"{deposit_str} / {monthly_str}"
+        return '단기임대 (가격 미정)'
     
     # 매매
     if deal_type == '매매':
         if sale_price > 0:
-            return f"매매 {format_price_in_manwon(sale_price * 10000)}"
+            return f"{format_price_in_manwon(sale_price * 10000)}"
         return '매매 (가격 미정)'
     
     # 전세
     if deal_type == '전세':
         if jeonse_price > 0:
-            return f"전세 {format_price_in_manwon(jeonse_price * 10000)}"
+            return f"{format_price_in_manwon(jeonse_price * 10000)}"
         return '전세 (가격 미정)'
     
     # 월세
@@ -203,7 +207,7 @@ def get_price_display(land) -> str:
         if deposit > 0 or monthly_rent > 0:
             deposit_str = format_price_in_manwon(deposit * 10000)
             monthly_str = format_price_in_manwon(monthly_rent * 10000)
-            return f"월세 {deposit_str} / {monthly_str}"
+            return f"{deposit_str} / {monthly_str}"
         return '월세 (가격 미정)'
     
     # 기타 - trade_info에서 시도

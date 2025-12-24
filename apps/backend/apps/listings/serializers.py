@@ -11,6 +11,7 @@ from .utils.price_utils import (
     extract_area_exclusive,
     extract_total_floors,
 )
+from .utils.radar_chart_utils import calculate_radar_chart_data
 import random
 
 
@@ -51,13 +52,13 @@ class LandSerializer(serializers.ModelSerializer):
     deposit = serializers.SerializerMethodField()
     monthly_rent = serializers.SerializerMethodField()
     price = serializers.SerializerMethodField()
-    region = serializers.CharField(source='address')
-    transaction_type = serializers.CharField(source='deal_type')
+    region = serializers.CharField(source='address', allow_null=True, allow_blank=True)
+    transaction_type = serializers.CharField(source='deal_type', allow_null=True, allow_blank=True)
     
     # Detail fields
     land_num = serializers.CharField()
-    address = serializers.CharField()
-    building_type = serializers.CharField()
+    address = serializers.CharField(allow_null=True, allow_blank=True)
+    building_type = serializers.CharField(allow_null=True, allow_blank=True)
     floor = serializers.SerializerMethodField()
     room_count = serializers.SerializerMethodField()
     area_supply = serializers.SerializerMethodField()
@@ -68,13 +69,20 @@ class LandSerializer(serializers.ModelSerializer):
     maintenance_fee = serializers.SerializerMethodField()
     heating_method = serializers.SerializerMethodField()
     elevator = serializers.SerializerMethodField()
-    description = serializers.CharField()
+    description = serializers.CharField(allow_null=True, allow_blank=True)
+    approval_date = serializers.SerializerMethodField()  # 사용승인일
+    additional_options = serializers.CharField(allow_null=True, allow_blank=True)
+    jeonse_loan = serializers.SerializerMethodField()  # 전세자금대출
+    move_in_report = serializers.SerializerMethodField()  # 전입신고
     
     # 중개업소 정보
     broker = BrokerSerializer(source='landbroker', read_only=True)
     
     # 가격 분류 정보
     price_prediction = serializers.SerializerMethodField()
+    
+    # 레이더 차트 데이터
+    radar_chart_data = serializers.SerializerMethodField()
 
     class Meta:
         model = Land
@@ -103,8 +111,13 @@ class LandSerializer(serializers.ModelSerializer):
             'heating_method',
             'elevator',
             'description',
+            'approval_date',
+            'additional_options',
+            'jeonse_loan',
+            'move_in_report',
             'broker',
-            'price_prediction'
+            'price_prediction',
+            'radar_chart_data'
         ]
 
     def get_title(self, obj):
@@ -213,8 +226,44 @@ class LandSerializer(serializers.ModelSerializer):
             return '있음' if total_floors >= 5 else '없음'
         return '-'
     
+    def get_approval_date(self, obj):
+        """사용승인일 (listing_info에서 추출)"""
+        if obj.listing_info and isinstance(obj.listing_info, dict):
+            return obj.listing_info.get('사용승인일', '-')
+        return '-'
+    
+    def get_jeonse_loan(self, obj):
+        """전세자금대출 (trade_info에서 추출)"""
+        if obj.trade_info and isinstance(obj.trade_info, dict):
+            return obj.trade_info.get('전세자금대출', '-')
+        return '-'
+    
+    def get_move_in_report(self, obj):
+        """전입신고 (trade_info에서 추출)"""
+        if obj.trade_info and isinstance(obj.trade_info, dict):
+            return obj.trade_info.get('전입신고', '-')
+        return '-'
+    
     def get_price_prediction(self, obj):
-        """가격 분류 정보 조회"""
+        """가격 분류 정보 조회 (캐싱 적용)"""
+        # context에 캐시된 price_predictions 사용 (N+1 쿼리 방지)
+        price_cache = self.context.get('price_predictions')
+        
+        if price_cache is not None:
+            # 캐시에서 조회
+            price_class = price_cache.get(obj.land_num)
+            if price_class:
+                return {
+                    'prediction_class': price_class.prediction_class,
+                    'prediction_label': price_class.prediction_label,
+                    'prediction_label_korean': price_class.prediction_label_korean,
+                    'probability_underpriced': price_class.probability_underpriced,
+                    'probability_fair': price_class.probability_fair,
+                    'probability_overpriced': price_class.probability_overpriced
+                }
+            return None
+        
+        # 캐시가 없으면 개별 쿼리 (폴백)
         try:
             price_class = PriceClassificationResult.objects.filter(land_num=obj.land_num).first()
             if price_class:
@@ -222,4 +271,21 @@ class LandSerializer(serializers.ModelSerializer):
         except Exception as e:
             print(f"Error fetching price classification: {e}")
         return None
+    
+    def get_radar_chart_data(self, obj):
+        """레이더 차트 데이터 계산"""
+        try:
+            return calculate_radar_chart_data(obj)
+        except Exception as e:
+            import traceback
+            print(f"Error calculating radar chart data: {e}")
+            print(traceback.format_exc())
+            # 기본값 반환
+            return {
+                'building_age': 50,
+                'required_options': 50,
+                'security_facilities': 50,
+                'space_efficiency': 50,
+                'optional_facilities': 50
+            }
     

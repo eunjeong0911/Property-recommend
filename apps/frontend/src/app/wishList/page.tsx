@@ -220,6 +220,17 @@ export default function WishListPage() {
                         images={land.images}
                         price={formatPrice(land)}
                         isLiked={true}
+                        onLike={async () => {
+                          // 찜 해제 시 목록에서 제거
+                          try {
+                            const { removeWishlist } = await import('@/api/wishlistApi');
+                            await removeWishlist(land.id);
+                            // 상태 업데이트하여 UI에서 제거
+                            setWishlistLands(prev => prev.filter(l => l.id !== land.id));
+                          } catch (error) {
+                            console.error('Failed to remove from wishlist:', error);
+                          }
+                        }}
                       />
                     </div>
                     {/* 주소 정보 */}
