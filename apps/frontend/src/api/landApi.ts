@@ -73,3 +73,60 @@ export async function fetchLandLocations(params?: {
     const data = await response.json();
     return data.results || [];
 }
+
+export interface FacilityInfo {
+    count: number;
+    name: string;
+    icon: string;
+}
+
+export interface NearbyFacilities {
+    medical: FacilityInfo;
+    convenience: FacilityInfo;
+    transportation: FacilityInfo;
+    safety: FacilityInfo;
+    location?: {
+        latitude: number;
+        longitude: number;
+    };
+}
+
+export async function fetchNearbyFacilities(landId: string): Promise<NearbyFacilities> {
+    const response = await fetch(`${API_BASE_URL}/api/listings/lands/${landId}/nearby_facilities/`);
+
+    if (!response.ok) {
+        throw new Error('Failed to fetch nearby facilities');
+    }
+
+    return response.json();
+}
+
+export interface FacilityLocation {
+    name: string;
+    latitude: number;
+    longitude: number;
+    type: string;
+    category: string;
+}
+
+export interface FacilityLocationsResponse {
+    category: string;
+    count: number;
+    facilities: FacilityLocation[];
+}
+
+export async function fetchFacilityLocations(
+    landId: string,
+    category: 'transportation' | 'medical' | 'convenience' | 'safety'
+): Promise<FacilityLocationsResponse> {
+    const response = await fetch(
+        `${API_BASE_URL}/api/listings/lands/${landId}/facility_locations/?category=${category}`
+    );
+
+    if (!response.ok) {
+        throw new Error('Failed to fetch facility locations');
+    }
+
+    return response.json();
+}
+

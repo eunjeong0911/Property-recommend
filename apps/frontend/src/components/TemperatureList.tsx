@@ -25,7 +25,7 @@ interface TemperatureListProps {
 
 const DEFAULT_TEMPERATURES: TemperatureData[] = [
     { label: '대중교통', value: 0.8 },
-    { label: '주변 공원', value: 0.6 },
+    { label: '주변공원', value: 0.6 },
     { label: '허위매물', value: 0.7 },
     { label: '편의시설', value: 0.9 },
     { label: '치안/안전', value: 0.5 },
