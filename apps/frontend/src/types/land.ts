@@ -24,6 +24,11 @@ export interface Land {
     heating_method?: string;
     elevator?: string;
     description?: string;
+    additional_options?: string;
+    jeonse_loan?: string;        // 전세자금대출
+    move_in_report?: string;     // 전입신고 여부
+    approval_date?: string;      // 사용승인일
+    trade_info?: any;            // 거래 정보 JSON
 
     // 가격 예측 정보
     price_prediction?: {
@@ -33,6 +38,15 @@ export interface Land {
         probability_underpriced: number;
         probability_fair: number;
         probability_overpriced: number;
+    };
+
+    // 레이더 차트 데이터
+    radar_chart_data?: {
+        building_age: number;        // 건물연식 (0-100)
+        options: number;              // 옵션 충실도 (0-100)
+        security: number;             // 보안 수준 (0-100)
+        space_efficiency: number;     // 공간 효율성 (0-100)
+        transportation: number;       // 교통 접근성 (0-100)
     };
 
     // 중개업소 정보 (agent_info 대신 broker 사용)

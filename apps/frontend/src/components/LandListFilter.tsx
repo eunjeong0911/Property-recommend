@@ -13,7 +13,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { LandFilterParams } from '../types/land';
 
 // 서울특별시 25개 자치구
@@ -59,11 +59,41 @@ interface LandListFilterProps {
     onFilterChange?: (params: LandFilterParams) => void;
 }
 
+// sessionStorage에서 필터 값 로드
+const loadFilterFromStorage = () => {
+    if (typeof window === 'undefined') return null;
+    try {
+        const saved = sessionStorage.getItem('landListFilter');
+        return saved ? JSON.parse(saved) : null;
+    } catch {
+        return null;
+    }
+};
+
 export default function LandListFilter({ onFilterChange }: LandListFilterProps) {
-    const [selectedRegion, setSelectedRegion] = useState<string>('');
-    const [selectedDong, setSelectedDong] = useState<string>('');
-    const [selectedTransaction, setSelectedTransaction] = useState<string>('');
-    const [selectedBuilding, setSelectedBuilding] = useState<string>('');
+    // sessionStorage에서 초기값 로드
+    const savedFilter = loadFilterFromStorage();
+    const [selectedRegion, setSelectedRegion] = useState<string>(savedFilter?.selectedRegion || '');
+    const [selectedDong, setSelectedDong] = useState<string>(savedFilter?.selectedDong || '');
+    const [selectedTransaction, setSelectedTransaction] = useState<string>(savedFilter?.selectedTransaction || '');
+    const [selectedBuilding, setSelectedBuilding] = useState<string>(savedFilter?.selectedBuilding || '');
+
+    // 이전 자치구 값을 추적
+    const prevRegionRef = useRef<string>(selectedRegion);
+
+    // 필터 변경 시 sessionStorage에 저장
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const filterData = {
+            selectedRegion,
+            selectedDong,
+            selectedTransaction,
+            selectedBuilding,
+        };
+
+        sessionStorage.setItem('landListFilter', JSON.stringify(filterData));
+    }, [selectedRegion, selectedDong, selectedTransaction, selectedBuilding]);
 
     // 필터 변경 시 부모 컴포넌트에 알림
     useEffect(() => {
@@ -77,9 +107,15 @@ export default function LandListFilter({ onFilterChange }: LandListFilterProps) 
         }
     }, [selectedRegion, selectedDong, selectedTransaction, selectedBuilding, onFilterChange]);
 
-    // 자치구 변경 시 행정동 초기화
+    // 자치구가 실제로 변경되면 행정동 초기화
     useEffect(() => {
-        setSelectedDong('');
+        // 이전 값과 현재 값이 다르고, 이전 값이 빈 문자열이 아닐 때만 초기화
+        // (초기 로드 시에는 prevRegionRef가 초기값이므로 초기화되지 않음)
+        if (prevRegionRef.current !== selectedRegion && prevRegionRef.current !== '') {
+            setSelectedDong('');
+        }
+        // 현재 값을 이전 값으로 저장
+        prevRegionRef.current = selectedRegion;
     }, [selectedRegion]);
 
     const handleReset = () => {
@@ -87,6 +123,11 @@ export default function LandListFilter({ onFilterChange }: LandListFilterProps) 
         setSelectedDong('');
         setSelectedTransaction('');
         setSelectedBuilding('');
+
+        // sessionStorage에서도 삭제
+        if (typeof window !== 'undefined') {
+            sessionStorage.removeItem('landListFilter');
+        }
     };
 
     const dongList = selectedRegion ? (DONG_MAP[selectedRegion] || []) : [];

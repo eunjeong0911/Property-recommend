@@ -47,11 +47,11 @@ class SearchHistoryAdmin(admin.ModelAdmin):
 @admin.register(ListingViewHistory)
 class ListingViewHistoryAdmin(admin.ModelAdmin):
     """매물 조회 이력 Admin"""
-    list_display = ['user', 'listing_id', 'view_duration', 'scroll_depth', 'created_at']
-    list_filter = ['created_at']
+    list_display = ['user', 'listing_id', 'view_count', 'total_view_duration', 'max_scroll_depth', 'last_viewed_at']
+    list_filter = ['last_viewed_at', 'view_count']
     search_fields = ['user__email', 'listing_id']
-    ordering = ['-created_at']
-    readonly_fields = ['created_at']
+    ordering = ['-last_viewed_at']
+    readonly_fields = ['first_viewed_at', 'last_viewed_at']
 
 
 @admin.register(Wishlist)

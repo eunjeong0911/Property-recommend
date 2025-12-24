@@ -183,28 +183,15 @@ export default function Comparison({ lands, land1, land2 }: ComparisonProps) {
                   <span className="font-semibold text-sm">{land.moveInDate}</span>
                 </div>
               )}
-              {/* 중개사 온도 (신뢰도 위) */}
-              {land.temperature !== undefined && (
-                <div className="flex justify-between border-b pb-2 bg-orange-50 p-2 rounded">
-                  <span className="text-orange-700 font-medium">🌡️ 중개사 온도</span>
-                  <span className={`font-bold ${land.temperature >= 70 ? 'text-red-500' :
-                    land.temperature >= 50 ? 'text-orange-500' :
-                      land.temperature >= 30 ? 'text-yellow-600' :
-                        'text-blue-500'
-                    }`}>
-                    {land.temperature}°C
-                  </span>
-                </div>
-              )}
-              {/* 중개사 신뢰도 (온도 아래) */}
+              {/* 중개사 신뢰도 */}
               {land.brokerTrustScore && (
                 <div className="flex justify-between border-b pb-2 bg-purple-50 p-2 rounded">
                   <span className="text-purple-700 font-medium">🏢 중개사 신뢰도</span>
-                  <span className={`font-bold ${land.brokerTrustScore === 'A' ? 'text-green-600' :
-                    land.brokerTrustScore === 'B' ? 'text-yellow-600' :
-                      'text-red-600'
+                  <span className={`font-bold ${land.brokerTrustScore === 'A' ? 'text-yellow-600' :
+                    land.brokerTrustScore === 'B' ? 'text-gray-600' :
+                      'text-amber-700'
                     }`}>
-                    {land.brokerTrustScore}등급 {land.brokerTrustGrade ? `(${land.brokerTrustGrade})` : ''}
+                    {land.brokerTrustScore === 'A' ? '골드' : land.brokerTrustScore === 'B' ? '실버' : '브론즈'}
                   </span>
                 </div>
               )}

@@ -160,6 +160,8 @@ class ListingViewHistory(models.Model):
     """
     매물 조회 이력
     - 어떤 매물을 얼마나 자세히 봤는지 추적
+    - 사용자별 매물별 1개 row만 유지 (unique_together)
+    - 재방문 시 집계 데이터 업데이트
     """
     user = models.ForeignKey(
         User,
@@ -171,30 +173,46 @@ class ListingViewHistory(models.Model):
         max_length=255,
         help_text="매물 ID"
     )
-    view_duration = models.IntegerField(
-        null=True,
-        blank=True,
-        help_text="조회 시간(초)"
+    
+    # 집계 필드 (추천 시스템 최적화)
+    view_count = models.IntegerField(
+        default=1,
+        help_text="조회 횟수 (재방문 빈도)"
     )
-    scroll_depth = models.IntegerField(
-        null=True,
-        blank=True,
-        help_text="스크롤 깊이(%)"
+    total_view_duration = models.IntegerField(
+        default=0,
+        help_text="총 조회 시간(초) - 누적"
     )
-    created_at = models.DateTimeField(auto_now_add=True, help_text="조회 시간")
+    max_scroll_depth = models.IntegerField(
+        default=0,
+        help_text="최대 스크롤 깊이(%) - 가장 깊게 본 기록"
+    )
+    
+    # 시간 필드
+    first_viewed_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="최초 조회 시간"
+    )
+    last_viewed_at = models.DateTimeField(
+        auto_now=True,
+        help_text="마지막 조회 시간"
+    )
 
     class Meta:
         db_table = 'listing_view_histories'
-        ordering = ['-created_at']
+        ordering = ['-last_viewed_at']
+        unique_together = [['user', 'listing_id']]  # 중복 방지
         indexes = [
-            models.Index(fields=['user', '-created_at']),
+            models.Index(fields=['user', '-last_viewed_at']),
             models.Index(fields=['listing_id']),
+            models.Index(fields=['user', '-view_count']),  # 관심도 순 정렬용
+            models.Index(fields=['user', '-total_view_duration']),  # 누적 시간 순 정렬용
         ]
         verbose_name = '매물 조회 이력'
         verbose_name_plural = '매물 조회 이력 목록'
 
     def __str__(self):
-        return f"{self.user.email} - Listing {self.listing_id} at {self.created_at}"
+        return f"{self.user.email} - Listing {self.listing_id} (조회 {self.view_count}회)"
 
 
 class Wishlist(models.Model):
