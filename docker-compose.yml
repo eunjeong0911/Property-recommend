@@ -214,10 +214,14 @@ services:
       context: .
       dockerfile: infra/docker/crawling.Dockerfile
     volumes:
-      - ./dataCrawling:/app
-      - ./data:/data
+      - ./scripts:/app/scripts
+      - ./data:/app/data
+    working_dir: "/app"
+    command: python scripts/data_import/importers/import_properties_full.py
     env_file:
       - .env
+    environment:
+      - HEADLESS_MODE=true
     profiles:
       - crawling
 

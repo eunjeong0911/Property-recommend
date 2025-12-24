@@ -44,6 +44,9 @@ class PropertyImporter:
             total_imported = 0
             total_skipped = 0
 
+            # 모든 현재 유효한 매물 ID 수집 (삭제 대상 식별용)
+            active_ids = set()
+
             for json_file in json_files:
                 print(f"\nProcessing {json_file.name}...")
                 
@@ -64,7 +67,11 @@ class PropertyImporter:
                             skipped += 1
                             continue
                         
-                        # 중복 확인
+                        # 유효한 ID로 기록
+                        active_ids.add(listing_id)
+                        
+                        # 이미 존재하는 매물이면 스킵 (좌표는 변하지 않는다고 가정)
+                        # 업데이트가 필요하다면 이 확인을 제거하거나 별도 로직 추가
                         if listing_id in existing_ids:
                             skipped += 1
                             continue
@@ -102,9 +109,19 @@ class PropertyImporter:
                 except Exception as e:
                     print(f"  Error processing file {json_file.name}: {e}")
 
+            # 판매 완료된 매물 삭제
+            sold_ids = existing_ids - active_ids
+            if sold_ids:
+                print(f"\nDeleting {len(sold_ids)} sold properties from Neo4j...")
+                self._delete_sold_properties(session, list(sold_ids))
+                print("✅ Deletion completed.")
+            else:
+                print("\nNo sold properties to delete.")
+
             print(f"\n✅ Import completed!")
             print(f"Total imported: {total_imported}")
             print(f"Total skipped: {total_skipped}")
+            print(f"Total deleted: {len(sold_ids)}")
 
     def _insert_batch(self, session, batch):
         """
@@ -126,6 +143,21 @@ class PropertyImporter:
             p.location = point({latitude: row.latitude, longitude: row.longitude})
         """
         session.run(query, batch=batch)
+
+    def _delete_sold_properties(self, session, sold_ids):
+        """
+        판매 완료된 매물을 Neo4j에서 삭제
+        """
+        batch_size = 1000
+        for i in range(0, len(sold_ids), batch_size):
+            batch = sold_ids[i:i+batch_size]
+            query = """
+            UNWIND $batch AS id
+            MATCH (p:Property {id: id})
+            DETACH DELETE p
+            """
+            session.run(query, batch=batch)
+            print(f"  Deleted batch {i//batch_size + 1}/{len(sold_ids)//batch_size + 1}")
 
 if __name__ == "__main__":
     importer = PropertyImporter()
