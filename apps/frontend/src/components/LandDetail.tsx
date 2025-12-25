@@ -326,21 +326,22 @@ export default function LandDetail({ landId }: LandDetailProps) {
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <span className={`text-xl font-black ${temp.value >= 70 ? 'text-red-500' :
-                                            temp.value >= 40 ? 'text-orange-500' : 'text-blue-500'
+                                        <span className={`text-xl font-black ${temp.value >= 39 ? 'text-red-500' :
+                                                temp.value >= 35 ? 'text-orange-500' :
+                                                    'text-blue-500'
                                             }`}>
                                             {temp.value.toFixed(1)}
                                         </span>
                                         <span className="text-xs text-gray-400 ml-1">°C</span>
                                     </div>
                                 </div>
-                                <div className="h-3.5 bg-gray-100 rounded-full p-[2px] shadow-inner">
+                                <div className="h-3.5 bg-gray-100 rounded-full p-[2px] shadow-inner overflow-hidden">
                                     <div
-                                        className={`h-full rounded-full transition-all duration-1000 ease-out relative ${temp.value >= 70 ? 'bg-gradient-to-r from-red-400 via-red-500 to-red-600' :
-                                            temp.value >= 40 ? 'bg-gradient-to-r from-yellow-400 via-orange-400 to-orange-500' :
-                                                'bg-gradient-to-r from-blue-300 via-blue-400 to-blue-500'
-                                            }`}
-                                        style={{ width: `${Math.min(100, Math.max(0, (temp.value - 30) / (43 - 30) * 100))}%` }}
+                                        className="h-full rounded-full transition-all duration-1000 ease-out relative bg-gradient-to-r from-blue-400 via-yellow-400 to-red-500"
+                                        style={{
+                                            width: `${Math.min(100, Math.max(0, (temp.value - 30) / 13 * 100))}%`,
+                                            backgroundSize: `${100 / Math.max(0.01, (temp.value - 30) / 13)}% 100%`
+                                        }}
                                     >
                                         <div className="absolute top-0 right-0 w-8 h-full bg-white/20 skew-x-[-20deg] animate-pulse"></div>
                                     </div>
