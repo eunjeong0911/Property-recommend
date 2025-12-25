@@ -340,7 +340,7 @@ export default function LandDetail({ landId }: LandDetailProps) {
                                             temp.value >= 40 ? 'bg-gradient-to-r from-yellow-400 via-orange-400 to-orange-500' :
                                                 'bg-gradient-to-r from-blue-300 via-blue-400 to-blue-500'
                                             }`}
-                                        style={{ width: `${Math.min(100, Math.max(0, temp.value))}%` }}
+                                        style={{ width: `${Math.min(100, Math.max(0, (temp.value - 30) / (43 - 30) * 100))}%` }}
                                     >
                                         <div className="absolute top-0 right-0 w-8 h-full bg-white/20 skew-x-[-20deg] animate-pulse"></div>
                                     </div>

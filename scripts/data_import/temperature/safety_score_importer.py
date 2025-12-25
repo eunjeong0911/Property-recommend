@@ -245,11 +245,16 @@ class SafetyScoreImporter:
                 
                 // Total Temperature (Updated Weights: District 50, Street 10, Infra 40)
                 WITH p, 
-                     (district_score * 0.5 + street_score * 0.1 + infra_score * 0.4) as total_temp
+                     (district_score * 0.5 + street_score * 0.1 + infra_score * 0.4) as raw_score
+                
+                // Convert to 30-43°C Temperature Scale
+                // raw_score is 0-100. S_safety = raw_score / 100
+                // SafetyTemp = 30 + 13 * (raw_score / 100)
+                WITH p, (30.0 + 0.13 * raw_score) as safety_temp
                 
                 MERGE (m:Metric {name: 'Safety'})
                 MERGE (p)-[r:HAS_TEMPERATURE]->(m)
-                SET r.temperature = round(total_temp * 10) / 10.0
+                SET r.temperature = round(safety_temp * 10) / 10.0
                 """
                 session.run(query_score, ids=batch_ids, districts=district_data)
                 print(f"Processed batch {i} - {i+len(batch_ids)}")

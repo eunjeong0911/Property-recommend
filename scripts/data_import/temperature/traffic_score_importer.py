@@ -61,11 +61,16 @@ class TrafficScoreImporter:
                      END as score_bus
                      
                 // Total Score
-                WITH p, (score_subway + score_bus) as total_score
+                WITH p, (score_subway + score_bus) as raw_score
+                
+                // Convert to 30-43°C Temperature Scale
+                // raw_score is 0-100. S_transport = raw_score / 100
+                // TrafficTemp = 30 + 13 * (raw_score / 100)
+                WITH p, (30.0 + 0.13 * raw_score) as traffic_temp
                 
                 MERGE (m:Metric {name: 'Traffic'})
                 MERGE (p)-[r:HAS_TEMPERATURE]->(m)
-                SET r.temperature = round(total_score, 1),
+                SET r.temperature = round(traffic_temp, 1),
                     r.updated_at = datetime()
             } IN TRANSACTIONS OF 1000 ROWS
             """)

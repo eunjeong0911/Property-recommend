@@ -96,11 +96,16 @@ class ConvenienceScoreImporter:
                      END as score_park
 
                 // Total Score (Medical removed)
-                WITH p, (score_conv + score_laundry + score_mart + score_park) as total_score
+                WITH p, (score_conv + score_laundry + score_mart + score_park) as raw_score
+                
+                // Convert to 30-43°C Temperature Scale
+                // raw_score is 0-100. S_convenience = raw_score / 100
+                // ConvenienceTemp = 30 + 13 * (raw_score / 100)
+                WITH p, (30.0 + 0.13 * raw_score) as conv_temp
                 
                 MERGE (m:Metric {name: 'LivingConvenience'})
                 MERGE (p)-[r:HAS_TEMPERATURE]->(m)
-                SET r.temperature = round(total_score, 1),
+                SET r.temperature = round(conv_temp, 1),
                     r.updated_at = datetime()
             } IN TRANSACTIONS OF 1000 ROWS
             """)
