@@ -25,7 +25,7 @@ def get_land_temperatures(land_num: str) -> Dict[str, float]:
     # Neo4jMetric Name mapping to API field names
     metric_map = {
         'Safety': 'safety',
-        'Convenience': 'convenience',
+        'LivingConvenience': 'convenience',
         'Pet': 'pet',
         'Traffic': 'traffic'
     }
