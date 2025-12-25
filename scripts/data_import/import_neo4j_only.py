@@ -13,6 +13,9 @@ from db_health_check import DatabaseHealthCheck
 from importers.transport_importer import TransportImporter
 from importers.amenity_importer import AmenityImporter
 from importers.safety_importer import SafetyImporter
+from temperature.safety_score_importer import SafetyScoreImporter
+from temperature.convenience_score_importer import ConvenienceScoreImporter
+from temperature.traffic_score_importer import TrafficScoreImporter
 from importers.property_importer import PropertyImporter
 from database import Database
 
@@ -61,6 +64,10 @@ def main():
         amenity.import_store()
         print("\n[2-4] 공원 데이터 Import 중...")
         amenity.import_park()
+        print("\n[2-5] 대형 점포 데이터 Import 중...")
+        amenity.import_large_store()
+        print("\n[2-6] 문화 시설 데이터 Import 중...")
+        amenity.import_culture()
         print("✓ 편의시설 데이터 Import 완료\n")
         
         print("=" * 70)
@@ -98,6 +105,9 @@ def main():
         amenity.link_college()
         amenity.link_convenience()
         amenity.link_park()
+        amenity.link_large_mart()
+        amenity.link_laundry()
+        amenity.link_culture()
         
         print("\n[5-3] 안전시설 데이터 연결 중...")
         safety.link_cctv()
@@ -105,6 +115,24 @@ def main():
         safety.link_police()
         safety.link_fire()
         print("✓ 데이터 연결 완료\n")
+        
+        print("=" * 70)
+        print("6. 점수/온도 계산 (Score Calculation)")
+        print("=" * 70)
+        print("\n[6-1] 안전 온도 계산 및 Import 중...")
+        safety_score = SafetyScoreImporter()
+        safety_score.import_safety_score()
+        print("✓ 안전 온도 계산 완료")
+
+        print("\n[6-2] 편의/생활 온도 계산 및 Import 중...")
+        conv_score = ConvenienceScoreImporter()
+        conv_score.import_convenience_score()
+        print("✓ 편의/생활 온도 계산 완료")
+        
+        print("\n[6-3] 교통 온도 계산 및 Import 중...")
+        traffic_score = TrafficScoreImporter()
+        traffic_score.import_traffic_score()
+        print("✓ 교통 온도 계산 완료\n")
         
         print("=" * 70)
         print("✓ Neo4j 데이터 Import 완료!")
