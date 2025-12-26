@@ -1,53 +1,90 @@
+# =============================================================================
+# Docker Compose - Development Configuration
+# =============================================================================
+# Usage:
+#   Development: docker compose up
+#   Production:  docker compose -f docker-compose.yml -f docker-compose.prod.yml up
+# =============================================================================
+
 services:
+  # ===========================================================================
+  # Infrastructure Services
+  # ===========================================================================
   postgres:
     image: pgvector/pgvector:pg16
+    container_name: realestate-postgres
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-realestate}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-realestate}" ]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
+    networks:
+      - backend-network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
 
   neo4j:
     image: neo4j:5.15
+    container_name: realestate-neo4j
     environment:
-      NEO4J_AUTH: ${NEO4J_USER}/${NEO4J_PASSWORD}
+      NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:?NEO4J_PASSWORD is required}
       NEO4J_PLUGINS: '["apoc"]'
+      # 메모리 제한 제거 - 시스템 리소스 자유롭게 사용
     ports:
       - "7474:7474"
       - "7687:7687"
     volumes:
       - neo4j_data:/data
-      - ./infra/neo4j/init.cypher:/var/lib/neo4j/import/init.cypher
+      # init.cypher는 scripts 프로필로 별도 실행
+      # - ./infra/neo4j/init.cypher:/var/lib/neo4j/import/init.cypher:ro
     healthcheck:
       test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:7474 || exit 1" ]
       interval: 10s
       timeout: 10s
       retries: 5
       start_period: 40s
+    networks:
+      - backend-network
 
   redis:
     image: redis:7-alpine
+    container_name: realestate-redis
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend-network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
 
-  opensearch:
-    image: opensearchproject/opensearch:2.11.0
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.17.0
+    container_name: realestate-elasticsearch
     environment:
       - discovery.type=single-node
-      - plugins.security.disabled=true
-      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
       - bootstrap.memory_lock=true
     ulimits:
       memlock:
@@ -58,37 +95,62 @@ services:
         hard: 65536
     ports:
       - "9200:9200"
-      - "9600:9600"
     volumes:
-      - opensearch_data:/usr/share/opensearch/data
+      - elasticsearch_data:/usr/share/elasticsearch/data
     healthcheck:
-      test: [ "CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'" ]
+      test: [ "CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -qE '\"status\":\"(green|yellow)\"'" ]
       interval: 10s
       timeout: 10s
       retries: 5
       start_period: 30s
+    networks:
+      - backend-network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
 
-  opensearch-dashboards:
-    image: opensearchproject/opensearch-dashboards:2.11.0
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.17.0
+    container_name: realestate-kibana
     environment:
-      - OPENSEARCH_HOSTS=["http://opensearch:9200"]
-      - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
     ports:
       - "5601:5601"
     depends_on:
-      opensearch:
+      elasticsearch:
         condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -s http://localhost:5601/api/status | grep -q 'available'" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - backend-network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    profiles:
+      - dashboards
 
+  # ===========================================================================
+  # Application Services
+  # ===========================================================================
   backend:
     build:
       context: .
       dockerfile: infra/docker/backend.Dockerfile
+      target: runtime
+    container_name: realestate-backend
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - ./apps/backend:/app
       - ./apps/reco:/app/apps/reco
-      - ./scripts:/scripts
-      - ./data:/data
+      - ./scripts:/scripts:ro
+      - ./data:/data:ro
+      - ./libs:/libs:ro
     ports:
       - "8000:8000"
     env_file:
@@ -96,20 +158,37 @@ services:
     environment:
       - POSTGRES_HOST=postgres
       - NEO4J_URI=bolt://neo4j:7687
+      - REDIS_URL=redis://redis:6379/0
+      - ELASTICSEARCH_HOST=elasticsearch
       - PYTHONUNBUFFERED=1
-      - OPENSEARCH_HOST=opensearch
+      - DJANGO_DEBUG=True
     depends_on:
-      - postgres
-      - redis
-      - opensearch
+      postgres:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - backend-network
+      - frontend-network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
 
   rag:
     build:
       context: .
       dockerfile: infra/docker/rag.Dockerfile
-    command: python main.py
+      target: runtime
+    container_name: realestate-rag
+    command: uvicorn main:app --host 0.0.0.0 --port 8001 --reload
     volumes:
       - ./apps/rag:/app
+      - ./libs:/libs:ro
     ports:
       - "8001:8001"
     env_file:
@@ -117,28 +196,49 @@ services:
     environment:
       - NEO4J_URI=bolt://neo4j:7687
       - POSTGRES_HOST=postgres
-      - REDIS_HOST=redis
-      - OPENSEARCH_HOST=opensearch
+      - REDIS_URL=redis://redis:6379/0
+      - ELASTICSEARCH_HOST=elasticsearch
       - PYTHONUNBUFFERED=1
     depends_on:
-      - postgres
-      - neo4j
-      - redis
-      - opensearch
+      postgres:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - backend-network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
 
   reco:
     build:
       context: .
       dockerfile: infra/docker/reco.Dockerfile
+      target: runtime
+    container_name: realestate-reco
     command: python serve.py
     volumes:
       - ./apps/reco:/app
+      - ./libs:/libs:ro
+      - ./data:/data:ro
     ports:
       - "8002:8002"
     env_file:
       - .env
     environment:
       - PYTHONUNBUFFERED=1
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+    networks:
+      - backend-network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
 
   frontend:
     build:
@@ -152,6 +252,7 @@ services:
         - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
         - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
         - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+    container_name: realestate-frontend
     command: sh -c "npm install && npm run dev"
     ports:
       - "3000:3000"
@@ -170,18 +271,34 @@ services:
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
     depends_on:
       - backend
+    networks:
+      - frontend-network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
 
+  # ===========================================================================
+  # Utility Services (Profiles)
+  # ===========================================================================
   analytics:
     build:
       context: .
       dockerfile: infra/docker/analytics.Dockerfile
+    container_name: realestate-analytics
     ports:
       - "8888:8888"
     volumes:
       - ./analytics:/app
-      - ./data:/data
+      - ./data:/data:ro
     env_file:
       - .env
+    networks:
+      - backend-network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
     profiles:
       - analytics
 
@@ -189,23 +306,31 @@ services:
     build:
       context: .
       dockerfile: infra/docker/scripts.Dockerfile
+    container_name: realestate-scripts
     volumes:
       - ./scripts:/app
-      - ./libs:/libs
+      - ./libs:/libs:ro
       - ./data:/data
     env_file:
       - .env
     environment:
       - NEO4J_URI=bolt://neo4j:7687
       - POSTGRES_HOST=postgres
-      - OPENSEARCH_HOST=opensearch
+      - ELASTICSEARCH_HOST=elasticsearch
+      - PYTHONUNBUFFERED=1
     depends_on:
       postgres:
         condition: service_healthy
       neo4j:
         condition: service_healthy
-      opensearch:
+      elasticsearch:
         condition: service_healthy
+    networks:
+      - backend-network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
     profiles:
       - scripts
 
@@ -213,21 +338,45 @@ services:
     build:
       context: .
       dockerfile: infra/docker/crawling.Dockerfile
+    container_name: realestate-crawling
     volumes:
-      - ./scripts:/app/scripts
-      - ./data:/app/data
-    working_dir: "/app"
-    command: python scripts/data_import/importers/import_properties_full.py
+      - ./dataCrawling:/app
+      - ./data:/data
     env_file:
       - .env
     environment:
-      - HEADLESS_MODE=true
+      - PYTHONUNBUFFERED=1
+    networks:
+      - backend-network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
     profiles:
       - crawling
 
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  backend-network:
+    driver: bridge
+    name: realestate-backend
+  frontend-network:
+    driver: bridge
+    name: realestate-frontend
+
+# =============================================================================
+# Volumes
+# =============================================================================
 volumes:
   postgres_data:
+    name: realestate-postgres-data
   neo4j_data:
+    name: realestate-neo4j-data
   redis_data:
-  opensearch_data:
+    name: realestate-redis-data
+  elasticsearch_data:
+    name: realestate-elasticsearch-data
   frontend_node_modules:
+    name: realestate-frontend-modules
