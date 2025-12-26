@@ -327,8 +327,8 @@ export default function LandDetail({ landId }: LandDetailProps) {
                                     </div>
                                     <div className="text-right">
                                         <span className={`text-xl font-black ${temp.value >= 39 ? 'text-red-500' :
-                                                temp.value >= 35 ? 'text-orange-500' :
-                                                    'text-blue-500'
+                                            temp.value >= 35 ? 'text-orange-500' :
+                                                'text-blue-500'
                                             }`}>
                                             {temp.value.toFixed(1)}
                                         </span>
@@ -346,6 +346,27 @@ export default function LandDetail({ landId }: LandDetailProps) {
                                         <div className="absolute top-0 right-0 w-8 h-full bg-white/20 skew-x-[-20deg] animate-pulse"></div>
                                     </div>
                                 </div>
+
+                                {/* 반려동물 세부 정보 (Pet Temp인 경우에만 표시) */}
+                                {temp.id === 'pet' && land.temperatures?.pet_details && (
+                                    <div className="mt-4 grid grid-cols-3 gap-2 bg-slate-50 rounded-xl p-3 border border-slate-100 transition-all duration-500 hover:bg-slate-100">
+                                        {[
+                                            { label: '놀이터', count: land.temperatures.pet_details.playground, icon: '🛝' },
+                                            { label: '동물병원', count: land.temperatures.pet_details.hospital, icon: '🏥' },
+                                            { label: '애견공원', count: land.temperatures.pet_details.park, icon: '🌳' },
+                                            { label: '애견카페', count: land.temperatures.pet_details.cafe, icon: '☕' },
+                                            { label: '기타시설', count: land.temperatures.pet_details.etc, icon: '🛒' },
+                                        ].map((item, idx) => (
+                                            <div key={idx} className="flex items-center gap-1.5 px-2 py-1 bg-white rounded-lg shadow-sm border border-slate-50 group/item transition-all hover:scale-105">
+                                                <span className="text-xs">{item.icon}</span>
+                                                <div className="flex flex-col">
+                                                    <span className="text-[9px] text-gray-400 leading-tight">{item.label}</span>
+                                                    <span className="text-[11px] font-bold text-slate-700 leading-tight">{item.count}개</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>

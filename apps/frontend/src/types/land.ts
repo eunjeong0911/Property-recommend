@@ -55,6 +55,13 @@ export interface Land {
         convenience: number;
         pet: number;
         traffic: number;
+        pet_details?: {
+            playground: number;
+            hospital: number;
+            park: number;
+            cafe: number;
+            etc: number;
+        };
     };
 
     // 중개업소 정보 (agent_info 대신 broker 사용)
