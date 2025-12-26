@@ -5,9 +5,7 @@ import requests
 import time
 from pathlib import Path
 
-# 프로젝트 루트 경로 추가 (config, database 임포트용)
-# 현재 위치: scripts/data_import/importers/neo4j_importers/temperature/
-# 상위로 3단계 이동해야 scripts/data_import/ 에 도달함
+# Add scripts/data_import to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 from config import Config
 from database import Database
@@ -138,12 +136,18 @@ class PetScoreImporter:
                       CASE WHEN pk_score_raw * 5 > 15 THEN 15.0 ELSE toFloat(pk_score_raw * 5) END +
                       CASE WHEN s_score_raw * 5 > 30 THEN 30.0 ELSE toFloat(s_score_raw * 5) END) as raw_score
                 
-                // 30~43°C 스케일 변환
-                WITH p, pg_cnt, h_cnt, pk_cnt, s_all_cnt, (30.0 + (13.0 * (raw_score / 100.0))) as pet_temp
+                // raw_score와 temperature를 한 번에 계산 (평균 50 기준)
+                // 0-100 스케일에서 평균 50점이 36.5도가 되도록 변환
+                WITH p, pg_cnt, h_cnt, pk_cnt, s_all_cnt, raw_score,
+                     CASE 
+                        WHEN raw_score <= 50 THEN raw_score * (36.5 / 50.0)
+                        ELSE 36.5 + (raw_score - 50) * (63.5 / 50.0)
+                     END as pet_temp
                 
                 MERGE (m:Metric {name: 'Pet'})
                 MERGE (p)-[r:HAS_TEMPERATURE]->(m)
-                SET r.temperature = round(pet_temp * 10) / 10.0,
+                SET r.temperature = round(CASE WHEN pet_temp > 100 THEN 100.0 WHEN pet_temp < 0 THEN 0.0 ELSE pet_temp END, 1),
+                    r.raw_score = raw_score,
                     r.playground_count = pg_cnt,
                     r.hospital_count = h_cnt,
                     r.park_count = pk_cnt,
@@ -152,6 +156,7 @@ class PetScoreImporter:
             } IN TRANSACTIONS OF 1000 ROWS
             """
             session.run(query)
+
         print("Pet Temperature calculation completed.")
 
 if __name__ == "__main__":

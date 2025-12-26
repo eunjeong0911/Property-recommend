@@ -332,8 +332,8 @@ export default function LandDetail({ landId }: LandDetailProps) {
                                     <div
                                         className="h-full rounded-full transition-all duration-1000 ease-out relative bg-gradient-to-r from-blue-400 via-yellow-400 to-red-500"
                                         style={{
-                                            width: `${Math.min(100, Math.max(0, (temp.value - 30) / 13 * 100))}%`,
-                                            backgroundSize: `${100 / Math.max(0.01, (temp.value - 30) / 13)}% 100%`
+                                            width: `${Math.min(100, Math.max(0, temp.value))}%`,
+                                            backgroundSize: `${100 / Math.max(0.01, temp.value / 100)}% 100%`
                                         }}
                                     >
                                         <div className="absolute top-0 right-0 w-8 h-full bg-white/20 skew-x-[-20deg] animate-pulse"></div>
@@ -435,25 +435,27 @@ export default function LandDetail({ landId }: LandDetailProps) {
             </div>
 
             {/* 옵션 및 주거 정보 */}
-            {availableOptions.length > 0 && (
-                <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-                    <div className="bg-slate-700 text-white px-4 py-2 rounded-t-2xl">
-                        <h3 className="font-bold text-sm">생활 및 주변 정보</h3>
-                    </div>
-                    <div className="p-4">
-                        <div className="grid grid-cols-4 md:grid-cols-8 gap-4">
-                            {availableOptions.map((option) => (
-                                <div key={option.id} className="flex flex-col items-center gap-2">
-                                    <div className="w-12 h-12 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center">
-                                        <Image src={option.icon} alt={option.name} width={28} height={28} />
+            {
+                availableOptions.length > 0 && (
+                    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+                        <div className="bg-slate-700 text-white px-4 py-2 rounded-t-2xl">
+                            <h3 className="font-bold text-sm">생활 및 주변 정보</h3>
+                        </div>
+                        <div className="p-4">
+                            <div className="grid grid-cols-4 md:grid-cols-8 gap-4">
+                                {availableOptions.map((option) => (
+                                    <div key={option.id} className="flex flex-col items-center gap-2">
+                                        <div className="w-12 h-12 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center">
+                                            <Image src={option.icon} alt={option.name} width={28} height={28} />
+                                        </div>
+                                        <span className="text-xs text-gray-600 text-center">{option.name}</span>
                                     </div>
-                                    <span className="text-xs text-gray-600 text-center">{option.name}</span>
-                                </div>
-                            ))}
+                                ))}
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* 상세 설명 섹션 */}
             <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
@@ -516,6 +518,6 @@ export default function LandDetail({ landId }: LandDetailProps) {
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }
