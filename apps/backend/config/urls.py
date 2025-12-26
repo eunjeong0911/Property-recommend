@@ -11,7 +11,7 @@ urlpatterns = [
     path("api/graph/", include("apps.graph.urls")),
     path("api/community/", include("apps.community.urls")),
     # Health check endpoints for AWS ECS/ALB
-    path("", include("apps.health.urls")),
+    path("api/", include("apps.health.urls")),
 ]
 
 # Media 파일 서빙 (개발 환경에서만)

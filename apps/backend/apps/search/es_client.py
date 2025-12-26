@@ -1,10 +1,9 @@
 # =============================================================================
-# OpenSearch Client Singleton (AWS OpenSearch Service Compatible)
+# Elasticsearch Client Singleton
 # =============================================================================
 #
-# 역할: OpenSearch 연결 관리를 위한 싱글톤 클라이언트
+# 역할: Elasticsearch 연결 관리를 위한 싱글톤 클라이언트
 #
-# Requirements: 5.3 - OpenSearch 연결 오류 발생 시 예외를 로깅하고 빈 결과 반환
 # =============================================================================
 
 import os
@@ -17,61 +16,57 @@ logger = logging.getLogger(__name__)
 
 class ESClient:
     """
-    OpenSearch 클라이언트 싱글톤 클래스 (AWS OpenSearch Service 호환)
+    Elasticsearch 클라이언트 싱글톤 클래스
     
-    애플리케이션 전체에서 단일 OpenSearch 연결을 공유하여 리소스 효율성 유지
-    로컬 개발: OpenSearch 2.11.0 (Docker)
-    AWS 배포: AWS OpenSearch Service
+    애플리케이션 전체에서 단일 Elasticsearch 연결을 공유하여 리소스 효율성 유지
     """
     _instance: Optional[Elasticsearch] = None
     
     @classmethod
     def get_client(cls) -> Elasticsearch:
         """
-        OpenSearch 클라이언트 인스턴스 반환 (싱글톤)
+        Elasticsearch 클라이언트 인스턴스 반환 (싱글톤)
         
         Returns:
-            Elasticsearch: OpenSearch 클라이언트 인스턴스
+            Elasticsearch: Elasticsearch 클라이언트 인스턴스
         """
         if cls._instance is None:
-            # OpenSearch 환경변수 우선, ES 환경변수 fallback (하위 호환성)
-            os_host = os.getenv("OPENSEARCH_HOST") or os.getenv("ELASTICSEARCH_HOST", "localhost")
-            os_port = os.getenv("OPENSEARCH_PORT") or os.getenv("ELASTICSEARCH_PORT", "9200")
-            os_url = f"http://{os_host}:{os_port}"
+            es_host = os.getenv("ELASTICSEARCH_HOST", "elasticsearch")
+            es_port = os.getenv("ELASTICSEARCH_PORT", "9200")
+            es_url = f"http://{es_host}:{es_port}"
             
             try:
                 cls._instance = Elasticsearch(
-                    hosts=[os_url],
+                    hosts=[es_url],
                     timeout=30,
                     max_retries=3,
                     retry_on_timeout=True
                 )
-                # 연결 확인
                 if cls._instance.ping():
-                    logger.info(f"OpenSearch connected: {os_url}")
+                    logger.info(f"Elasticsearch connected: {es_url}")
                 else:
-                    logger.warning(f"OpenSearch ping failed: {os_url}")
+                    logger.warning(f"Elasticsearch ping failed: {es_url}")
             except Exception as e:
-                logger.error(f"Failed to connect to OpenSearch: {e}")
+                logger.error(f"Failed to connect to Elasticsearch: {e}")
                 raise
         
         return cls._instance
     
     @classmethod
     def close(cls) -> None:
-        """OpenSearch 클라이언트 연결 종료"""
+        """Elasticsearch 클라이언트 연결 종료"""
         if cls._instance is not None:
             try:
                 cls._instance.close()
-                logger.info("OpenSearch connection closed")
+                logger.info("Elasticsearch connection closed")
             except Exception as e:
-                logger.error(f"Error closing OpenSearch connection: {e}")
+                logger.error(f"Error closing Elasticsearch connection: {e}")
             finally:
                 cls._instance = None
     
     @classmethod
     def is_connected(cls) -> bool:
-        """OpenSearch 연결 상태 확인"""
+        """Elasticsearch 연결 상태 확인"""
         if cls._instance is None:
             return False
         try:

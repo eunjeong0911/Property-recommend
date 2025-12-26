@@ -16,24 +16,6 @@ class PostgresImporter:
     - 경로: data/RDB/land/*.json
     - 파일: 00_통합_빌라주택.json, 00_통합_아파트.json, 00_통합_오피스텔.json, 00_통합_원투룸.json
     - 내용: 크롤링한 매물의 전체 정보
-    
-    ERD 기준 Land 테이블:
-    - land_id (PK, SERIAL)
-    - landbroker_id (FK, int) - 중개사 id
-    - land_num (varchar(20), NOT NULL) - 매물번호
-    - building_type (varchar(20), NOT NULL) - 건물형태 (원룸, 빌라, 다가구 등)
-    - address (varchar(200)) - 주소
-    - like_count (int) - 찜수
-    - view_count (int) - 조회수
-    - deal_type (varchar(50)) - 거래방식 (전세/월세/매매)
-    - user_profiles_id (FK, int) - 사용자 프로필 id
-    - url (text) - 매물 URL
-    - images (jsonb) - 매물 이미지 목록
-    - trade_info (jsonb) - 거래 정보 (가격, 면적 등)
-    - listing_info (jsonb) - 매물 정보 (방 개수, 층수 등)
-    - additional_options (text[]) - 추가 옵션
-    - description (text) - 상세 설명
-    - agent_info (jsonb) - 중개사 정보
     """
     
     # 파일명과 building_type 매핑 (RDB/land의 JSON 파일 사용)
@@ -56,7 +38,6 @@ class PostgresImporter:
         
     def _create_land_table(self):
         """Land 테이블 확인 (init.sql에서 생성됨)"""
-        # init.sql에서 이미 생성되어 있으므로 확인만 수행
         check_query = """
         SELECT EXISTS (
             SELECT FROM information_schema.tables 
@@ -67,7 +48,6 @@ class PostgresImporter:
         exists = self.cur.fetchone()[0]
         
         if not exists:
-            # land 테이블이 없으면 생성 (init.sql 스키마와 동일)
             create_table_query = """
             CREATE TABLE IF NOT EXISTS land (
                 land_id SERIAL PRIMARY KEY,
@@ -98,18 +78,29 @@ class PostgresImporter:
             print("✓ Land 테이블 생성 완료")
         else:
             print("✓ Land 테이블 확인 완료")
+    
+    def _get_existing_count(self):
+        """기존 매물 개수 확인"""
+        self.cur.execute("SELECT COUNT(*) FROM land")
+        return self.cur.fetchone()[0]
 
-    def import_properties(self):
+    def import_properties(self, skip_if_exists=True):
         """data/RDB/land 폴더의 JSON 파일들을 Land 테이블에 적재"""
         # 테이블 확인
         self._create_land_table()
+        
+        # 기존 데이터 확인
+        existing_count = self._get_existing_count()
+        if skip_if_exists and existing_count > 0:
+            print(f"  ⏭ Land data already exists ({existing_count} records). Skipping import.")
+            print("  (강제 업데이트를 원하면 skip_if_exists=False 사용)")
+            return
         
         # Docker 환경에서는 /data/RDB/land, 로컬에서는 data/RDB/land
         if os.path.exists("/data/RDB/land"):
             data_dir = "/data/RDB/land"
             print("Docker 환경 감지: /data/RDB/land 사용")
         else:
-            # 로컬에서는 data/RDB/land 사용 (전체 매물 정보)
             data_dir = os.path.join(Config.BASE_DIR, "data", "RDB", "land")
             print(f"로컬 환경 감지: {data_dir} 사용")
         
@@ -124,11 +115,11 @@ class PostgresImporter:
         total_inserted = 0
         total_updated = 0
         
-        for json_file in json_files:
+        for file_idx, json_file in enumerate(json_files, 1):
             file_path = os.path.join(data_dir, json_file)
             building_type = self.FILE_TYPE_MAPPING.get(json_file, "기타")
             
-            print(f"\n[{building_type}] {json_file} 처리 중...")
+            print(f"\n[{file_idx}/{len(json_files)}] [{building_type}] {json_file} 처리 중...")
             
             try:
                 with open(file_path, "r", encoding="utf-8") as f:
@@ -136,16 +127,24 @@ class PostgresImporter:
                 
                 inserted = 0
                 updated = 0
+                total_items = len(data)
+                batch_size = 100  # For progress display
                 
-                for item in data:
+                for idx, item in enumerate(data):
                     result = self._insert_land(item, building_type)
                     if result == "inserted":
                         inserted += 1
                     elif result == "updated":
                         updated += 1
+                    
+                    # Progress display
+                    if (idx + 1) % batch_size == 0:
+                        self.conn.commit()
+                        progress = idx + 1
+                        print(f"  Progress: {progress}/{total_items} ({progress*100//total_items}%) - {inserted} inserted, {updated} updated")
                 
                 self.conn.commit()
-                print(f"  ✓ {building_type}: {inserted}건 삽입, {updated}건 업데이트")
+                print(f"  ✓ {building_type}: {inserted}건 삽입, {updated}건 업데이트 (100%)")
                 total_inserted += inserted
                 total_updated += updated
 
@@ -158,13 +157,11 @@ class PostgresImporter:
         print(f"\n총 결과: {total_inserted}건 삽입, {total_updated}건 업데이트")
 
     def _extract_deal_type(self, trade_info):
-        """거래유형 추출 (parsed 파일에서는 거래유형 필드 직접 사용)"""
-        # parsed 파일의 경우 거래유형 필드가 있음
+        """거래유형 추출"""
         deal_type = trade_info.get("거래유형")
         if deal_type and deal_type != "-":
             return deal_type
         
-        # fallback: 기존 거래방식 필드에서 추출
         deal_str = trade_info.get("거래방식", "")
         if "전세" in deal_str:
             return "전세"
@@ -177,68 +174,52 @@ class PostgresImporter:
         return deal_str[:50] if deal_str else None
 
     def _parse_price_to_int(self, price_str):
-        """한국어 가격 문자열을 만원 단위 정수로 변환
-        예: '3,000만원' → 3000, '1억 2,500만원' → 12500, '5억' → 50000
-        """
+        """한국어 가격 문자열을 만원 단위 정수로 변환"""
         if not price_str or price_str == '-' or price_str == '0원':
             return 0
         
         import re
-        # 공백, 쉼표 제거
         s = str(price_str).replace(',', '').replace(' ', '').replace('\xa0', '')
         
-        eok = 0  # 억
-        man = 0  # 만
+        eok = 0
+        man = 0
         
-        # 억 단위 추출
         eok_match = re.search(r'(\d+)억', s)
         if eok_match:
             eok = int(eok_match.group(1))
         
-        # 만원 단위 추출
         man_match = re.search(r'(\d+)만', s)
         if man_match:
             man = int(man_match.group(1))
         
-        # 만원 단위로 반환 (억 = 10000만)
         return eok * 10000 + man
 
     def _insert_land(self, item, building_type):
-        """Land 테이블에 매물 데이터 삽입 (ERD 기반 하이브리드 스키마)"""
+        """Land 테이블에 매물 데이터 삽입"""
         land_num = item.get("매물번호")
         if not land_num:
             return None
 
-        # 기본 정보 추출
         address = item.get("주소_정보", {}).get("전체주소", "") if item.get("주소_정보") else None
-        
-        # 거래 정보 추출
         trade_info_raw = item.get("거래_정보", {})
         deal_type = self._extract_deal_type(trade_info_raw)
         
-        # 가격 추출 (만원 단위 INT)
         deposit = self._parse_price_to_int(trade_info_raw.get("보증금"))
         monthly_rent = self._parse_price_to_int(trade_info_raw.get("월세"))
         jeonse_price = self._parse_price_to_int(trade_info_raw.get("보증금")) if deal_type == "전세" else 0
         sale_price = self._parse_price_to_int(trade_info_raw.get("매매가"))
         
-        # 전세인 경우 보증금이 전세가
         if deal_type == "전세":
             jeonse_price = deposit
             deposit = 0
         
-        # 이미지 목록 (별도 테이블에 저장)
         images_list = item.get("매물_이미지", [])
-        
-        # 기타 JSONB 필드
         url = item.get("매물_URL")
         trade_info = Json(trade_info_raw)
         listing_info = Json(item.get("매물_정보", {}))
         additional_options = item.get("추가_옵션", [])
         description = item.get("상세_설명")
-        # agent_info는 저장하지 않음 - reimport_brokers.py에서 landbroker 테이블로 별도 처리
 
-        # UPSERT 쿼리 (land 테이블 스키마 - images, agent_info 제거)
         query = """
             INSERT INTO land (
                 land_num, building_type, address, deal_type,
@@ -279,11 +260,8 @@ class PostgresImporter:
         land_id = result[0] if result else None
         is_inserted = result[1] if result else False
         
-        # 이미지를 land_image 테이블에 저장
         if land_id and images_list:
-            # 기존 이미지 삭제 (업데이트 시)
             self.cur.execute("DELETE FROM land_image WHERE land_id = %s", (land_id,))
-            # 새 이미지 INSERT
             for img_url in images_list:
                 if img_url:
                     self.cur.execute(
@@ -303,4 +281,3 @@ if __name__ == "__main__":
         importer.import_properties()
     finally:
         importer.close()
-
