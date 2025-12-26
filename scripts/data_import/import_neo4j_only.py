@@ -10,13 +10,13 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from config import Config
 from db_health_check import DatabaseHealthCheck
-from importers.transport_importer import TransportImporter
-from importers.amenity_importer import AmenityImporter
-from importers.safety_importer import SafetyImporter
-from temperature.safety_score_importer import SafetyScoreImporter
-from temperature.convenience_score_importer import ConvenienceScoreImporter
-from temperature.traffic_score_importer import TrafficScoreImporter
-from importers.property_importer import PropertyImporter
+from importers.neo4j_importers.facility.transport_importer import TransportImporter
+from importers.neo4j_importers.facility.amenity_importer import AmenityImporter
+from importers.neo4j_importers.facility.safety_importer import SafetyImporter
+from importers.neo4j_importers.temperature.safety_score_importer import SafetyScoreImporter
+from importers.neo4j_importers.temperature.convenience_score_importer import ConvenienceScoreImporter
+from importers.neo4j_importers.temperature.traffic_score_importer import TrafficScoreImporter
+from importers.neo4j_importers.property.property_importer import PropertyImporter
 from database import Database
 
 
