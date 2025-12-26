@@ -59,7 +59,6 @@ export interface Land {
             playground: number;
             hospital: number;
             park: number;
-            cafe: number;
             etc: number;
         };
     };

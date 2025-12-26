@@ -128,19 +128,18 @@ class PetScoreImporter:
                       AND NOT (s.category CONTAINS '독서실' OR s.category CONTAINS '스터디' OR s.category CONTAINS '네일' OR s.category CONTAINS '피부')
                       AND point.distance(p.location, s.location) <= 700
                 WITH p, pg_score_raw, pg_cnt, h_score_raw, h_cnt, pk_score_raw, pk_cnt,
-                     sum(CASE WHEN s.name CONTAINS '카페' OR s.name CONTAINS '커피' THEN 1 ELSE 0 END) as cafe_cnt,
                      count(s) as s_all_cnt,
                      sum(CASE WHEN point.distance(p.location, s.location) <= 300 THEN 1.5 ELSE 1 END) as s_score_raw
 
                 // 가중치 계산 (Max capping 적용하여 100점 만점 지수로 변환)
-                WITH p, pg_cnt, h_cnt, pk_cnt, cafe_cnt, s_all_cnt,
+                WITH p, pg_cnt, h_cnt, pk_cnt, s_all_cnt,
                      (CASE WHEN pg_score_raw * 20 > 30 THEN 30.0 ELSE toFloat(pg_score_raw * 20) END +
                       CASE WHEN h_score_raw * 10 > 25 THEN 25.0 ELSE toFloat(h_score_raw * 10) END +
                       CASE WHEN pk_score_raw * 5 > 15 THEN 15.0 ELSE toFloat(pk_score_raw * 5) END +
                       CASE WHEN s_score_raw * 5 > 30 THEN 30.0 ELSE toFloat(s_score_raw * 5) END) as raw_score
                 
                 // 30~43°C 스케일 변환
-                WITH p, pg_cnt, h_cnt, pk_cnt, cafe_cnt, s_all_cnt, (30.0 + (13.0 * (raw_score / 100.0))) as pet_temp
+                WITH p, pg_cnt, h_cnt, pk_cnt, s_all_cnt, (30.0 + (13.0 * (raw_score / 100.0))) as pet_temp
                 
                 MERGE (m:Metric {name: 'Pet'})
                 MERGE (p)-[r:HAS_TEMPERATURE]->(m)
@@ -148,8 +147,7 @@ class PetScoreImporter:
                     r.playground_count = pg_cnt,
                     r.hospital_count = h_cnt,
                     r.park_count = pk_cnt,
-                    r.cafe_count = cafe_cnt,
-                    r.etc_count = s_all_cnt - cafe_cnt,
+                    r.etc_count = s_all_cnt,
                     r.updated_at = datetime()
             } IN TRANSACTIONS OF 1000 ROWS
             """

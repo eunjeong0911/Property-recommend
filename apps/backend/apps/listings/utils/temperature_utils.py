@@ -1,3 +1,4 @@
+import logging
 from typing import Dict, Any, Optional
 from ..neo4j_client import Neo4jClient
 
@@ -58,7 +59,6 @@ def get_land_temperatures(land_num: str) -> Dict[str, Any]:
                             'playground': props.get('playground_count', 0),
                             'hospital': props.get('hospital_count', 0),
                             'park': props.get('park_count', 0),
-                            'cafe': props.get('cafe_count', 0),
                             'etc': props.get('etc_count', 0)
                         }
             
