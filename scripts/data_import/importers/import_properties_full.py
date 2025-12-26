@@ -89,8 +89,8 @@ def main():
     # ---------------------------------------------------------
     # 3단계: Neo4j Import
     # ---------------------------------------------------------
-    # property_importer.py는 현재 스크립트와 같은 폴더에 있음
-    importer_script = os.path.join(current_dir, "property_importer.py")
+    # property_importer.py는 현재 스크립트 위치 기준 neo4j_importers/property 폴더 안에 있음
+    importer_script = os.path.join(current_dir, "neo4j_importers", "property", "property_importer.py")
     
     # DATA_DIR 환경변수 설정: importer가 올바른 데이터 경로(data/GraphDB_data)를 찾도록 설정
     data_dir_env = os.path.join(root_dir, "data", "GraphDB_data")

@@ -12,6 +12,9 @@ RUN apt-get update && apt-get install -y \
 COPY infra/docker/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Install specific crawling dependencies (removed from shared requirements.txt)
+RUN pip install --no-cache-dir playwright global-land-mask
+
 # Install playwright browsers
 RUN playwright install --with-deps chromium
 

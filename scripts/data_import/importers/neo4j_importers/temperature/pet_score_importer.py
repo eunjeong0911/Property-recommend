@@ -6,7 +6,9 @@ import time
 from pathlib import Path
 
 # 프로젝트 루트 경로 추가 (config, database 임포트용)
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# 현재 위치: scripts/data_import/importers/neo4j_importers/temperature/
+# 상위로 3단계 이동해야 scripts/data_import/ 에 도달함
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 from config import Config
 from database import Database
 
