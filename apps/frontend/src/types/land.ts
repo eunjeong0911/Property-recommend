@@ -53,8 +53,9 @@ export interface Land {
     temperatures?: {
         safety: number;
         convenience: number;
-        pet: number;
-        traffic: number;
+        pet?: number;
+        traffic?: number;
+        culture?: number;
         pet_details?: {
             playground: number;
             hospital: number;

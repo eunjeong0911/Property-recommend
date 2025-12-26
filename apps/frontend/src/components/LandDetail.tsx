@@ -305,6 +305,7 @@ export default function LandDetail({ landId }: LandDetailProps) {
                             { id: 'convenience', label: '편의 온도', value: land.temperatures?.convenience || 36.5, icon: '🛒', desc: '생활 밀접 시설' },
                             { id: 'pet', label: '반려동물 온도', value: land.temperatures?.pet || 36.5, icon: '🐾', desc: '반려견 산책 및 병원' },
                             { id: 'traffic', label: '교통 온도', value: land.temperatures?.traffic || 36.5, icon: '🚇', desc: '대중교통 접근성' },
+                            { id: 'culture', label: '문화 온도', value: land.temperatures?.culture || 36.5, icon: '🏛️', desc: '문화 및 예술 시설' },
                         ].map((temp) => (
                             <div key={temp.id} className="group cursor-default">
                                 <div className="flex justify-between items-end mb-2">

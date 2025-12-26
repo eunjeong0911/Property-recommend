@@ -28,7 +28,8 @@ def get_land_temperatures(land_num: str) -> Dict[str, Any]:
         'Safety': 'safety',
         'LivingConvenience': 'convenience',
         'Pet': 'pet',
-        'Traffic': 'traffic'
+        'Traffic': 'traffic',
+        'Culture': 'culture'
     }
     
     try:
