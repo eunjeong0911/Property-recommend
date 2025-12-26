@@ -13,9 +13,12 @@ from db_health_check import DatabaseHealthCheck
 from importers.neo4j_importers.facility.transport_importer import TransportImporter
 from importers.neo4j_importers.facility.amenity_importer import AmenityImporter
 from importers.neo4j_importers.facility.safety_importer import SafetyImporter
+from importers.neo4j_importers.facility.animal_importer import AnimalImporter
 from importers.neo4j_importers.temperature.safety_score_importer import SafetyScoreImporter
 from importers.neo4j_importers.temperature.convenience_score_importer import ConvenienceScoreImporter
 from importers.neo4j_importers.temperature.traffic_score_importer import TrafficScoreImporter
+from importers.neo4j_importers.temperature.culture_score_importer import CultureScoreImporter
+from importers.neo4j_importers.temperature.pet_score_importer import PetScoreImporter
 from importers.neo4j_importers.property.property_importer import PropertyImporter
 from database import Database
 
@@ -83,6 +86,16 @@ def main():
         print("\n[3-4] 소방서 데이터 Import 중...")
         safety.import_fire()
         print("✓ 안전시설 데이터 Import 완료\n")
+
+        print("=" * 70)
+        print("3-1. 반려동물 놀이터 데이터 Import") # New section for animal importer
+        print("=" * 70)
+        animal = AnimalImporter()
+        print("\n[3-1-1] 반려동물 놀이터 데이터 Import 중...")
+        animal.import_pet_places()
+        print("\n[3-1-2] 반려동물 상가 데이터 Import 중...")
+        animal.import_pet_stores()
+        print("✓ 반려동물 데이터 Import 완료\n")
         
         print("=" * 70)
         print("4. 매물 데이터 Import (Neo4j)")
@@ -132,7 +145,17 @@ def main():
         print("\n[6-3] 교통 온도 계산 및 Import 중...")
         traffic_score = TrafficScoreImporter()
         traffic_score.import_traffic_score()
-        print("✓ 교통 온도 계산 완료\n")
+        print("✓ 교통 온도 계산 완료")
+
+        print("\n[6-4] 문화 온도 계산 및 Import 중...")
+        culture_score = CultureScoreImporter()
+        culture_score.import_culture_score()
+        print("✓ 문화 온도 계산 완료")
+
+        print("\n[6-5] 반려동물 온도 계산 및 Import 중...")
+        pet_score = PetScoreImporter()
+        pet_score.import_pet_score()
+        print("✓ 반려동물 온도 계산 완료\n")
         
         print("=" * 70)
         print("✓ Neo4j 데이터 Import 완료!")
