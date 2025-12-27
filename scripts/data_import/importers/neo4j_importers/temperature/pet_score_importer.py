@@ -87,17 +87,29 @@ class PetScoreImporter:
         print("Finished importing PetPlayground nodes.")
 
     def calculate_scores(self):
-        """매물별 반려동물 온도 계산 및 저장"""
+        """매물별 반려동물 온도 계산 및 저장 (배치 처리)"""
         print("Calculating Pet Temperature for all properties...")
         
         with self.driver.session() as session:
             # 기존 점수 삭제
             session.run("MATCH (p:Property)-[r:HAS_TEMPERATURE]->(m:Metric {name: 'Pet'}) DELETE r")
-
-            query = """
-            MATCH (p:Property)
-            CALL {
-                WITH p
+            
+            # Property 수 확인
+            result = session.run("MATCH (p:Property) RETURN count(p) as cnt")
+            total = result.single()['cnt']
+            if total == 0:
+                print("  ⚠ No properties found. Skipping.")
+                return
+            
+            print(f"  Total properties: {total}")
+            
+            batch_size = 200  # 작은 배치 사이즈
+            offset = 0
+            
+            while offset < total:
+                session.run("""
+                MATCH (p:Property)
+                WITH p SKIP $offset LIMIT $limit
                 
                 // A. 반려동물 놀이터 (1km)
                 OPTIONAL MATCH (pg:PetPlayground)
@@ -120,24 +132,23 @@ class PetScoreImporter:
                      count(pk) as pk_cnt,
                      sum(CASE WHEN point.distance(p.location, pk.location) <= 400 THEN 1.5 ELSE 1 END) as pk_score_raw
 
-                // D. 기타 시설 (Grooming, Cafe, Supplies - 상가 데이터에서 추출)
+                // D. 기타 시설 (700m)
                 OPTIONAL MATCH (s:Store)
                 WHERE (s.category = '애완동물/애완용품 소매업' OR s.name CONTAINS '애견' OR s.name CONTAINS '펫' OR s.name CONTAINS '반려')
-                      AND NOT (s.category CONTAINS '독서실' OR s.category CONTAINS '스터디' OR s.category CONTAINS '네일' OR s.category CONTAINS '피부')
+                      AND NOT (s.category CONTAINS '독서실' OR s.category CONTAINS '스터디')
                       AND point.distance(p.location, s.location) <= 700
                 WITH p, pg_score_raw, pg_cnt, h_score_raw, h_cnt, pk_score_raw, pk_cnt,
                      count(s) as s_all_cnt,
                      sum(CASE WHEN point.distance(p.location, s.location) <= 300 THEN 1.5 ELSE 1 END) as s_score_raw
 
-                // 가중치 계산 (Max capping 적용하여 100점 만점 지수로 변환)
+                // 가중치 계산 (100점 만점)
                 WITH p, pg_cnt, h_cnt, pk_cnt, s_all_cnt,
                      (CASE WHEN pg_score_raw * 20 > 30 THEN 30.0 ELSE toFloat(pg_score_raw * 20) END +
                       CASE WHEN h_score_raw * 10 > 25 THEN 25.0 ELSE toFloat(h_score_raw * 10) END +
                       CASE WHEN pk_score_raw * 5 > 15 THEN 15.0 ELSE toFloat(pk_score_raw * 5) END +
                       CASE WHEN s_score_raw * 5 > 30 THEN 30.0 ELSE toFloat(s_score_raw * 5) END) as raw_score
                 
-                // raw_score와 temperature를 한 번에 계산 (평균 50 기준)
-                // 0-100 스케일에서 평균 50점이 36.5도가 되도록 변환
+                // 0-100 스케일에서 평균 50점이 36.5도
                 WITH p, pg_cnt, h_cnt, pk_cnt, s_all_cnt, raw_score,
                      CASE 
                         WHEN raw_score <= 50 THEN raw_score * (36.5 / 50.0)
@@ -153,10 +164,12 @@ class PetScoreImporter:
                     r.park_count = pk_cnt,
                     r.etc_count = s_all_cnt,
                     r.updated_at = datetime()
-            } IN TRANSACTIONS OF 1000 ROWS
-            """
-            session.run(query)
-
+                """, offset=offset, limit=batch_size)
+                
+                offset += batch_size
+                progress = min(offset, total)
+                print(f"  Pet progress: {progress}/{total} ({progress*100//total}%)")
+        
         print("Pet Temperature calculation completed.")
 
 if __name__ == "__main__":
