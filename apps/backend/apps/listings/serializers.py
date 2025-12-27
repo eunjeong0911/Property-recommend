@@ -83,6 +83,9 @@ class LandSerializer(serializers.ModelSerializer):
     
     # 레이더 차트 데이터
     radar_chart_data = serializers.SerializerMethodField()
+    
+    # listing_info (시설 정보)
+    listing_info = serializers.JSONField(read_only=True)
 
     class Meta:
         model = Land
@@ -117,7 +120,8 @@ class LandSerializer(serializers.ModelSerializer):
             'move_in_report',
             'broker',
             'price_prediction',
-            'radar_chart_data'
+            'radar_chart_data',
+            'listing_info'
         ]
 
     def get_title(self, obj):
@@ -239,9 +243,12 @@ class LandSerializer(serializers.ModelSerializer):
         return '-'
     
     def get_move_in_report(self, obj):
-        """전입신고 (trade_info에서 추출)"""
-        if obj.trade_info and isinstance(obj.trade_info, dict):
-            return obj.trade_info.get('전입신고', '-')
+        """전입신고 (listing_info에서 추출)"""
+        if obj.listing_info and isinstance(obj.listing_info, dict):
+            # listing_info에서 직접 확인 (최상위 레벨)
+            value = obj.listing_info.get('전입신고 여부', '')
+            if value and value != '-':
+                return value
         return '-'
     
     def get_price_prediction(self, obj):
