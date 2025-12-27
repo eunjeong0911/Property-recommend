@@ -24,7 +24,13 @@ export interface Land {
     heating_method?: string;
     elevator?: string;
     description?: string;
-    additional_options?: string;
+    additional_options?: string | string[];
+    listing_info?: {
+        난방방식?: string[];
+        냉방시설?: string[];
+        보안시설?: string[];
+        기타시설?: string[];
+    };
     jeonse_loan?: string;        // 전세자금대출
     move_in_report?: string;     // 전입신고 여부
     approval_date?: string;      // 사용승인일
