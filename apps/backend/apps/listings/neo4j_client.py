@@ -55,8 +55,8 @@ class Neo4jClient:
                 # Double-checked locking
                 if cls._driver is None:
                     try:
-                        uri = os.getenv("NEO4J_URI")
-                        user = os.getenv("NEO4J_USER")
+                        uri = os.getenv("NEO4J_URI", "bolt://neo4j:7687")
+                        user = os.getenv("NEO4J_USER", "neo4j")
                         password = os.getenv("NEO4J_PASSWORD")
                         
                         if not all([uri, user, password]):

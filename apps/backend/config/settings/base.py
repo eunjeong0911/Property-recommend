@@ -10,15 +10,46 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 # =============================================================================
 # Security Settings (Requirements 3.1, 3.2)
 # =============================================================================
+# DEBUG: Must be False in production
+DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() in ("true", "1", "yes")
+
 # SECRET_KEY: Required in production, no hardcoded default
 # In production, this MUST be set via environment variable
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
 if not SECRET_KEY:
     # Only allow missing SECRET_KEY in development
-    if os.getenv("DJANGO_DEBUG", "True").lower() in ("true", "1", "yes"):
+    if DEBUG:
         SECRET_KEY = "dev-secret-key-not-for-production"
     else:
         raise ValueError("DJANGO_SECRET_KEY environment variable is required in production")
+
+# ALLOWED_HOSTS: Required in production
+# Format: comma-separated list (e.g., "api.example.com,www.example.com")
+_allowed_hosts = os.getenv("DJANGO_ALLOWED_HOSTS", "")
+if _allowed_hosts:
+    ALLOWED_HOSTS = [host.strip() for host in _allowed_hosts.split(",") if host.strip()]
+else:
+    # Development defaults
+    ALLOWED_HOSTS = ["localhost", "127.0.0.1", "backend"]
+
+# Production security settings (only when DEBUG=False)
+if not DEBUG:
+    # HTTPS settings
+    SECURE_SSL_REDIRECT = os.getenv("SECURE_SSL_REDIRECT", "True").lower() in ("true", "1", "yes")
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    
+    # Cookie security
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    
+    # HSTS settings
+    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    
+    # Content security
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = "DENY"
 
 # Custom User Model
 AUTH_USER_MODEL = "users.User"
@@ -112,9 +143,9 @@ else:
     }
 
 # Neo4j 설정 (Django 백엔드에서 GraphDB 접근 시 사용)
-NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")      # Neo4j 접속 주소 (기본값: 로컬)
-NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")                    # Neo4j 사용자 ID
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "neo4j")            # Neo4j 비밀번호
+NEO4J_URI = os.getenv("NEO4J_URI", "bolt://neo4j:7687")      # Neo4j 접속 주소
+NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")                # Neo4j 사용자 ID
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")                 # Neo4j 비밀번호 (환경변수 필수)
 
 LANGUAGE_CODE = "ko-kr"
 TIME_ZONE = "Asia/Seoul"
@@ -122,6 +153,11 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# Media files (user uploads)
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -139,6 +175,8 @@ REST_FRAMEWORK = {
     'DEFAULT_PARSER_CLASSES': [
         'rest_framework.parsers.JSONParser',
     ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
 }
 
 # JWT 설정
@@ -178,11 +216,6 @@ CORS_ALLOW_CREDENTIALS = True
 # Google OAuth 설정
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-
-# Neo4j 설정 (기존에 있던 내용 유지)
-NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "neo4j")
 
 # =============================================================================
 # Logging Configuration (Requirements 5.1, 5.3)

@@ -51,8 +51,13 @@ class LandViewSet(viewsets.ReadOnlyModelViewSet):
         context = super().get_serializer_context()
         
         # 모든 price_classification을 한 번에 조회하여 캐싱
-        price_predictions = PriceClassificationResult.objects.all()
-        context['price_predictions'] = {p.land_num: p for p in price_predictions}
+        # 테이블이 없을 수 있으므로 예외 처리
+        try:
+            price_predictions = PriceClassificationResult.objects.all()
+            context['price_predictions'] = {p.land_num: p for p in price_predictions}
+        except Exception:
+            # 테이블이 없거나 오류 시 빈 딕셔너리
+            context['price_predictions'] = {}
         
         return context
     

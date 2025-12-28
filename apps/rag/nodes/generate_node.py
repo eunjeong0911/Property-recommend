@@ -36,6 +36,12 @@ def generate(state: RAGState) -> RAGState:
             sql_details[str(land_num)] = item
     print(f"[Generate] ✓ Indexed {len(sql_details)} SQL records")
     
+    # Debug: Show sample of available SQL land_nums
+    if sql_details:
+        sample_keys = list(sql_details.keys())[:5]
+        print(f"[Generate] 🔑 Sample SQL land_nums: {sample_keys}")
+
+    
     # helper to format detail list
     def format_details(details_list):
         if not details_list: return ""
@@ -88,7 +94,9 @@ def generate(state: RAGState) -> RAGState:
                 merged['postgres_details'] = sql_details[str(prop_id)]
             else:
                 # Exclude properties that failed SQL filtering or have no details
+                print(f"[Generate] ⚠️ Skipping property {prop_id}: not found in PostgreSQL")
                 continue
+
 
             # --- PRE-PROCESS DETAILS FOR LLM ---
             # Extract and format the specific detail lists returned by neo4j_search_node
@@ -248,27 +256,50 @@ def generate(state: RAGState) -> RAGState:
             if k in details:
                 slim_details[k] = details[k]
         
-        # 2. 가격 정보 Pre-formatting (토큰 절약)
-        deposit = details.get('parsed_deposit')
-        rent = details.get('parsed_rent')
-        jeonse = details.get('parsed_jeonse')
-        sale = details.get('parsed_sale')
+        # 2. 가격 정보 Pre-formatting (토큰 절약) - trade_info에서 직접 파싱
+        trade_info = details.get('trade_info', {})
         
-        price_str = str(details.get('trade_info', '-'))
-        try:
-            trade_type = details.get('type')
-            if trade_type == '월세' and deposit is not None:
-                price_str = f"보증금 {deposit}/{rent}"
-            elif trade_type == '전세' and jeonse is not None:
-                price_str = f"전세 {jeonse}"
-            elif trade_type == '매매' and sale is not None:
-                price_str = f"매매 {sale}"
-            elif deposit is not None and rent is not None:
-                 price_str = f"{deposit}/{rent}"
-        except:
-            pass
+        # trade_info가 딕셔너리인지 확인
+        if isinstance(trade_info, dict):
+            trade_type = trade_info.get('거래유형', '')
+            deposit_str = trade_info.get('보증금', '-')
+            rent_str = trade_info.get('월세', '-')
+            sale_str = trade_info.get('매매가', '-')
+            
+            # 가격 문자열 생성
+            if trade_type == '월세':
+                if rent_str and rent_str != '-':
+                    price_str = f"보증금 {deposit_str}, 월세 {rent_str}"
+                else:
+                    price_str = f"보증금 {deposit_str}"
+            elif trade_type == '전세':
+                price_str = f"전세 {deposit_str}"
+            elif trade_type == '매매':
+                price_str = f"매매 {sale_str}"
+            elif trade_type == '단기임대':
+                if rent_str and rent_str != '-':
+                    price_str = f"단기임대 보증금 {deposit_str}, 월세 {rent_str}"
+                else:
+                    price_str = f"단기임대 보증금 {deposit_str}"
+            else:
+                # 기타: 있는 정보로 조합
+                parts = []
+                if deposit_str and deposit_str != '-':
+                    parts.append(f"보증금 {deposit_str}")
+                if rent_str and rent_str != '-':
+                    parts.append(f"월세 {rent_str}")
+                if sale_str and sale_str != '-':
+                    parts.append(f"매매 {sale_str}")
+                price_str = ", ".join(parts) if parts else "가격 정보 없음"
+        else:
+            price_str = "가격 정보 없음"
             
         slim_details['formatted_price'] = price_str
+        
+        # trade_info는 LLM에 보내지 않음 (formatted_price로 대체)
+        if 'trade_info' in slim_details:
+            del slim_details['trade_info']
+            
         new_item['postgres_details'] = slim_details
         
         # 3. 불필요한 중간 데이터 삭제
