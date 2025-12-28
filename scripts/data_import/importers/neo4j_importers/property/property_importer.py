@@ -43,6 +43,7 @@ class PropertyImporter:
 
             total_imported = 0
             total_skipped = 0
+            active_ids = set()  # 현재 활성 매물 ID 추적
 
             for file_idx, json_file in enumerate(json_files, 1):
                 print(f"\n[{file_idx}/{len(json_files)}] Processing {json_file.name}...")

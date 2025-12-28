@@ -154,7 +154,8 @@ def main():
 
         print("\n[6-5] 반려동물 온도 계산 및 Import 중...")
         pet_score = PetScoreImporter()
-        pet_score.import_pet_score()
+        pet_score.import_nodes()
+        pet_score.calculate_scores()
         print("✓ 반려동물 온도 계산 완료\n")
         
         print("=" * 70)

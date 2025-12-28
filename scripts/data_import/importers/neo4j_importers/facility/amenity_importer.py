@@ -604,11 +604,16 @@ class AmenityImporter:
                 processed = 0
                 
                 for _, row in df.iterrows():
+                    # 공원면적 값 추출 (없으면 0)
+                    area_val = row.get('공원면적', 0)
+                    if pd.isna(area_val):
+                        area_val = 0
+                    
                     batch.append({
                         "id": str(row['관리번호']),
                         "name": str(row['공원명']),
                         "type": str(row['공원구분']),
-                        "area": area_val,
+                        "area": float(area_val),
                         "lat": float(row['위도']),
                         "lon": float(row['경도'])
                     })
@@ -745,9 +750,9 @@ class AmenityImporter:
     def link_culture(self):
         print("Linking Culture Facilities (500m)...")
         with self.driver.session() as session:
-            existing = self._get_link_count(session, "NEAR_PARK")
+            existing = self._get_link_count(session, "NEAR_CULTURE")
             if existing > 0:
-                print(f"  ⏭ Park links already exist ({existing}). Skipping.")
+                print(f"  ⏭ Culture links already exist ({existing}). Skipping.")
                 return
             
             total = self._get_property_count(session)
@@ -764,17 +769,17 @@ class AmenityImporter:
                 result = session.run("""
                     MATCH (p:Property)
                     WITH p SKIP $offset LIMIT $limit
-                    MATCH (pk:Park)
-                    WHERE point.distance(p.location, pk.location) < 500
-                    MERGE (p)-[r:NEAR_PARK]->(pk)
-                    SET r.distance = toInteger(round(point.distance(p.location, pk.location))),
-                        r.walking_time = toInteger(round((point.distance(p.location, pk.location) * 1.3) / 80))
+                    MATCH (c:Culture)
+                    WHERE point.distance(p.location, c.location) < 500
+                    MERGE (p)-[r:NEAR_CULTURE]->(c)
+                    SET r.distance = toInteger(round(point.distance(p.location, c.location))),
+                        r.walking_time = toInteger(round((point.distance(p.location, c.location) * 1.3) / 80))
                     RETURN count(r) as cnt
                 """, offset=offset, limit=batch_size)
                 linked_count += result.single()["cnt"]
                 offset += batch_size
                 progress = min(offset, total)
-                print(f"  Park linking: {progress}/{total} ({progress*100//total}%) - {linked_count} links")
+                print(f"  Culture linking: {progress}/{total} ({progress*100//total}%) - {linked_count} links")
 
 if __name__ == "__main__":
     importer = AmenityImporter()
