@@ -205,7 +205,9 @@ export default function LandDetail({ landId }: LandDetailProps) {
         return [];
     };
 
-    const availableOptions = getAvailableOptions();
+    const categorizedFacilities = getCategorizedFacilities();
+    const additionalOptions = getAdditionalOptions();
+    const availableOptions: any[] = []; // Placeholder
 
     // 주소에서 구 정보 추출
     const extractDistrict = (address: string | undefined) => {
@@ -415,45 +417,6 @@ export default function LandDetail({ landId }: LandDetailProps) {
                     </div>
                 </div>
 
-            {/* 계약 및 매물정보 */}
-            <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-                <div className="bg-slate-700 text-white px-4 py-2 rounded-t-2xl">
-                    <h3 className="font-bold text-sm">계약 및 매물정보</h3>
-                </div>
-                <div className="p-4">
-                    <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-                        <div className="flex justify-between border-b border-gray-100 pb-1">
-                            <span className="text-gray-500">입주가능일</span>
-                            <span className="font-medium text-slate-800">{land.move_in_date || '-'}</span>
-                        </div>
-                        <div className="flex justify-between border-b border-gray-100 pb-1">
-                            <span className="text-gray-500">사용승인일</span>
-                            <span className="font-medium text-slate-800">{land.approval_date || '-'}</span>
-                        </div>
-                        <div className="flex justify-between border-b border-gray-100 pb-1">
-                            <span className="text-gray-500">전세자금대출</span>
-                            <span className="font-medium text-slate-800">{land.jeonse_loan || '-'}</span>
-                        </div>
-                        <div className="flex justify-between border-b border-gray-100 pb-1">
-                            <span className="text-gray-500">전입신고</span>
-                            <span className="font-medium text-slate-800">{land.move_in_report || '-'}</span>
-                        </div>
-                        <div className="flex justify-between border-b border-gray-100 pb-1">
-                            <span className="text-gray-500">현입주고객</span>
-                            <span className="font-medium text-slate-800">가능</span>
-                        </div>
-                        <div className="flex justify-between border-b border-gray-100 pb-1">
-                            <span className="text-gray-500">융자금</span>
-                            <span className="font-medium text-slate-800">없음</span>
-                        </div>
-                        <div className="flex justify-between border-b border-gray-100 pb-1">
-                            <span className="text-gray-500">위반건축물</span>
-                            <span className="font-medium text-slate-800">아님</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
                 {/* 계약 및 매물정보 */}
                 <div className="rounded-2xl border border-gray-200 bg-white shadow-sm flex flex-col">
                     <div className="bg-slate-700 text-white px-4 py-2 rounded-t-2xl">
@@ -494,210 +457,161 @@ export default function LandDetail({ landId }: LandDetailProps) {
                 </div>
             </div>
 
-            {/* 생활 및 옵션정보 */ }
-    {
-        (categorizedFacilities.heating.length > 0 ||
-            categorizedFacilities.cooling.length > 0 ||
-            categorizedFacilities.living.length > 0 ||
-            categorizedFacilities.security.length > 0 ||
-            categorizedFacilities.facilities.length > 0 ||
-            additionalOptions.length > 0) && (
-            <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-                <div className="bg-slate-700 text-white px-4 py-2 rounded-t-2xl">
-                    <h3 className="font-bold text-sm">생활 및 옵션정보</h3>
-                </div>
-                <div className="p-6 space-y-6">
-                    {/* 난방방식 */}
-                    {categorizedFacilities.heating.length > 0 && (
-                        <div>
-                            <div className="flex items-center gap-2 mb-3">
-                                <Image src="/assets/land_details/heating.png" alt="난방방식" width={24} height={24} />
-                                <h4 className="font-semibold text-slate-800">난방방식</h4>
-                            </div>
-                            <div className="flex flex-wrap gap-2 ml-8">
-                                {categorizedFacilities.heating.map((item: string, idx: number) => (
-                                    <span key={idx} className="px-3 py-1 bg-orange-50 text-orange-700 rounded-full text-sm">
-                                        {item}
-                                    </span>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* 냉방시설 */}
-                    {categorizedFacilities.cooling.length > 0 && (
-                        <div>
-                            <div className="flex items-center gap-2 mb-3">
-                                <Image src="/assets/land_details/cooling.png" alt="냉방시설" width={24} height={24} />
-                                <h4 className="font-semibold text-slate-800">냉방시설</h4>
-                            </div>
-                            <div className="flex flex-wrap gap-2 ml-8">
-                                {categorizedFacilities.cooling.map((item: string, idx: number) => (
-                                    <span key={idx} className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm">
-                                        {item}
-                                    </span>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* 생활시설 */}
-                    {categorizedFacilities.living.length > 0 && (
-                        <div>
-                            <div className="flex items-center gap-2 mb-3">
-                                <Image src="/assets/land_details/life.png" alt="생활시설" width={24} height={24} />
-                                <h4 className="font-semibold text-slate-800">생활시설</h4>
-                            </div>
-                            <div className="flex flex-wrap gap-2 ml-8">
-                                {categorizedFacilities.living.map((item: string, idx: number) => (
-                                    <span key={idx} className="px-3 py-1 bg-teal-50 text-teal-700 rounded-full text-sm">
-                                        {item}
-                                    </span>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* 보안시설 */}
-                    {categorizedFacilities.security.length > 0 && (
-                        <div>
-                            <div className="flex items-center gap-2 mb-3">
-                                <Image src="/assets/land_details/security.png" alt="보안시설" width={24} height={24} />
-                                <h4 className="font-semibold text-slate-800">보안시설</h4>
-                            </div>
-                            <div className="flex flex-wrap gap-2 ml-8">
-                                {categorizedFacilities.security.map((item: string, idx: number) => (
-                                    <span key={idx} className="px-3 py-1 bg-green-50 text-green-700 rounded-full text-sm">
-                                        {item}
-                                    </span>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* 기타시설 */}
-                    {categorizedFacilities.facilities.length > 0 && (
-                        <div>
-                            <div className="flex items-center gap-2 mb-3">
-                                <Image src="/assets/land_details/facilities.png" alt="기타시설" width={24} height={24} />
-                                <h4 className="font-semibold text-slate-800">기타시설</h4>
-                            </div>
-                            <div className="flex flex-wrap gap-2 ml-8">
-                                {categorizedFacilities.facilities.map((item: string, idx: number) => (
-                                    <span key={idx} className="px-3 py-1 bg-purple-50 text-purple-700 rounded-full text-sm">
-                                        {item}
-                                    </span>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-            {/* 옵션 및 주거 정보 */}
-            {
-                availableOptions.length > 0 && (
+            {/* 생활 및 옵션정보 */}
+            {(categorizedFacilities.heating.length > 0 ||
+                categorizedFacilities.cooling.length > 0 ||
+                categorizedFacilities.living.length > 0 ||
+                categorizedFacilities.security.length > 0 ||
+                categorizedFacilities.facilities.length > 0 ||
+                additionalOptions.length > 0) && (
                     <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
                         <div className="bg-slate-700 text-white px-4 py-2 rounded-t-2xl">
-                            <h3 className="font-bold text-sm">생활 및 주변 정보</h3>
+                            <h3 className="font-bold text-sm">생활 및 옵션정보</h3>
                         </div>
-                        <div className="p-4">
-                            <div className="grid grid-cols-4 md:grid-cols-8 gap-4">
-                                {availableOptions.map((option) => (
-                                    <div key={option.id} className="flex flex-col items-center gap-2">
-                                        <div className="w-12 h-12 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center">
-                                            <Image src={option.icon} alt={option.name} width={28} height={28} />
-                                        </div>
-                                        <span className="text-xs text-gray-600 text-center">{option.name}</span>
+                        <div className="p-6 space-y-6">
+                            {/* 난방방식 */}
+                            {categorizedFacilities.heating.length > 0 && (
+                                <div>
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <Image src="/assets/land_details/heating.png" alt="난방방식" width={24} height={24} />
+                                        <h4 className="font-semibold text-slate-800">난방방식</h4>
                                     </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
-
-                    {/* 추가옵션 */}
-                    {additionalOptions.length > 0 && (
-                        <div>
-                            <div className="flex items-center gap-2 mb-3">
-                                <Image src="/assets/land_details/options.png" alt="추가옵션" width={24} height={24} />
-                                <h4 className="font-semibold text-slate-800">추가옵션</h4>
-                            </div>
-                            <div className="flex flex-wrap gap-2 ml-8">
-                                {additionalOptions.map((option: string, idx: number) => (
-                                    <span key={idx} className="px-3 py-1 bg-gray-50 text-gray-700 rounded-full text-sm border border-gray-200">
-                                        {option}
-                                    </span>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </div>
-        )
-    }
-
-    {/* 상세 설명 섹션 */ }
-    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-        <div className="bg-slate-700 text-white px-4 py-2 rounded-t-2xl">
-            <h3 className="font-bold text-sm">상세 설명</h3>
-        </div>
-        <div className="p-4">
-            <p className="text-slate-700 whitespace-pre-line leading-relaxed text-sm">
-                {land.description || '상세 설명이 없습니다.'}
-            </p>
-        </div>
-    </div>
-
-    {/* 중개사 정보 */ }
-    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-        <div className="bg-slate-700 text-white px-4 py-2 rounded-t-2xl">
-            <h3 className="font-bold text-sm">중개사 정보</h3>
-        </div>
-        <div className="p-4">
-            <div className="flex items-start gap-4">
-                <div className="flex-1 space-y-2 text-sm">
-                    <div className="flex items-center gap-2">
-                        <span className="text-gray-500 w-24">중개사무소</span>
-                        <span className="font-semibold text-slate-800">{land.broker?.office_name || '-'}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <span className="text-gray-500 w-24">대표자</span>
-                        <span className="font-semibold text-slate-800">{land.broker?.representative || '-'}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <span className="text-gray-500 w-24">연락처</span>
-                        <span className="font-semibold text-slate-800">{land.broker?.phone || '-'}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <span className="text-gray-500 w-24">중개사무소 주소</span>
-                        <span className="font-semibold text-slate-800 text-xs">{land.broker?.address || '-'}</span>
-                    </div>
-
-                    {/* 신뢰도 등급 표시 + PNG 아이콘 */}
-                    {land.broker?.trust_score && (
-                        <div className="flex items-center gap-2 pt-2 border-t border-gray-200">
-                            <span className="text-gray-500 w-24">신뢰도</span>
-                            {getTrustBadgeImage(land.broker.trust_score) && (
-                                <Image
-                                    src={getTrustBadgeImage(land.broker.trust_score)!}
-                                    alt={`${land.broker.trust_score}`}
-                                    width={36}
-                                    height={36}
-                                    className="object-contain"
-                                />
+                                    <div className="flex flex-wrap gap-2 ml-8">
+                                        {categorizedFacilities.heating.map((item: string, idx: number) => (
+                                            <span key={idx} className="px-3 py-1 bg-orange-50 text-orange-700 rounded-full text-sm">
+                                                {item}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
                             )}
-                            <span className={`px-3 py-1 rounded-full text-sm font-bold ${land.broker.trust_score === 'A' ? 'bg-yellow-500 text-white' :
-                                land.broker.trust_score === 'B' ? 'bg-gray-400 text-white' :
-                                    'bg-amber-700 text-white'
-                                }`}>
-                                {land.broker.trust_score === 'A' ? '골드' : land.broker.trust_score === 'B' ? '실버' : '브론즈'}
-                            </span>
+
+                            {/* 냉방시설 */}
+                            {categorizedFacilities.cooling.length > 0 && (
+                                <div>
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <Image src="/assets/land_details/cooling.png" alt="냉방시설" width={24} height={24} />
+                                        <h4 className="font-semibold text-slate-800">냉방시설</h4>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2 ml-8">
+                                        {categorizedFacilities.cooling.map((item: string, idx: number) => (
+                                            <span key={idx} className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm">
+                                                {item}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 생활시설 */}
+                            {categorizedFacilities.living.length > 0 && (
+                                <div>
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <Image src="/assets/land_details/life.png" alt="생활시설" width={24} height={24} />
+                                        <h4 className="font-semibold text-slate-800">생활시설</h4>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2 ml-8">
+                                        {categorizedFacilities.living.map((item: string, idx: number) => (
+                                            <span key={idx} className="px-3 py-1 bg-teal-50 text-teal-700 rounded-full text-sm">
+                                                {item}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 보안시설 */}
+                            {categorizedFacilities.security.length > 0 && (
+                                <div>
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <Image src="/assets/land_details/security.png" alt="보안시설" width={24} height={24} />
+                                        <h4 className="font-semibold text-slate-800">보안시설</h4>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2 ml-8">
+                                        {categorizedFacilities.security.map((item: string, idx: number) => (
+                                            <span key={idx} className="px-3 py-1 bg-green-50 text-green-700 rounded-full text-sm">
+                                                {item}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 기타시설 */}
+                            {categorizedFacilities.facilities.length > 0 && (
+                                <div>
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <Image src="/assets/land_details/facilities.png" alt="기타시설" width={24} height={24} />
+                                        <h4 className="font-semibold text-slate-800">기타시설</h4>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2 ml-8">
+                                        {categorizedFacilities.facilities.map((item: string, idx: number) => (
+                                            <span key={idx} className="px-3 py-1 bg-purple-50 text-purple-700 rounded-full text-sm">
+                                                {item}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 추가옵션 */}
+                            {additionalOptions.length > 0 && (
+                                <div>
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <Image src="/assets/land_details/options.png" alt="추가옵션" width={24} height={24} />
+                                        <h4 className="font-semibold text-slate-800">추가옵션</h4>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2 ml-8">
+                                        {additionalOptions.map((option: string, idx: number) => (
+                                            <span key={idx} className="px-3 py-1 bg-gray-50 text-gray-700 rounded-full text-sm border border-gray-200">
+                                                {option}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                    )}
+                    </div>
+                )}
+
+            {/* 상세 설명 섹션 */}
+            <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+                <div className="bg-slate-700 text-white px-4 py-2 rounded-t-2xl">
+                    <h3 className="font-bold text-sm">상세 설명</h3>
+                </div>
+                <div className="p-4">
+                    <p className="text-slate-700 whitespace-pre-line leading-relaxed text-sm">
+                        {land.description || '상세 설명이 없습니다.'}
+                    </p>
                 </div>
             </div>
-        </div>
-    </div>
-        </div >
+
+            {/* 중개사 정보 */}
+            <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+                <div className="bg-slate-700 text-white px-4 py-2 rounded-t-2xl">
+                    <h3 className="font-bold text-sm">중개사 정보</h3>
+                </div>
+                <div className="p-4">
+                    <div className="flex items-start gap-4">
+                        <div className="flex-1 space-y-2 text-sm">
+                            <div className="flex items-center gap-2">
+                                <span className="text-gray-500 w-24">중개사무소</span>
+                                <span className="font-semibold text-slate-800">{land.broker?.office_name || '-'}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-gray-500 w-24">대표자</span>
+                                <span className="font-semibold text-slate-800">{land.broker?.representative || '-'}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-gray-500 w-24">연락처</span>
+                                <span className="font-semibold text-slate-800">{land.broker?.phone || '-'}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-gray-500 w-24">중개사무소 주소</span>
+                                <span className="font-semibold text-slate-800 text-xs">{land.broker?.address || '-'}</span>
+                            </div>
+
+                            {/* 신뢰도 등급 표시 + PNG 아이콘 */}
                             {land.broker?.trust_score && (
                                 <div className="flex items-center gap-2 pt-2 border-t border-gray-200">
                                     <span className="text-gray-500 w-24">신뢰도</span>
@@ -722,6 +636,6 @@ export default function LandDetail({ landId }: LandDetailProps) {
                     </div>
                 </div>
             </div>
-        </div >
+        </div>
     );
 }
