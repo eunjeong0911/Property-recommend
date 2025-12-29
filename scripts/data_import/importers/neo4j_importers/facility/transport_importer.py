@@ -70,6 +70,7 @@ class TransportImporter:
                 print(f"  Subway progress: {processed}/{total_rows} (100%)")
                 
             print("Finished importing Subway Stations.")
+        self.link_subway()
 
     def link_subway(self):
         print("Linking Subway Stations (1.5km)...")
@@ -166,6 +167,7 @@ class TransportImporter:
                 print(f"  Bus progress: {processed}/{total_rows} (100%)")
                 
             print("Finished importing Bus Stations.")
+        self.link_bus()
 
     def link_bus(self):
         print("Linking Bus Stations (200m)...")

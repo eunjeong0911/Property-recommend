@@ -22,7 +22,7 @@ class SafetyImporter:
     def import_cctv(self):
         with self.driver.session() as session:
             existing = self._get_existing_count(session, "CCTV")
-            if existing > 0:
+            if existing > 0: 
                 print(f"  ⏭ CCTV already exists ({existing}). Skipping import.")
                 return
         
@@ -81,6 +81,7 @@ class SafetyImporter:
                 print(f"  CCTV progress: {processed}/{total_rows} (100%)")
                 
         print("Finished importing CCTV.")
+        self.link_cctv()
 
     def link_cctv(self):
         print("Linking CCTV (200m)...")
@@ -178,6 +179,7 @@ class SafetyImporter:
                 print(f"  Bell progress: {processed}/{total_rows} (100%)")
                 
         print("Finished importing Emergency Bells.")
+        self.link_bell()
 
     def link_bell(self):
         print("Linking Emergency Bells (200m)...")
@@ -281,6 +283,7 @@ class SafetyImporter:
                 print(f"  Police progress: {processed}/{total_rows} (100%)")
                 
         print("Finished importing Police Stations.")
+        self.link_police()
 
     def link_police(self):
         print("Linking Police Stations (1km)...")
@@ -384,6 +387,7 @@ class SafetyImporter:
                 print(f"  Fire progress: {processed}/{total_rows} (100%)")
                 
         print("Finished importing Fire Stations.")
+        self.link_fire()
 
     def link_fire(self):
         print("Linking Fire Stations (2.5km)...")

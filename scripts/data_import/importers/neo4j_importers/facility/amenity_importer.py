@@ -382,9 +382,9 @@ class AmenityImporter:
     def link_large_mart(self):
         print("Linking Large Marts (500m)...")
         with self.driver.session() as session:
-            existing = self._get_link_count(session, "NEAR_COLLEGE")
+            existing = self._get_link_count(session, "NEAR_LARGEMART")
             if existing > 0:
-                print(f"  ⏭ College links already exist ({existing}). Skipping.")
+                print(f"  ⏭ Large Mart links already exist ({existing}). Skipping.")
                 return
             
             total = self._get_property_count(session)
@@ -401,17 +401,17 @@ class AmenityImporter:
                 result = session.run("""
                     MATCH (p:Property)
                     WITH p SKIP $offset LIMIT $limit
-                    MATCH (c:College)
-                    WHERE point.distance(p.location, c.location) < 2000
-                    MERGE (p)-[r:NEAR_COLLEGE]->(c)
-                    SET r.distance = toInteger(round(point.distance(p.location, c.location))),
-                        r.walking_time = toInteger(round((point.distance(p.location, c.location) * 1.3) / 80))
+                    MATCH (m:Mart)
+                    WHERE point.distance(p.location, m.location) < 500
+                    MERGE (p)-[r:NEAR_LARGEMART]->(m)
+                    SET r.distance = toInteger(round(point.distance(p.location, m.location))),
+                        r.walking_time = toInteger(round((point.distance(p.location, m.location) * 1.3) / 80))
                     RETURN count(r) as cnt
                 """, offset=offset, limit=batch_size)
                 linked_count += result.single()["cnt"]
                 offset += batch_size
                 progress = min(offset, total)
-                print(f"  College linking: {progress}/{total} ({progress*100//total}%) - {linked_count} links")
+                print(f"  Large Mart linking: {progress}/{total} ({progress*100//total}%) - {linked_count} links")
 
     def import_store(self):
         with self.driver.session() as session:
@@ -431,7 +431,7 @@ class AmenityImporter:
         exclude_categories = [
             '종합병원', '일반병원', '한방병원', '요양병원', '노인/치매병원', '치과병원', '치과의원', '한의원',
             '기타 의원', '성형외과 의원', '피부/비뇨기과 의원', '안과 의원', '내과/소아과 의원', '신경/정신과 의원',
-            '정형/성형외과 의원', '약국'
+            '정형/성형외과 의원', '약국', '세탁소'
         ]
         df = df[~df['상권업종소분류명'].isin(exclude_categories)]
         total_rows = len(df)
@@ -532,9 +532,9 @@ class AmenityImporter:
     def link_laundry(self):
         print("Linking Laundries (200m)...")
         with self.driver.session() as session:
-            existing = self._get_link_count(session, "NEAR_CONVENIENCE")
+            existing = self._get_link_count(session, "NEAR_LAUNDRY")
             if existing > 0:
-                print(f"  ⏭ Convenience links already exist ({existing}). Skipping.")
+                print(f"  ⏭ Laundry links already exist ({existing}). Skipping.")
                 return
             
             total = self._get_property_count(session)
@@ -551,17 +551,17 @@ class AmenityImporter:
                 result = session.run("""
                     MATCH (p:Property)
                     WITH p SKIP $offset LIMIT $limit
-                    MATCH (c:Convenience)
-                    WHERE point.distance(p.location, c.location) < 200
-                    MERGE (p)-[r:NEAR_CONVENIENCE]->(c)
-                    SET r.distance = toInteger(round(point.distance(p.location, c.location))),
-                        r.walking_time = toInteger(round((point.distance(p.location, c.location) * 1.3) / 80))
+                    MATCH (l:Laundry)
+                    WHERE point.distance(p.location, l.location) < 200
+                    MERGE (p)-[r:NEAR_LAUNDRY]->(l)
+                    SET r.distance = toInteger(round(point.distance(p.location, l.location))),
+                        r.walking_time = toInteger(round((point.distance(p.location, l.location) * 1.3) / 80))
                     RETURN count(r) as cnt
                 """, offset=offset, limit=batch_size)
                 linked_count += result.single()["cnt"]
                 offset += batch_size
                 progress = min(offset, total)
-                print(f"  Convenience linking: {progress}/{total} ({progress*100//total}%) - {linked_count} links")
+                print(f"  Laundry linking: {progress}/{total} ({progress*100//total}%) - {linked_count} links")
 
     def import_park(self):
         with self.driver.session() as session:
@@ -750,9 +750,9 @@ class AmenityImporter:
     def link_culture(self):
         print("Linking Culture Facilities (500m)...")
         with self.driver.session() as session:
-            existing = self._get_link_count(session, "NEAR_CULTURE")
+            existing = self._get_link_count(session, "NEAR_PARK")
             if existing > 0:
-                print(f"  ⏭ Culture links already exist ({existing}). Skipping.")
+                print(f"  ⏭ Park links already exist ({existing}). Skipping.")
                 return
             
             total = self._get_property_count(session)
@@ -769,17 +769,17 @@ class AmenityImporter:
                 result = session.run("""
                     MATCH (p:Property)
                     WITH p SKIP $offset LIMIT $limit
-                    MATCH (c:Culture)
-                    WHERE point.distance(p.location, c.location) < 500
-                    MERGE (p)-[r:NEAR_CULTURE]->(c)
-                    SET r.distance = toInteger(round(point.distance(p.location, c.location))),
-                        r.walking_time = toInteger(round((point.distance(p.location, c.location) * 1.3) / 80))
+                    MATCH (pk:Park)
+                    WHERE point.distance(p.location, pk.location) < 500
+                    MERGE (p)-[r:NEAR_PARK]->(pk)
+                    SET r.distance = toInteger(round(point.distance(p.location, pk.location))),
+                        r.walking_time = toInteger(round((point.distance(p.location, pk.location) * 1.3) / 80))
                     RETURN count(r) as cnt
                 """, offset=offset, limit=batch_size)
                 linked_count += result.single()["cnt"]
                 offset += batch_size
                 progress = min(offset, total)
-                print(f"  Culture linking: {progress}/{total} ({progress*100//total}%) - {linked_count} links")
+                print(f"  Park linking: {progress}/{total} ({progress*100//total}%) - {linked_count} links")
 
 if __name__ == "__main__":
     importer = AmenityImporter()

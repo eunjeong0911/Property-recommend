@@ -14,6 +14,7 @@ from importers.neo4j_importers.facility.transport_importer import TransportImpor
 from importers.neo4j_importers.facility.amenity_importer import AmenityImporter
 from importers.neo4j_importers.facility.safety_importer import SafetyImporter
 from importers.neo4j_importers.facility.animal_importer import AnimalImporter
+from importers.neo4j_importers.facility.culture_importer import CultureImporter
 from importers.neo4j_importers.temperature.safety_score_importer import SafetyScoreImporter
 from importers.neo4j_importers.temperature.convenience_score_importer import ConvenienceScoreImporter
 from importers.neo4j_importers.temperature.traffic_score_importer import TrafficScoreImporter

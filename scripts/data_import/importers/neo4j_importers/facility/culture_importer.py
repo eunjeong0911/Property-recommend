@@ -86,6 +86,7 @@ class CultureImporter:
                 print(f"  Imported {len(df)} cinemas")
         
         print("Finished importing Culture nodes.")
+        self.link_culture()
     
     def _insert_batch(self, session, batch):
         session.run("""

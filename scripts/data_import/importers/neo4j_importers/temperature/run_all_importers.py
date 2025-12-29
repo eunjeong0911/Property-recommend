@@ -3,9 +3,9 @@ import sys
 import os
 
 # 프로젝트 루트 경로
-project_root = r"c:\dev\study\team_project\Final Project\SKN18-FINAL-1TEAM"
-python_exe = r"c:\dev\study\team_project\Final Project\SKN18-FINAL-1TEAM\apps\backend\.venv\Scripts\python.exe"
-importers_dir = r"c:\dev\study\team_project\Final Project\SKN18-FINAL-1TEAM\scripts\data_import\importers\neo4j_importers\temperature"
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+python_exe = sys.executable  # 현재 실행 중인 Python 사용
+importers_dir = os.path.dirname(os.path.abspath(__file__))
 
 # 실행할 임포터 목록 (Safety, Convenience, Culture, Pet 순서)
 importers = [
@@ -13,7 +13,7 @@ importers = [
     "convenience_score_importer.py",
     "culture_score_importer.py",
     "pet_score_importer.py",
-    # "traffic_score_importer.py",  # 가중치 조정 후 실행 예정
+    "traffic_score_importer.py",  # 가중치 조정 후 실행 예정
 ]
 
 print("=" * 50)
