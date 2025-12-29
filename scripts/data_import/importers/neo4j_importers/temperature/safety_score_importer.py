@@ -17,11 +17,11 @@ Safety Score Importer (안전 온도 계산기)
 [점수 산정 로직 상세]
 
 1. 총점 공식 (Total Safety Temperature)
-   Total = (District_Score * 0.5) + (Street_Score * 0.1) + (Infra_Score * 0.4)
+   Total = (District_Score * 0.3) + (Street_Score * 0.2) + (Infra_Score * 0.5)
 
 2. 세부 항목 계산식
 
-   A. 지역 치안 점수 (District Score, 50%)
+   A. 지역 치안 점수 (District Score, 30%)   # 50% -> 30%
       - 데이터: 자치구별 5대 범죄 발생 건수 (살인, 강간, 강도, 절도, 폭력)
       - 1단계 (위험도 계산):
         Risk = (살인*3.0) + (강간*2.0) + (강도*1.8) + (폭력*1.0) + (절도*0.7)
@@ -29,12 +29,12 @@ Safety Score Importer (안전 온도 계산기)
         Score = (1 - (Risk - Min_Risk) / (Max_Risk - Min_Risk)) * 100
       - 의미: 범죄 위험도가 가장 낮은 구가 100점, 가장 높은 구가 0점.
 
-   B. 골목 안전 점수 (Street Score, 10%)
+   B. 골목 안전 점수 (Street Score, 20%)   # 10% -> 20%
       - 데이터: 매물 반경 200m 이내의 CCTV 및 비상벨 개수
       - 공식: Min(100, (CCTV * 5) + (Bell * 2))
       - 의미: CCTV와 비상벨이 많을수록 점수 상승 (최대 100점 제한).
 
-   C. 응급 인프라 점수 (Infra Score, 40%)
+   C. 응급 인프라 점수 (Infra Score, 50%)   # 40% -> 50%
       - 데이터: 매물에서 가장 가까운 경찰서(Police)와 소방서(Fire)까지의 직선 거리
       - 경찰 점수: Max(0, (1000 - Distance_to_Police) / 10)  (1km 이내 평가)
       - 소방 점수: Max(0, (2500 - Distance_to_Fire) / 25)    (2.5km 이내 평가)
@@ -244,9 +244,9 @@ class SafetyScoreImporter:
                      
                 WITH p, district_score, street_score, (police_score + fire_score) / 2.0 as infra_score
                 
-                // Total Temperature (Updated Weights: District 50, Street 10, Infra 40)
+                // Total Temperature (Updated Weights: District 30, Street 20, Infra 50)
                 WITH p, 
-                     (district_score * 0.5 + street_score * 0.1 + infra_score * 0.4) as raw_score
+                     (district_score * 0.3 + street_score * 0.2 + infra_score * 0.5) as raw_score
                 
                 // Convert to 30-43°C Temperature Scale (기존 로직 삭제 및 raw_score 설정)
                 WITH p, raw_score
