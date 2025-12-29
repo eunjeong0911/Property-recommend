@@ -103,20 +103,32 @@ class CultureScoreImporter:
                 
                 WITH p, CASE WHEN raw_total > 100 THEN 100.0 ELSE raw_total END as capped_total
                 
-                // raw_score와 temperature를 한 번에 계산 (평균 50 기준)
-                WITH p, capped_total,
-                     CASE 
-                        WHEN capped_total <= 50 THEN capped_total * (36.5 / 50.0)
-                        ELSE 36.5 + (capped_total - 50) * (63.5 / 50.0)
-                     END as culture_temp
-                
+                // raw_score만 저장 (temperature는 나중에 글로벌 평균으로 계산)
                 MERGE (m:Metric {name: 'Culture'})
                 MERGE (p)-[r:HAS_TEMPERATURE]->(m)
-                SET r.temperature = round(CASE WHEN culture_temp > 100 THEN 100.0 WHEN culture_temp < 0 THEN 0.0 ELSE culture_temp END, 1),
-                    r.raw_score = capped_total,
+                SET r.raw_score = capped_total,
                     r.updated_at = datetime()
             } IN TRANSACTIONS OF 1000 ROWS
             """)
+            
+            # Step 2: Calculate Global Average and Scale to 36.5
+            print("  Step 2: Scaling towards 36.5 Global Average...")
+            avg_result = session.run("""
+            MATCH ()-[r:HAS_TEMPERATURE]->(m:Metric {name: 'Culture'})
+            RETURN avg(r.raw_score) as global_avg
+            """)
+            global_avg = avg_result.single()['global_avg'] or 1.0
+            print(f"    Global Average Raw Score: {global_avg:.2f}")
+
+            session.run("""
+            MATCH ()-[r:HAS_TEMPERATURE]->(m:Metric {name: 'Culture'})
+            WITH r, $avg as raw_avg
+            SET r.temperature = round(
+                CASE 
+                    WHEN r.raw_score <= raw_avg THEN r.raw_score * (36.5 / raw_avg)
+                    ELSE 36.5 + (r.raw_score - raw_avg) * (63.5 / (100.0 - raw_avg))
+                END, 1)
+            """, avg=global_avg)
             
         print("Finished calculating Culture Temperature.")
 

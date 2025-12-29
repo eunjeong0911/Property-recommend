@@ -134,17 +134,10 @@ class PetScoreImporter:
                       CASE WHEN coalesce(pk_score_raw, 0) * 5 > 15 THEN 15.0 ELSE coalesce(pk_score_raw, 0) * 5 END +
                       CASE WHEN coalesce(s_score_raw, 0) * 5 > 30 THEN 30.0 ELSE coalesce(s_score_raw, 0) * 5 END) as raw_score
                 
-                // 0-100 스케일에서 평균 50점이 36.5도
-                WITH p, pg_cnt, h_cnt, pk_cnt, s_cnt, raw_score,
-                     CASE 
-                        WHEN raw_score <= 50 THEN raw_score * (36.5 / 50.0)
-                        ELSE 36.5 + (raw_score - 50) * (63.5 / 50.0)
-                     END as pet_temp
-                
+                // raw_score만 저장 (temperature는 나중에 글로벌 평균으로 계산)
                 MERGE (m:Metric {name: 'Pet'})
                 MERGE (p)-[r:HAS_TEMPERATURE]->(m)
-                SET r.temperature = round(CASE WHEN pet_temp > 100 THEN 100.0 WHEN pet_temp < 0 THEN 0.0 ELSE pet_temp END, 1),
-                    r.raw_score = raw_score,
+                SET r.raw_score = raw_score,
                     r.playground_count = pg_cnt,
                     r.hospital_count = h_cnt,
                     r.park_count = pk_cnt,
@@ -152,6 +145,25 @@ class PetScoreImporter:
                     r.updated_at = datetime()
             } IN TRANSACTIONS OF 1000 ROWS
             """)
+            
+            # Step 2: Calculate Global Average and Scale to 36.5
+            print("  Step 2: Scaling towards 36.5 Global Average...")
+            avg_result = session.run("""
+            MATCH ()-[r:HAS_TEMPERATURE]->(m:Metric {name: 'Pet'})
+            RETURN avg(r.raw_score) as global_avg
+            """)
+            global_avg = avg_result.single()['global_avg'] or 1.0
+            print(f"    Global Average Raw Score: {global_avg:.2f}")
+
+            session.run("""
+            MATCH ()-[r:HAS_TEMPERATURE]->(m:Metric {name: 'Pet'})
+            WITH r, $avg as raw_avg
+            SET r.temperature = round(
+                CASE 
+                    WHEN r.raw_score <= raw_avg THEN r.raw_score * (36.5 / raw_avg)
+                    ELSE 36.5 + (r.raw_score - raw_avg) * (63.5 / (100.0 - raw_avg))
+                END, 1)
+            """, avg=global_avg)
         
         print("Pet Temperature calculation completed.")
 
