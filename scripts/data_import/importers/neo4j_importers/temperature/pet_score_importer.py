@@ -103,7 +103,7 @@ class PetScoreImporter:
             
             print(f"  Total properties: {total}")
             
-            batch_size = 200  # 작은 배치 사이즈
+            batch_size = 500  # 작은 배치 사이즈
             offset = 0
             
             while offset < total:
