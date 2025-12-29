@@ -207,11 +207,9 @@ export default function LandDetail({ landId }: LandDetailProps) {
                         <p className="text-sm text-gray-500 mb-1">매물번호 {land.land_num}</p>
                         <h1 className="text-xl font-bold text-slate-800 mb-2">{land.address || '주소 정보 없음'}</h1>
 
-                        {/* 가격 정보 (주소 바로 아래) */}
                         <div className="flex items-center gap-3 mb-3">
                             <span className="text-2xl font-bold text-blue-600">{land.price || '-'}</span>
 
-                            {/* 가격 분류 배지 + 물음표 툴팁 */}
                             {land.price_prediction?.prediction_label_korean && (
                                 <div className="relative inline-flex items-center gap-2">
                                     <span className={`px-3 py-1 rounded-lg text-sm font-bold ${land.price_prediction.prediction_label_korean === '저렴'
@@ -230,7 +228,6 @@ export default function LandDetail({ landId }: LandDetailProps) {
                                         ?
                                     </button>
 
-                                    {/* 가격 분류 설명 툴팁 */}
                                     {showPriceTooltip && (
                                         <div className="absolute top-full left-0 mt-2 w-72 bg-white rounded-lg shadow-xl border border-gray-200 p-4 z-50">
                                             <p className="text-sm text-slate-700">
@@ -243,14 +240,12 @@ export default function LandDetail({ landId }: LandDetailProps) {
                                 </div>
                             )}
                         </div>
-
                     </div>
                 </div>
             </div>
 
             {/* 이미지 + 부동산 온도 지수 (2컬럼) */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* 이미지 캐러셀 */}
                 <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
                     <div className="relative aspect-square bg-gray-100 group">
                         <Image
@@ -261,7 +256,6 @@ export default function LandDetail({ landId }: LandDetailProps) {
                             className="object-cover"
                         />
 
-                        {/* 찜하기 버튼 */}
                         <button
                             onClick={handleLike}
                             className="absolute top-4 right-4 hover:scale-110 transition-transform z-10"
@@ -274,7 +268,6 @@ export default function LandDetail({ landId }: LandDetailProps) {
                             />
                         </button>
 
-                        {/* 이전/다음 버튼 */}
                         {images.length > 1 && (
                             <>
                                 <button
@@ -292,14 +285,13 @@ export default function LandDetail({ landId }: LandDetailProps) {
                             </>
                         )}
 
-                        {/* 이미지 카운터 */}
                         <div className="absolute bottom-4 right-4 bg-black/60 text-white px-3 py-1 rounded-full text-sm">
                             {currentImageIndex + 1} / {images.length}
                         </div>
                     </div>
                 </div>
 
-                {/* 부동산 온도 지수 (기존 레이더 차트 대체) */}
+                {/* 부동산 온도 지수 */}
                 <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col">
                     <div className="bg-slate-700 text-white px-4 py-3">
                         <h3 className="font-bold flex items-center gap-2">
@@ -313,6 +305,7 @@ export default function LandDetail({ landId }: LandDetailProps) {
                             { id: 'convenience', label: '편의 온도', value: land.temperatures?.convenience || 36.5, icon: '🛒', desc: '생활 밀접 시설' },
                             { id: 'pet', label: '반려동물 온도', value: land.temperatures?.pet || 36.5, icon: '🐾', desc: '반려견 산책 및 병원' },
                             { id: 'traffic', label: '교통 온도', value: land.temperatures?.traffic || 36.5, icon: '🚇', desc: '대중교통 접근성' },
+                            { id: 'culture', label: '문화 온도', value: land.temperatures?.culture || 36.5, icon: '🏛️', desc: '문화 및 예술 시설' },
                         ].map((temp) => (
                             <div key={temp.id} className="group cursor-default">
                                 <div className="flex justify-between items-end mb-2">
@@ -326,21 +319,22 @@ export default function LandDetail({ landId }: LandDetailProps) {
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <span className={`text-xl font-black ${temp.value >= 70 ? 'text-red-500' :
-                                            temp.value >= 40 ? 'text-orange-500' : 'text-blue-500'
+                                        <span className={`text-xl font-black ${temp.value >= 39 ? 'text-red-500' :
+                                            temp.value >= 35 ? 'text-orange-500' :
+                                                'text-blue-500'
                                             }`}>
                                             {temp.value.toFixed(1)}
                                         </span>
                                         <span className="text-xs text-gray-400 ml-1">°C</span>
                                     </div>
                                 </div>
-                                <div className="h-3.5 bg-gray-100 rounded-full p-[2px] shadow-inner">
+                                <div className="h-3.5 bg-gray-100 rounded-full p-[2px] shadow-inner overflow-hidden">
                                     <div
-                                        className={`h-full rounded-full transition-all duration-1000 ease-out relative ${temp.value >= 70 ? 'bg-gradient-to-r from-red-400 via-red-500 to-red-600' :
-                                            temp.value >= 40 ? 'bg-gradient-to-r from-yellow-400 via-orange-400 to-orange-500' :
-                                                'bg-gradient-to-r from-blue-300 via-blue-400 to-blue-500'
-                                            }`}
-                                        style={{ width: `${Math.min(100, Math.max(0, temp.value))}%` }}
+                                        className="h-full rounded-full transition-all duration-1000 ease-out relative bg-gradient-to-r from-blue-400 via-yellow-400 to-red-500"
+                                        style={{
+                                            width: `${Math.min(100, Math.max(0, temp.value))}%`,
+                                            backgroundSize: `${100 / Math.max(0.01, temp.value / 100)}% 100%`
+                                        }}
                                     >
                                         <div className="absolute top-0 right-0 w-8 h-full bg-white/20 skew-x-[-20deg] animate-pulse"></div>
                                     </div>
@@ -351,14 +345,14 @@ export default function LandDetail({ landId }: LandDetailProps) {
                 </div>
             </div>
 
-            {/* 2컬럼 레이아웃: 핵심정보 / 계약및 매물정보 */}
+            {/* 2컬럼 레이아웃: 핵심정보 / 계약 및 매물정보 */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* 핵심정보 */}
-                <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+                <div className="rounded-2xl border border-gray-200 bg-white shadow-sm flex flex-col">
                     <div className="bg-slate-700 text-white px-4 py-2 rounded-t-2xl">
                         <h3 className="font-bold text-sm">핵심정보</h3>
                     </div>
-                    <div className="p-4">
+                    <div className="p-4 flex-1">
                         <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                             <div className="flex justify-between border-b border-gray-100 pb-1">
                                 <span className="text-gray-500">거래유형</span>
@@ -401,11 +395,11 @@ export default function LandDetail({ landId }: LandDetailProps) {
                 </div>
 
                 {/* 계약 및 매물정보 */}
-                <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+                <div className="rounded-2xl border border-gray-200 bg-white shadow-sm flex flex-col">
                     <div className="bg-slate-700 text-white px-4 py-2 rounded-t-2xl">
                         <h3 className="font-bold text-sm">계약 및 매물정보</h3>
                     </div>
-                    <div className="p-4">
+                    <div className="p-4 flex-1">
                         <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
                             <div className="flex justify-between border-b border-gray-100 pb-1">
                                 <span className="text-gray-500">입주가능일</span>
@@ -440,26 +434,28 @@ export default function LandDetail({ landId }: LandDetailProps) {
                 </div>
             </div>
 
-            {/* 옵션 및 주거 정보 (해당 옵션이 있는 경우에만 표시) */}
-            {availableOptions.length > 0 && (
-                <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-                    <div className="bg-slate-700 text-white px-4 py-2 rounded-t-2xl">
-                        <h3 className="font-bold text-sm">생활 및 주변 정보</h3>
-                    </div>
-                    <div className="p-4">
-                        <div className="grid grid-cols-4 md:grid-cols-8 gap-4">
-                            {availableOptions.map((option) => (
-                                <div key={option.id} className="flex flex-col items-center gap-2">
-                                    <div className="w-12 h-12 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center">
-                                        <Image src={option.icon} alt={option.name} width={28} height={28} />
+            {/* 옵션 및 주거 정보 */}
+            {
+                availableOptions.length > 0 && (
+                    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+                        <div className="bg-slate-700 text-white px-4 py-2 rounded-t-2xl">
+                            <h3 className="font-bold text-sm">생활 및 주변 정보</h3>
+                        </div>
+                        <div className="p-4">
+                            <div className="grid grid-cols-4 md:grid-cols-8 gap-4">
+                                {availableOptions.map((option) => (
+                                    <div key={option.id} className="flex flex-col items-center gap-2">
+                                        <div className="w-12 h-12 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center">
+                                            <Image src={option.icon} alt={option.name} width={28} height={28} />
+                                        </div>
+                                        <span className="text-xs text-gray-600 text-center">{option.name}</span>
                                     </div>
-                                    <span className="text-xs text-gray-600 text-center">{option.name}</span>
-                                </div>
-                            ))}
+                                ))}
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* 상세 설명 섹션 */}
             <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
@@ -498,7 +494,6 @@ export default function LandDetail({ landId }: LandDetailProps) {
                                 <span className="font-semibold text-slate-800 text-xs">{land.broker?.address || '-'}</span>
                             </div>
 
-                            {/* 신뢰도 등급 표시 + PNG 아이콘 */}
                             {land.broker?.trust_score && (
                                 <div className="flex items-center gap-2 pt-2 border-t border-gray-200">
                                     <span className="text-gray-500 w-24">신뢰도</span>
@@ -523,6 +518,6 @@ export default function LandDetail({ landId }: LandDetailProps) {
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

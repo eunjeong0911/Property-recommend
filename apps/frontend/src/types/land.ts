@@ -40,21 +40,19 @@ export interface Land {
         probability_overpriced: number;
     };
 
-    // 레이더 차트 데이터 (추후 제거 예정)
-    radar_chart_data?: {
-        building_age: number;
-        required_options: number;
-        security_facilities: number;
-        space_efficiency: number;
-        optional_facilities: number;
-    };
-
     // 부동산 온도 데이터
     temperatures?: {
         safety: number;
         convenience: number;
-        pet: number;
-        traffic: number;
+        pet?: number;
+        traffic?: number;
+        culture?: number;
+        pet_details?: {
+            playground: number;
+            hospital: number;
+            park: number;
+            etc: number;
+        };
     };
 
     // 중개업소 정보 (agent_info 대신 broker 사용)

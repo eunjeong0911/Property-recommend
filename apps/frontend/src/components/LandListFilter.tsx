@@ -16,6 +16,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { LandFilterParams } from '../types/land';
 
+// 초기 필터 상태 (SSR과 클라이언트 일치를 위해 고정값 사용)
+const INITIAL_FILTER = {
+    selectedRegion: '',
+    selectedDong: '',
+    selectedTransaction: '',
+    selectedBuilding: '',
+};
+
 // 서울특별시 25개 자치구
 const SEOUL_DISTRICTS = [
     '강남구', '강동구', '강북구', '강서구', '관악구', '광진구', '구로구', '금천구',
@@ -71,19 +79,32 @@ const loadFilterFromStorage = () => {
 };
 
 export default function LandListFilter({ onFilterChange }: LandListFilterProps) {
-    // sessionStorage에서 초기값 로드
-    const savedFilter = loadFilterFromStorage();
-    const [selectedRegion, setSelectedRegion] = useState<string>(savedFilter?.selectedRegion || '');
-    const [selectedDong, setSelectedDong] = useState<string>(savedFilter?.selectedDong || '');
-    const [selectedTransaction, setSelectedTransaction] = useState<string>(savedFilter?.selectedTransaction || '');
-    const [selectedBuilding, setSelectedBuilding] = useState<string>(savedFilter?.selectedBuilding || '');
+    // SSR과 클라이언트 일치를 위해 초기값은 고정값 사용
+    const [selectedRegion, setSelectedRegion] = useState<string>(INITIAL_FILTER.selectedRegion);
+    const [selectedDong, setSelectedDong] = useState<string>(INITIAL_FILTER.selectedDong);
+    const [selectedTransaction, setSelectedTransaction] = useState<string>(INITIAL_FILTER.selectedTransaction);
+    const [selectedBuilding, setSelectedBuilding] = useState<string>(INITIAL_FILTER.selectedBuilding);
+    const [isMounted, setIsMounted] = useState(false);
 
     // 이전 자치구 값을 추적
     const prevRegionRef = useRef<string>(selectedRegion);
 
-    // 필터 변경 시 sessionStorage에 저장
+    // 클라이언트 마운트 후 sessionStorage에서 값 로드
     useEffect(() => {
-        if (typeof window === 'undefined') return;
+        setIsMounted(true);
+        const savedFilter = loadFilterFromStorage();
+        if (savedFilter) {
+            setSelectedRegion(savedFilter.selectedRegion || '');
+            setSelectedDong(savedFilter.selectedDong || '');
+            setSelectedTransaction(savedFilter.selectedTransaction || '');
+            setSelectedBuilding(savedFilter.selectedBuilding || '');
+            prevRegionRef.current = savedFilter.selectedRegion || '';
+        }
+    }, []);
+
+    // 필터 변경 시 sessionStorage에 저장 (마운트 후에만)
+    useEffect(() => {
+        if (!isMounted) return;
 
         const filterData = {
             selectedRegion,
@@ -93,7 +114,7 @@ export default function LandListFilter({ onFilterChange }: LandListFilterProps) 
         };
 
         sessionStorage.setItem('landListFilter', JSON.stringify(filterData));
-    }, [selectedRegion, selectedDong, selectedTransaction, selectedBuilding]);
+    }, [selectedRegion, selectedDong, selectedTransaction, selectedBuilding, isMounted]);
 
     // 필터 변경 시 부모 컴포넌트에 알림
     useEffect(() => {

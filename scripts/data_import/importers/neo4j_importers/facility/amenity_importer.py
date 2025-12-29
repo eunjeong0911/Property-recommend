@@ -8,20 +8,37 @@ class AmenityImporter:
     def __init__(self):
         self.driver = Database.get_driver()
 
+    def _get_existing_count(self, session, label):
+        result = session.run(f"MATCH (n:{label}) RETURN count(n) as cnt")
+        return result.single()["cnt"]
+
+    def _get_property_count(self, session):
+        result = session.run("MATCH (p:Property) RETURN count(p) as cnt")
+        return result.single()["cnt"]
+
+    def _get_link_count(self, session, rel_type):
+        result = session.run(f"MATCH ()-[r:{rel_type}]->() RETURN count(r) as cnt")
+        return result.single()["cnt"]
+
     def import_medical(self):
         print("Importing Medical Data...")
-        # Hospital
         hospital_file = os.path.join(Config.DATA_DIR, "medical", "1.병원정보서비스(2025.9).xlsx")
         self._import_hospital(hospital_file)
-        # Pharmacy
         pharmacy_file = os.path.join(Config.DATA_DIR, "medical", "2. 약국정보서비스(2025.9).xlsx")
         self._import_pharmacy(pharmacy_file)
 
     def _import_hospital(self, file_path):
+        with self.driver.session() as session:
+            existing = self._get_existing_count(session, "Hospital")
+            if existing > 0:
+                print(f"  ⏭ Hospitals already exist ({existing}). Skipping import.")
+                return
+        
         print(f"Loading Hospital data from {file_path}...")
         df = pd.read_excel(file_path)
-        # df = df[df['도로명전체주소'].str.contains("서울특별시", na=False)]
         df = df[df['주소'].str.contains("서울특별시", na=False)]
+        total_rows = len(df)
+        print(f"Found {total_rows} Hospitals.")
         
         with self.driver.session() as session:
             session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (h:Hospital) REQUIRE h.id IS UNIQUE")
@@ -44,8 +61,9 @@ class AmenityImporter:
             }
             """
             
-            batch_size = 1000
+            batch_size = 500
             batch = []
+            processed = 0
             
             for _, row in df.iterrows():
                 batch.append({
@@ -58,47 +76,89 @@ class AmenityImporter:
                 
                 if len(batch) >= batch_size:
                     session.run(query, batch=batch)
+                    processed += len(batch)
+                    print(f"  Hospital progress: {processed}/{total_rows} ({processed*100//total_rows}%)")
                     batch = []
             if batch:
                 session.run(query, batch=batch)
+                processed += len(batch)
+                print(f"  Hospital progress: {processed}/{total_rows} (100%)")
                 
         print("Finished importing Hospitals.")
-        self.link_hospital()
 
     def link_hospital(self):
         print("Linking Hospitals...")
         with self.driver.session() as session:
+            # Check General Hospital links
+            existing_gen = self._get_link_count(session, "NEAR_GENERAL_HOSPITAL")
+            existing_hosp = self._get_link_count(session, "NEAR_HOSPITAL")
+            if existing_gen > 0 and existing_hosp > 0:
+                print(f"  ⏭ Hospital links already exist (General: {existing_gen}, Other: {existing_hosp}). Skipping.")
+                return
+            
+            total = self._get_property_count(session)
+            if total == 0:
+                print("  ⚠ No properties found. Skipping.")
+                return
+            print(f"  Total properties to process: {total}")
+            
+            batch_size = 500
+            
             # General Hospital (1km)
-            session.run("""
-            MATCH (p:Property)
-            CALL {
-                WITH p
-                MATCH (h:GeneralHospital)
-                WHERE point.distance(p.location, h.location) < 1000
-                MERGE (p)-[r:NEAR_GENERAL_HOSPITAL]->(h)
-                SET r.distance = toInteger(round(point.distance(p.location, h.location))),
-                    r.walking_time = toInteger(round((point.distance(p.location, h.location) * 1.3) / 80))
-            } IN TRANSACTIONS OF 1000 ROWS
-            """)
+            if existing_gen == 0:
+                print("  Linking General Hospitals (1km)...")
+                offset = 0
+                linked_count = 0
+                while offset < total:
+                    result = session.run("""
+                        MATCH (p:Property)
+                        WITH p SKIP $offset LIMIT $limit
+                        MATCH (h:GeneralHospital)
+                        WHERE point.distance(p.location, h.location) < 1000
+                        MERGE (p)-[r:NEAR_GENERAL_HOSPITAL]->(h)
+                        SET r.distance = toInteger(round(point.distance(p.location, h.location))),
+                            r.walking_time = toInteger(round((point.distance(p.location, h.location) * 1.3) / 80))
+                        RETURN count(r) as cnt
+                    """, offset=offset, limit=batch_size)
+                    linked_count += result.single()["cnt"]
+                    offset += batch_size
+                    progress = min(offset, total)
+                    print(f"    General Hospital: {progress}/{total} ({progress*100//total}%) - {linked_count} links")
+            
             # Other Hospital (300m)
-            session.run("""
-            MATCH (p:Property)
-            CALL {
-                WITH p
-                MATCH (h:Hospital)
-                WHERE h.category <> '종합병원' AND point.distance(p.location, h.location) < 300
-                MERGE (p)-[r:NEAR_HOSPITAL]->(h)
-                SET r.distance = toInteger(round(point.distance(p.location, h.location))),
-                    r.walking_time = toInteger(round((point.distance(p.location, h.location) * 1.3) / 80))
-            } IN TRANSACTIONS OF 1000 ROWS
-            """)
+            if existing_hosp == 0:
+                print("  Linking Other Hospitals (300m)...")
+                offset = 0
+                linked_count = 0
+                while offset < total:
+                    result = session.run("""
+                        MATCH (p:Property)
+                        WITH p SKIP $offset LIMIT $limit
+                        MATCH (h:Hospital)
+                        WHERE h.category <> '종합병원' AND point.distance(p.location, h.location) < 300
+                        MERGE (p)-[r:NEAR_HOSPITAL]->(h)
+                        SET r.distance = toInteger(round(point.distance(p.location, h.location))),
+                            r.walking_time = toInteger(round((point.distance(p.location, h.location) * 1.3) / 80))
+                        RETURN count(r) as cnt
+                    """, offset=offset, limit=batch_size)
+                    linked_count += result.single()["cnt"]
+                    offset += batch_size
+                    progress = min(offset, total)
+                    print(f"    Other Hospital: {progress}/{total} ({progress*100//total}%) - {linked_count} links")
 
     def _import_pharmacy(self, file_path):
+        with self.driver.session() as session:
+            existing = self._get_existing_count(session, "Pharmacy")
+            if existing > 0:
+                print(f"  ⏭ Pharmacies already exist ({existing}). Skipping import.")
+                return
+        
         print(f"Loading Pharmacy data from {file_path}...")
         df = pd.read_excel(file_path)
-        # df = df[df['도로명전체주소'].str.contains("서울특별시", na=False)]
         df = df[df['주소'].str.contains("서울특별시", na=False)]
         df = df.dropna(subset=['좌표(X)', '좌표(Y)'])
+        total_rows = len(df)
+        print(f"Found {total_rows} Pharmacies.")
         
         with self.driver.session() as session:
             session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (p:Pharmacy) REQUIRE p.id IS UNIQUE")
@@ -113,8 +173,9 @@ class AmenityImporter:
                 p.location = point({latitude: row.lat, longitude: row.lon})
             """
             
-            batch_size = 1000
+            batch_size = 500
             batch = []
+            processed = 0
             
             for _, row in df.iterrows():
                 batch.append({
@@ -126,29 +187,57 @@ class AmenityImporter:
                 
                 if len(batch) >= batch_size:
                     session.run(query, batch=batch)
+                    processed += len(batch)
+                    print(f"  Pharmacy progress: {processed}/{total_rows} ({processed*100//total_rows}%)")
                     batch = []
             if batch:
                 session.run(query, batch=batch)
+                processed += len(batch)
+                print(f"  Pharmacy progress: {processed}/{total_rows} (100%)")
                 
         print("Finished importing Pharmacies.")
-        self.link_pharmacy()
 
     def link_pharmacy(self):
         print("Linking Pharmacies (200m)...")
         with self.driver.session() as session:
-            session.run("""
-            MATCH (p:Property)
-            CALL {
-                WITH p
-                MATCH (ph:Pharmacy)
-                WHERE point.distance(p.location, ph.location) < 200
-                MERGE (p)-[r:NEAR_PHARMACY]->(ph)
-                SET r.distance = toInteger(round(point.distance(p.location, ph.location))),
-                    r.walking_time = toInteger(round((point.distance(p.location, ph.location) * 1.3) / 80))
-            } IN TRANSACTIONS OF 1000 ROWS
-            """)
+            existing = self._get_link_count(session, "NEAR_PHARMACY")
+            if existing > 0:
+                print(f"  ⏭ Pharmacy links already exist ({existing}). Skipping.")
+                return
+            
+            total = self._get_property_count(session)
+            if total == 0:
+                print("  ⚠ No properties found. Skipping.")
+                return
+            print(f"  Total properties to process: {total}")
+            
+            batch_size = 500
+            offset = 0
+            linked_count = 0
+            
+            while offset < total:
+                result = session.run("""
+                    MATCH (p:Property)
+                    WITH p SKIP $offset LIMIT $limit
+                    MATCH (ph:Pharmacy)
+                    WHERE point.distance(p.location, ph.location) < 200
+                    MERGE (p)-[r:NEAR_PHARMACY]->(ph)
+                    SET r.distance = toInteger(round(point.distance(p.location, ph.location))),
+                        r.walking_time = toInteger(round((point.distance(p.location, ph.location) * 1.3) / 80))
+                    RETURN count(r) as cnt
+                """, offset=offset, limit=batch_size)
+                linked_count += result.single()["cnt"]
+                offset += batch_size
+                progress = min(offset, total)
+                print(f"  Pharmacy linking: {progress}/{total} ({progress*100//total}%) - {linked_count} links")
 
     def import_college(self):
+        with self.driver.session() as session:
+            existing = self._get_existing_count(session, "College")
+            if existing > 0:
+                print(f"  ⏭ Colleges already exist ({existing}). Skipping import.")
+                return
+        
         file_path = os.path.join(Config.DATA_DIR, "college", "교육부_대학교 주소기반 좌표정보_20241030.csv")
         print(f"Loading College data from {file_path}...")
         
@@ -158,6 +247,8 @@ class AmenityImporter:
             df = pd.read_csv(file_path, encoding='cp949')
             
         df = df[df['학교구분'] != '대학원']
+        total_rows = len(df)
+        print(f"Found {total_rows} Colleges.")
         
         with self.driver.session() as session:
             session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (c:College) REQUIRE c.id IS UNIQUE")
@@ -173,8 +264,9 @@ class AmenityImporter:
                 c.location = point({latitude: row.lat, longitude: row.lon})
             """
             
-            batch_size = 500
+            batch_size = 300
             batch = []
+            processed = 0
             
             for _, row in df.iterrows():
                 batch.append({
@@ -187,27 +279,49 @@ class AmenityImporter:
                 
                 if len(batch) >= batch_size:
                     session.run(query, batch=batch)
+                    processed += len(batch)
+                    print(f"  College progress: {processed}/{total_rows} ({processed*100//total_rows}%)")
                     batch = []
             if batch:
                 session.run(query, batch=batch)
+                processed += len(batch)
+                print(f"  College progress: {processed}/{total_rows} (100%)")
                 
         print("Finished importing Colleges.")
-        self.link_college()
 
     def link_college(self):
         print("Linking Colleges (2km)...")
         with self.driver.session() as session:
-            session.run("""
-            MATCH (p:Property)
-            CALL {
-                WITH p
-                MATCH (c:College)
-                WHERE point.distance(p.location, c.location) < 2000
-                MERGE (p)-[r:NEAR_COLLEGE]->(c)
-                SET r.distance = toInteger(round(point.distance(p.location, c.location))),
-                    r.walking_time = toInteger(round((point.distance(p.location, c.location) * 1.3) / 80))
-            } IN TRANSACTIONS OF 1000 ROWS
-            """)
+            existing = self._get_link_count(session, "NEAR_COLLEGE")
+            if existing > 0:
+                print(f"  ⏭ College links already exist ({existing}). Skipping.")
+                return
+            
+            total = self._get_property_count(session)
+            if total == 0:
+                print("  ⚠ No properties found. Skipping.")
+                return
+            print(f"  Total properties to process: {total}")
+            
+            batch_size = 500
+            offset = 0
+            linked_count = 0
+            
+            while offset < total:
+                result = session.run("""
+                    MATCH (p:Property)
+                    WITH p SKIP $offset LIMIT $limit
+                    MATCH (c:College)
+                    WHERE point.distance(p.location, c.location) < 2000
+                    MERGE (p)-[r:NEAR_COLLEGE]->(c)
+                    SET r.distance = toInteger(round(point.distance(p.location, c.location))),
+                        r.walking_time = toInteger(round((point.distance(p.location, c.location) * 1.3) / 80))
+                    RETURN count(r) as cnt
+                """, offset=offset, limit=batch_size)
+                linked_count += result.single()["cnt"]
+                offset += batch_size
+                progress = min(offset, total)
+                print(f"  College linking: {progress}/{total} ({progress*100//total}%) - {linked_count} links")
 
     def import_large_store(self):
         file_path = os.path.join(Config.DATA_DIR, "store_data", "서울시 대규모점포 인허가 정보.csv")
@@ -268,19 +382,44 @@ class AmenityImporter:
     def link_large_mart(self):
         print("Linking Large Marts (500m)...")
         with self.driver.session() as session:
-            session.run("""
-            MATCH (p:Property)
-            CALL {
-                WITH p
-                MATCH (m:Mart)
-                WHERE point.distance(p.location, m.location) < 500
-                MERGE (p)-[r:NEAR_LARGEMART]->(m)
-                SET r.distance = toInteger(round(point.distance(p.location, m.location))),
-                    r.walking_time = toInteger(round((point.distance(p.location, m.location) * 1.3) / 80))
-            } IN TRANSACTIONS OF 1000 ROWS
-            """)
+            existing = self._get_link_count(session, "NEAR_COLLEGE")
+            if existing > 0:
+                print(f"  ⏭ College links already exist ({existing}). Skipping.")
+                return
+            
+            total = self._get_property_count(session)
+            if total == 0:
+                print("  ⚠ No properties found. Skipping.")
+                return
+            print(f"  Total properties to process: {total}")
+            
+            batch_size = 500
+            offset = 0
+            linked_count = 0
+            
+            while offset < total:
+                result = session.run("""
+                    MATCH (p:Property)
+                    WITH p SKIP $offset LIMIT $limit
+                    MATCH (c:College)
+                    WHERE point.distance(p.location, c.location) < 2000
+                    MERGE (p)-[r:NEAR_COLLEGE]->(c)
+                    SET r.distance = toInteger(round(point.distance(p.location, c.location))),
+                        r.walking_time = toInteger(round((point.distance(p.location, c.location) * 1.3) / 80))
+                    RETURN count(r) as cnt
+                """, offset=offset, limit=batch_size)
+                linked_count += result.single()["cnt"]
+                offset += batch_size
+                progress = min(offset, total)
+                print(f"  College linking: {progress}/{total} ({progress*100//total}%) - {linked_count} links")
 
     def import_store(self):
+        with self.driver.session() as session:
+            existing = self._get_existing_count(session, "Store")
+            if existing > 0:
+                print(f"  ⏭ Stores already exist ({existing}). Skipping import.")
+                return
+        
         file_path = os.path.join(Config.DATA_DIR, "store_data", "소상공인시장진흥공단_상가(상권)정보_서울_cleaned.csv")
         print(f"Loading Store data from {file_path}...")
         
@@ -289,12 +428,14 @@ class AmenityImporter:
         except UnicodeDecodeError:
             df = pd.read_csv(file_path, encoding='cp949')
             
-        # Refined Logic:
-        # Import only '세탁소' (Laundry) and '편의점' (Convenience)
-        # Exclude Cafe/Coffee/Mart(Small) based on user instruction
-        
-        target_categories = ['세탁소', '편의점']
-        df = df[df['상권업종소분류명'].isin(target_categories)]
+        exclude_categories = [
+            '종합병원', '일반병원', '한방병원', '요양병원', '노인/치매병원', '치과병원', '치과의원', '한의원',
+            '기타 의원', '성형외과 의원', '피부/비뇨기과 의원', '안과 의원', '내과/소아과 의원', '신경/정신과 의원',
+            '정형/성형외과 의원', '약국'
+        ]
+        df = df[~df['상권업종소분류명'].isin(exclude_categories)]
+        total_rows = len(df)
+        print(f"Found {total_rows} Stores.")
         
         with self.driver.session() as session:
             session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (s:Store) REQUIRE s.id IS UNIQUE")
@@ -329,8 +470,9 @@ class AmenityImporter:
             }
             """
             
-            batch_size = 2000
+            batch_size = 500
             batch = []
+            processed = 0
             
             for _, row in df.iterrows():
                 batch.append({
@@ -343,45 +485,91 @@ class AmenityImporter:
                 
                 if len(batch) >= batch_size:
                     session.run(query, batch=batch)
+                    processed += len(batch)
+                    print(f"  Store progress: {processed}/{total_rows} ({processed*100//total_rows}%)")
                     batch = []
             if batch:
                 session.run(query, batch=batch)
+                processed += len(batch)
+                print(f"  Store progress: {processed}/{total_rows} (100%)")
                 
-        print("Finished importing Stores (Laundry, Convenience).")
-        self.link_convenience()
-        self.link_laundry()
+        print("Finished importing Stores.")
 
     def link_convenience(self):
         print("Linking Convenience Stores (200m)...")
         with self.driver.session() as session:
-            session.run("""
-            MATCH (p:Property)
-            CALL {
-                WITH p
-                MATCH (c:Convenience)
-                WHERE point.distance(p.location, c.location) < 200
-                MERGE (p)-[r:NEAR_CONVENIENCE]->(c)
-                SET r.distance = toInteger(round(point.distance(p.location, c.location))),
-                    r.walking_time = toInteger(round((point.distance(p.location, c.location) * 1.3) / 80))
-            } IN TRANSACTIONS OF 1000 ROWS
-            """)
+            existing = self._get_link_count(session, "NEAR_CONVENIENCE")
+            if existing > 0:
+                print(f"  ⏭ Convenience links already exist ({existing}). Skipping.")
+                return
+            
+            total = self._get_property_count(session)
+            if total == 0:
+                print("  ⚠ No properties found. Skipping.")
+                return
+            print(f"  Total properties to process: {total}")
+            
+            batch_size = 500
+            offset = 0
+            linked_count = 0
+            
+            while offset < total:
+                result = session.run("""
+                    MATCH (p:Property)
+                    WITH p SKIP $offset LIMIT $limit
+                    MATCH (c:Convenience)
+                    WHERE point.distance(p.location, c.location) < 200
+                    MERGE (p)-[r:NEAR_CONVENIENCE]->(c)
+                    SET r.distance = toInteger(round(point.distance(p.location, c.location))),
+                        r.walking_time = toInteger(round((point.distance(p.location, c.location) * 1.3) / 80))
+                    RETURN count(r) as cnt
+                """, offset=offset, limit=batch_size)
+                linked_count += result.single()["cnt"]
+                offset += batch_size
+                progress = min(offset, total)
+                print(f"  Convenience linking: {progress}/{total} ({progress*100//total}%) - {linked_count} links")
 
     def link_laundry(self):
         print("Linking Laundries (200m)...")
         with self.driver.session() as session:
-            session.run("""
-            MATCH (p:Property)
-            CALL {
-                WITH p
-                MATCH (l:Laundry)
-                WHERE point.distance(p.location, l.location) < 200
-                MERGE (p)-[r:NEAR_LAUNDRY]->(l)
-                SET r.distance = toInteger(round(point.distance(p.location, l.location))),
-                    r.walking_time = toInteger(round((point.distance(p.location, l.location) * 1.3) / 80))
-            } IN TRANSACTIONS OF 1000 ROWS
-            """)
+            existing = self._get_link_count(session, "NEAR_CONVENIENCE")
+            if existing > 0:
+                print(f"  ⏭ Convenience links already exist ({existing}). Skipping.")
+                return
+            
+            total = self._get_property_count(session)
+            if total == 0:
+                print("  ⚠ No properties found. Skipping.")
+                return
+            print(f"  Total properties to process: {total}")
+            
+            batch_size = 500
+            offset = 0
+            linked_count = 0
+            
+            while offset < total:
+                result = session.run("""
+                    MATCH (p:Property)
+                    WITH p SKIP $offset LIMIT $limit
+                    MATCH (c:Convenience)
+                    WHERE point.distance(p.location, c.location) < 200
+                    MERGE (p)-[r:NEAR_CONVENIENCE]->(c)
+                    SET r.distance = toInteger(round(point.distance(p.location, c.location))),
+                        r.walking_time = toInteger(round((point.distance(p.location, c.location) * 1.3) / 80))
+                    RETURN count(r) as cnt
+                """, offset=offset, limit=batch_size)
+                linked_count += result.single()["cnt"]
+                offset += batch_size
+                progress = min(offset, total)
+                print(f"  Convenience linking: {progress}/{total} ({progress*100//total}%) - {linked_count} links")
 
     def import_park(self):
+        with self.driver.session() as session:
+            existing = self._get_existing_count(session, "Park")
+            if existing > 0:
+                print(f"  ⏭ Parks already exist ({existing}). Skipping import.")
+                return
+        
         park_dir = os.path.join(Config.DATA_DIR, "park")
         files = glob.glob(os.path.join(park_dir, "*.csv"))
         print(f"Found {len(files)} Park data files.")
@@ -401,63 +589,80 @@ class AmenityImporter:
                 p.location = point({latitude: row.lat, longitude: row.lon})
             """
             
-            for file_path in files:
+            for file_idx, file_path in enumerate(files, 1):
+                print(f"  [{file_idx}/{len(files)}] Processing {os.path.basename(file_path)}...")
                 try:
                     df = pd.read_csv(file_path, encoding='cp949')
                 except UnicodeDecodeError:
                     df = pd.read_csv(file_path, encoding='utf-8')
+                
+                df = df.dropna(subset=['위도', '경도'])
+                total_rows = len(df)
                     
-                batch_size = 500
+                batch_size = 300
                 batch = []
+                processed = 0
                 
                 for _, row in df.iterrows():
-                    if pd.isna(row['위도']) or pd.isna(row['경도']):
-                        continue
+                    # 공원면적 값 추출 (없으면 0)
+                    area_val = row.get('공원면적', 0)
+                    if pd.isna(area_val):
+                        area_val = 0
                     
-                    # Area Handling (Filter < 1500m2)
-                    raw_area = str(row['공원면적'])
-                    try:
-                         # Remove likely non-numeric chars if any, though usually just numeric or empty
-                         # If it contains comma, remove it
-                        area_val = float(raw_area.replace(',', ''))
-                    except ValueError:
-                        area_val = 0.0
-
-                    if area_val < 1500:
-                        continue
-
                     batch.append({
                         "id": str(row['관리번호']),
                         "name": str(row['공원명']),
                         "type": str(row['공원구분']),
-                        "area": area_val,
+                        "area": float(area_val),
                         "lat": float(row['위도']),
                         "lon": float(row['경도'])
                     })
                     
                     if len(batch) >= batch_size:
                         session.run(query, batch=batch)
+                        processed += len(batch)
+                        print(f"    Park progress: {processed}/{total_rows} ({processed*100//total_rows}%)")
                         batch = []
                 if batch:
                     session.run(query, batch=batch)
+                    processed += len(batch)
+                    print(f"    Park progress: {processed}/{total_rows} (100%)")
                     
         print("Finished importing Parks.")
-        self.link_park()
 
     def link_park(self):
         print("Linking Parks (500m)...")
         with self.driver.session() as session:
-            session.run("""
-            MATCH (p:Property)
-            CALL {
-                WITH p
-                MATCH (pk:Park)
-                WHERE point.distance(p.location, pk.location) < 500
-                MERGE (p)-[r:NEAR_PARK]->(pk)
-                SET r.distance = toInteger(round(point.distance(p.location, pk.location))),
-                    r.walking_time = toInteger(round((point.distance(p.location, pk.location) * 1.3) / 80))
-            } IN TRANSACTIONS OF 1000 ROWS
-            """)
+            existing = self._get_link_count(session, "NEAR_PARK")
+            if existing > 0:
+                print(f"  ⏭ Park links already exist ({existing}). Skipping.")
+                return
+            
+            total = self._get_property_count(session)
+            if total == 0:
+                print("  ⚠ No properties found. Skipping.")
+                return
+            print(f"  Total properties to process: {total}")
+            
+            batch_size = 500
+            offset = 0
+            linked_count = 0
+            
+            while offset < total:
+                result = session.run("""
+                    MATCH (p:Property)
+                    WITH p SKIP $offset LIMIT $limit
+                    MATCH (pk:Park)
+                    WHERE point.distance(p.location, pk.location) < 500
+                    MERGE (p)-[r:NEAR_PARK]->(pk)
+                    SET r.distance = toInteger(round(point.distance(p.location, pk.location))),
+                        r.walking_time = toInteger(round((point.distance(p.location, pk.location) * 1.3) / 80))
+                    RETURN count(r) as cnt
+                """, offset=offset, limit=batch_size)
+                linked_count += result.single()["cnt"]
+                offset += batch_size
+                progress = min(offset, total)
+                print(f"  Park linking: {progress}/{total} ({progress*100//total}%) - {linked_count} links")
 
     def import_culture(self):
         print("Importing Culture Facilities...")
@@ -545,17 +750,36 @@ class AmenityImporter:
     def link_culture(self):
         print("Linking Culture Facilities (500m)...")
         with self.driver.session() as session:
-            session.run("""
-            MATCH (p:Property)
-            CALL {
-                WITH p
-                MATCH (c:Culture)
-                WHERE point.distance(p.location, c.location) < 500
-                MERGE (p)-[r:NEAR_CULTURE]->(c)
-                SET r.distance = toInteger(round(point.distance(p.location, c.location))),
-                    r.walking_time = toInteger(round((point.distance(p.location, c.location) * 1.3) / 80))
-            } IN TRANSACTIONS OF 1000 ROWS
-            """)
+            existing = self._get_link_count(session, "NEAR_CULTURE")
+            if existing > 0:
+                print(f"  ⏭ Culture links already exist ({existing}). Skipping.")
+                return
+            
+            total = self._get_property_count(session)
+            if total == 0:
+                print("  ⚠ No properties found. Skipping.")
+                return
+            print(f"  Total properties to process: {total}")
+            
+            batch_size = 500
+            offset = 0
+            linked_count = 0
+            
+            while offset < total:
+                result = session.run("""
+                    MATCH (p:Property)
+                    WITH p SKIP $offset LIMIT $limit
+                    MATCH (c:Culture)
+                    WHERE point.distance(p.location, c.location) < 500
+                    MERGE (p)-[r:NEAR_CULTURE]->(c)
+                    SET r.distance = toInteger(round(point.distance(p.location, c.location))),
+                        r.walking_time = toInteger(round((point.distance(p.location, c.location) * 1.3) / 80))
+                    RETURN count(r) as cnt
+                """, offset=offset, limit=batch_size)
+                linked_count += result.single()["cnt"]
+                offset += batch_size
+                progress = min(offset, total)
+                print(f"  Culture linking: {progress}/{total} ({progress*100//total}%) - {linked_count} links")
 
 if __name__ == "__main__":
     importer = AmenityImporter()

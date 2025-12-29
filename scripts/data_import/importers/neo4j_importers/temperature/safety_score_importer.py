@@ -1,6 +1,7 @@
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add scripts/data_import to path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 import pandas as pd
 import numpy as np
 import psycopg2
@@ -245,14 +246,37 @@ class SafetyScoreImporter:
                 
                 // Total Temperature (Updated Weights: District 50, Street 10, Infra 40)
                 WITH p, 
-                     (district_score * 0.5 + street_score * 0.1 + infra_score * 0.4) as total_temp
+                     (district_score * 0.5 + street_score * 0.1 + infra_score * 0.4) as raw_score
+                
+                // Convert to 30-43°C Temperature Scale (기존 로직 삭제 및 raw_score 설정)
+                WITH p, raw_score
                 
                 MERGE (m:Metric {name: 'Safety'})
                 MERGE (p)-[r:HAS_TEMPERATURE]->(m)
-                SET r.temperature = round(total_temp * 10) / 10.0
+                SET r.raw_score = round(raw_score, 1),
+                    r.updated_at = datetime()
                 """
                 session.run(query_score, ids=batch_ids, districts=district_data)
                 print(f"Processed batch {i} - {i+len(batch_ids)}")
+
+            # Step 2: Calculate Global Average and Scale to 36.5 Template
+            print("  Step 2: Scaling towards 36.5 Global Average...")
+            avg_result = session.run("""
+            MATCH ()-[r:HAS_TEMPERATURE]->(m:Metric {name: 'Safety'})
+            RETURN avg(r.raw_score) as global_avg
+            """)
+            global_avg = avg_result.single()['global_avg'] or 1.0
+            print(f"    Global Average Raw Score: {global_avg:.2f}")
+
+            session.run("""
+            MATCH ()-[r:HAS_TEMPERATURE]->(m:Metric {name: 'Safety'})
+            WITH r, $avg as raw_avg
+            SET r.temperature = round(
+                CASE 
+                    WHEN r.raw_score <= raw_avg THEN r.raw_score * (36.5 / raw_avg)
+                    ELSE 36.5 + (r.raw_score - raw_avg) * (63.5 / (100.0 - raw_avg))
+                END, 1)
+            """, avg=global_avg)
 
         print("Safety Temperature Import (Coord-based) Completed.")
 

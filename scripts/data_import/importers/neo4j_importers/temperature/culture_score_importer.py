@@ -2,7 +2,7 @@ import os
 import sys
 
 # Add scripts/data_import to path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/../")
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
 from database import Database
 
@@ -39,7 +39,8 @@ class CultureScoreImporter:
             DELETE r
             """)
             
-            # Batch processing
+            # Step 1: Calculate and store Raw Score (0-100)
+            print("  Step 1: Calculating Raw Scores...")
             session.run("""
             MATCH (p:Property)
             CALL {
@@ -85,12 +86,22 @@ class CultureScoreImporter:
                      CASE WHEN raw_arts > 60 THEN 60.0 ELSE raw_arts END as score_arts,
                      CASE WHEN raw_edu > 30 THEN 30.0 ELSE raw_edu END as score_edu
                 
-                // Total Score with Multiplier 1.5x (Cap 100)
-                WITH p, (score_ent + score_arts + score_edu) * 1.5 as boosted_score
+                // Current Raw Total (Max 150 -> 1.5x Multiplier to align with 100 scale)
+                WITH p, (score_ent + score_arts + score_edu) * (2.0/3.0) as boosted_score
+                
+                WITH p, CASE WHEN boosted_score > 100 THEN 100.0 ELSE boosted_score END as raw_total
+                
+                // raw_score와 temperature를 한 번에 계산 (평균 50 기준)
+                WITH p, raw_total,
+                     CASE 
+                        WHEN raw_total <= 50 THEN raw_total * (36.5 / 50.0)
+                        ELSE 36.5 + (raw_total - 50) * (63.5 / 50.0)
+                     END as culture_temp
                 
                 MERGE (m:Metric {name: 'Culture'})
                 MERGE (p)-[r:HAS_TEMPERATURE]->(m)
-                SET r.temperature = round(CASE WHEN boosted_score > 100 THEN 100.0 ELSE boosted_score END, 1),
+                SET r.temperature = round(CASE WHEN culture_temp > 100 THEN 100.0 WHEN culture_temp < 0 THEN 0.0 ELSE culture_temp END, 1),
+                    r.raw_score = raw_total,
                     r.updated_at = datetime()
             } IN TRANSACTIONS OF 1000 ROWS
             """)
