@@ -185,29 +185,31 @@ class TrafficScoreImporter:
                 RETURN CASE WHEN raw_work_score < 0 THEN 0 ELSE raw_work_score END as score_work
             }
             
-            // 3. Bus Score (Feeder)
+            // 3. Bus Score (Feeder) - Max 30
             CALL {
                 WITH p
                 OPTIONAL MATCH (p)-[r2:NEAR_BUS]->(b:BusStation)
                 WHERE r2.distance <= 300
-                WITH p, score_subway, count(b) as bus_count
-                WITH p, score_subway, bus_count,
-                     CASE 
-                        WHEN bus_count * 3 > 40 THEN 40
-                        ELSE bus_count * 3
-                     END as score_bus
-                     
-                // Total Score
-                WITH p, (score_subway + score_bus) as raw_score
-                
-                // Convert to 30-43°C Temperature Scale (기존 로직 주석 처리 또는 삭제)
-                // 대신 raw_score를 그대로 저장
-                MERGE (m:Metric {name: 'Traffic'})
-                MERGE (p)-[r:HAS_TEMPERATURE]->(m)
-                SET r.raw_score = raw_score,
-                    r.updated_at = datetime()
-            } IN TRANSACTIONS OF 1000 ROWS
-            """)
+                WITH count(b) as bus_count
+                RETURN CASE 
+                    WHEN bus_count * 3 > 30 THEN 30.0
+                    ELSE toFloat(bus_count * 3)
+                END as score_bus
+            }
+            
+            // Calculate Total Score
+            WITH p, score_station, score_work, score_bus,
+                 (score_station + score_work + score_bus) as raw_score
+                 
+            MERGE (m:Metric {name: 'Traffic'})
+            MERGE (p)-[r:HAS_TEMPERATURE]->(m)
+            SET r.raw_score = raw_score,
+                r.score_station = score_station,
+                r.score_work = score_work,
+                r.score_bus = score_bus,
+                r.updated_at = datetime()
+            """
+            session.run(query, work_hubs=work_hubs)
 
             # Step 2: Calculate Global Average and Scale to 36.5 Template
             print("  Step 2: Scaling towards 36.5 Global Average...")

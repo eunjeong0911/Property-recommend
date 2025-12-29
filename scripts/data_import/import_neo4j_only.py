@@ -131,11 +131,15 @@ def main():
         culture.link_culture()
         culture.link_park()
         
-        print("\n[5-3] 안전시설 데이터 연결 중...")
+        print("\n[5-4] 안전시설 데이터 연결 중...")
         safety.link_cctv()
         safety.link_bell()
         safety.link_police()
         safety.link_fire()
+        
+        print("\n[5-5] 반려동물 시설 데이터 연결 중...")
+        animal.link_pet_places()
+        animal.link_pet_stores()
         print("✓ 데이터 연결 완료\n")
         
         print("=" * 70)

@@ -67,9 +67,10 @@ class PetScoreImporter:
                 lat, lon = None, None
                 if '위도' in row and pd.notna(row['위도']):
                     lat, lon = row['위도'], row['경도']
-                elif '위치' in row:
-                    lat, lon = self.get_coords(row['위치'])
-                    time.sleep(0.1) # Rate limit 방지
+                # 좌표 데이터가 이미 있으므로 지오코딩 불필요
+                # elif '위치' in row:
+                #     lat, lon = self.get_coords(row['위치'])
+                #     time.sleep(0.1) # Rate limit 방지
                 
                 if lat and lon:
                     batch.append({
@@ -87,69 +88,54 @@ class PetScoreImporter:
         print("Finished importing PetPlayground nodes.")
 
     def calculate_scores(self):
-        """매물별 반려동물 온도 계산 및 저장 (배치 처리)"""
+        """매물별 반려동물 온도 계산 및 저장 (NEAR_* 관계 기반 - 최적화)"""
         print("Calculating Pet Temperature for all properties...")
         
         with self.driver.session() as session:
             # 기존 점수 삭제
             session.run("MATCH (p:Property)-[r:HAS_TEMPERATURE]->(m:Metric {name: 'Pet'}) DELETE r")
             
-            # Property 수 확인
-            result = session.run("MATCH (p:Property) RETURN count(p) as cnt")
-            total = result.single()['cnt']
-            if total == 0:
-                print("  ⚠ No properties found. Skipping.")
-                return
-            
-            print(f"  Total properties: {total}")
-            
-            batch_size = 500  # 배치 사이즈 증가 (200 → 500)
-            offset = 0
-            
-            while offset < total:
-                session.run("""
-                MATCH (p:Property)
-                WITH p SKIP $offset LIMIT $limit
+            # IN TRANSACTIONS로 배치 처리 (관계 기반이라 훨씬 빠름)
+            print("  Using NEAR_* relationships for fast calculation...")
+            session.run("""
+            MATCH (p:Property)
+            CALL {
+                WITH p
                 
-                // A. 반려동물 놀이터 (1km)
-                OPTIONAL MATCH (pg:PetPlayground)
-                WHERE point.distance(p.location, pg.location) <= 1000
-                WITH p, 
-                     count(pg) as pg_cnt,
-                     sum(CASE WHEN point.distance(p.location, pg.location) <= 500 THEN 2 ELSE 1 END) as pg_score_raw
-
-                // B. 동물병원 (1km)
-                OPTIONAL MATCH (h:Hospital)
-                WHERE h.category = '동물병원' AND point.distance(p.location, h.location) <= 1000
-                WITH p, pg_score_raw, pg_cnt,
-                     count(h) as h_cnt,
-                     sum(CASE WHEN point.distance(p.location, h.location) <= 500 THEN 2 ELSE 1 END) as h_score_raw
-
-                // C. 애견 공원 (산책로, 800m)
-                OPTIONAL MATCH (pk:Park)
-                WHERE pk.공원면적_num >= 116 AND point.distance(p.location, pk.location) <= 800
-                WITH p, pg_score_raw, pg_cnt, h_score_raw, h_cnt,
-                     count(pk) as pk_cnt,
-                     sum(CASE WHEN point.distance(p.location, pk.location) <= 400 THEN 1.5 ELSE 1 END) as pk_score_raw
-
-                // D. 기타 시설 (700m)
-                OPTIONAL MATCH (s:Store)
-                WHERE (s.category = '애완동물/애완용품 소매업' OR s.name CONTAINS '애견' OR s.name CONTAINS '펫' OR s.name CONTAINS '반려')
-                      AND NOT (s.category CONTAINS '독서실' OR s.category CONTAINS '스터디')
-                      AND point.distance(p.location, s.location) <= 700
-                WITH p, pg_score_raw, pg_cnt, h_score_raw, h_cnt, pk_score_raw, pk_cnt,
-                     count(s) as s_all_cnt,
-                     sum(CASE WHEN point.distance(p.location, s.location) <= 300 THEN 1.5 ELSE 1 END) as s_score_raw
-
+                // A. 반려동물 놀이터 (NEAR_PET_PLAYGROUND 관계 사용)
+                OPTIONAL MATCH (p)-[r1:NEAR_PET_PLAYGROUND]->(pg:PetPlayground)
+                WITH p,
+                     count(r1) as pg_cnt,
+                     sum(CASE WHEN r1.distance <= 500 THEN 2.0 ELSE 1.0 END) as pg_score_raw
+                
+                // B. 동물병원 (NEAR_ANIMAL_HOSPITAL 관계 사용)
+                OPTIONAL MATCH (p)-[r2:NEAR_ANIMAL_HOSPITAL]->(ah:AnimalHospital)
+                WITH p, pg_cnt, pg_score_raw,
+                     count(r2) as h_cnt,
+                     sum(CASE WHEN r2.distance <= 300 THEN 2.0 ELSE 1.0 END) as h_score_raw
+                
+                // C. 공원 (NEAR_PARK 관계 사용 - 문화 온도와 공유)
+                OPTIONAL MATCH (p)-[r3:NEAR_PARK]->(pk:Park)
+                WHERE pk.area >= 1500  // 1500m2 이상
+                WITH p, pg_cnt, pg_score_raw, h_cnt, h_score_raw,
+                     count(r3) as pk_cnt,
+                     sum(CASE WHEN r3.distance <= 300 THEN 1.5 ELSE 1.0 END) as pk_score_raw
+                
+                // D. 펫샵 (NEAR_PET_SHOP 관계 사용)
+                OPTIONAL MATCH (p)-[r4:NEAR_PET_SHOP]->(ps:PetShop)
+                WITH p, pg_cnt, pg_score_raw, h_cnt, h_score_raw, pk_cnt, pk_score_raw,
+                     count(r4) as s_cnt,
+                     sum(CASE WHEN r4.distance <= 300 THEN 1.5 ELSE 1.0 END) as s_score_raw
+                
                 // 가중치 계산 (100점 만점)
-                WITH p, pg_cnt, h_cnt, pk_cnt, s_all_cnt,
-                     (CASE WHEN pg_score_raw * 20 > 30 THEN 30.0 ELSE toFloat(pg_score_raw * 20) END +
-                      CASE WHEN h_score_raw * 10 > 25 THEN 25.0 ELSE toFloat(h_score_raw * 10) END +
-                      CASE WHEN pk_score_raw * 5 > 15 THEN 15.0 ELSE toFloat(pk_score_raw * 5) END +
-                      CASE WHEN s_score_raw * 5 > 30 THEN 30.0 ELSE toFloat(s_score_raw * 5) END) as raw_score
+                WITH p, pg_cnt, h_cnt, pk_cnt, s_cnt,
+                     (CASE WHEN coalesce(pg_score_raw, 0) * 20 > 30 THEN 30.0 ELSE coalesce(pg_score_raw, 0) * 20 END +
+                      CASE WHEN coalesce(h_score_raw, 0) * 10 > 25 THEN 25.0 ELSE coalesce(h_score_raw, 0) * 10 END +
+                      CASE WHEN coalesce(pk_score_raw, 0) * 5 > 15 THEN 15.0 ELSE coalesce(pk_score_raw, 0) * 5 END +
+                      CASE WHEN coalesce(s_score_raw, 0) * 5 > 30 THEN 30.0 ELSE coalesce(s_score_raw, 0) * 5 END) as raw_score
                 
                 // 0-100 스케일에서 평균 50점이 36.5도
-                WITH p, pg_cnt, h_cnt, pk_cnt, s_all_cnt, raw_score,
+                WITH p, pg_cnt, h_cnt, pk_cnt, s_cnt, raw_score,
                      CASE 
                         WHEN raw_score <= 50 THEN raw_score * (36.5 / 50.0)
                         ELSE 36.5 + (raw_score - 50) * (63.5 / 50.0)
@@ -162,13 +148,10 @@ class PetScoreImporter:
                     r.playground_count = pg_cnt,
                     r.hospital_count = h_cnt,
                     r.park_count = pk_cnt,
-                    r.etc_count = s_all_cnt,
+                    r.shop_count = s_cnt,
                     r.updated_at = datetime()
-                """, offset=offset, limit=batch_size)
-                
-                offset += batch_size
-                progress = min(offset, total)
-                print(f"  Pet progress: {progress}/{total} ({progress*100//total}%)")
+            } IN TRANSACTIONS OF 1000 ROWS
+            """)
         
         print("Pet Temperature calculation completed.")
 
