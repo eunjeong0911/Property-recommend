@@ -340,10 +340,8 @@ services:
       dockerfile: infra/docker/crawling.Dockerfile
     container_name: realestate-crawling
     volumes:
-      - ./scripts:/app/scripts
-      - ./data:/app/data
-    working_dir: "/app"
-    command: python scripts/data_import/importers/import_properties_full.py
+      - ./dataCrawling:/app
+      - ./data:/data
     env_file:
       - .env
     environment:
