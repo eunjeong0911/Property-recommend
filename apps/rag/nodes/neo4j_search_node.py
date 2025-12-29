@@ -93,6 +93,17 @@ FACILITY_CONFIG = {
     }
 }
 
+# 시설 타입 → 온도 Metric 매핑 (온도 기반 검색용)
+FACILITY_TO_TEMPERATURE = {
+    "safety": "Safety",              # 안전, 치안, CCTV
+    "convenience": "LivingConvenience",  # 편의점, 마트, 세탁소
+    "hospital": "LivingConvenience",     # 병원, 약국
+    "pharmacy": "LivingConvenience",     # 약국
+    "subway": "Traffic",             # 지하철, 교통
+    "park": "Culture",               # 공원, 산책
+    "university": "Culture",         # 대학교
+}
+
 # 주요 지하철역/지역명 패턴 (서울 전 노선 커버)
 LOCATION_PATTERNS = [
     # 지하철역 (역 접미사 포함) - 서울 1~9호선 전체
@@ -267,8 +278,15 @@ def analyze_question(question: str) -> Dict:
 # -----------------------------------------------------------------------------
 
 def build_single_facility_query(facility_type: str) -> str:
-    """단일 시설 타입에 대한 Cypher 쿼리 생성"""
+    """단일 시설 타입에 대한 Cypher 쿼리 생성 (온도 기반 우선)"""
     
+    # 온도 기반 검색 우선 사용
+    temp_metric = FACILITY_TO_TEMPERATURE.get(facility_type)
+    if temp_metric:
+        print(f"[QueryBuilder] 🌡️ Using temperature-based search: {temp_metric}")
+        return build_temperature_query(temp_metric)
+    
+    # 온도 매핑이 없는 경우 기존 방식 사용 (fallback)
     config = FACILITY_CONFIG.get(facility_type)
     if not config:
         return build_subway_query()  # 기본값
@@ -277,14 +295,69 @@ def build_single_facility_query(facility_type: str) -> str:
         return build_subway_query()
     elif facility_type == "university":
         return build_university_query()
-    elif facility_type == "safety":
-        return build_safety_query()
     else:
         return build_facility_query(
             relationship=config["relationship"],
             label=config["label"],
             result_key=config["result_key"]
         )
+
+
+def build_temperature_query(temp_metric: str) -> str:
+    """
+    온도 기반 검색 Cypher 쿼리 (TEXT INDEX 최적화)
+    
+    사전 계산된 온도 점수로 매물을 정렬합니다.
+    - Safety: 안전 온도 (CCTV, 범죄율, 경찰서 등 종합)
+    - Traffic: 교통 온도 (지하철, 버스 접근성)
+    - LivingConvenience: 생활편의 온도 (편의점, 마트, 세탁소)
+    - Culture: 문화 온도 (공원, 영화관, 도서관)
+    - Pet: 반려동물 온도 (동물병원, 펫샵, 놀이터)
+    """
+    return f"""
+    // 1. 위치 앵커 찾기 (TEXT INDEX 최적화: UNION으로 라벨별 분리)
+    CALL {{
+        MATCH (a:SubwayStation) WHERE a.name STARTS WITH $keyword OR a.name CONTAINS $keyword
+        RETURN a as anchor LIMIT 3
+        UNION ALL
+        MATCH (a:College) WHERE a.name STARTS WITH $keyword OR a.name CONTAINS $keyword
+        RETURN a as anchor LIMIT 3
+        UNION ALL
+        MATCH (a:Park) WHERE a.name STARTS WITH $keyword OR a.name CONTAINS $keyword
+        RETURN a as anchor LIMIT 3
+    }}
+    WITH anchor LIMIT 5
+    
+    // 2. 앵커 근처 매물 조회
+    MATCH (p:Property)-[r_anchor]-(anchor)
+    WHERE type(r_anchor) STARTS WITH 'NEAR_'
+    WITH DISTINCT p, anchor, r_anchor
+    
+    // 3. 온도 점수 조회 (핵심!)
+    MATCH (p)-[r_temp:HAS_TEMPERATURE]->(m:Metric {{name: '{temp_metric}'}})
+    
+    // 4. 온도로 정렬
+    WITH p, anchor, r_anchor, r_temp.temperature as temperature
+    ORDER BY temperature DESC
+    LIMIT 50
+    
+    // 5. 가장 가까운 지하철역 정보
+    OPTIONAL MATCH (p)-[r_sub:NEAR_SUBWAY]->(sub:SubwayStation)
+    WITH p, temperature, anchor, r_anchor, sub, r_sub
+    ORDER BY CASE WHEN r_sub IS NULL THEN 9999 ELSE r_sub.distance END
+    WITH p, temperature, anchor, r_anchor, 
+         head(collect(sub)) as closest_sub, 
+         head(collect(r_sub)) as closest_r_sub
+    
+    RETURN p.id as id,
+           temperature,
+           temperature as total_score,
+           [{{name: anchor.name, dist: toInteger(r_anchor.distance)}}] as poi_details,
+           CASE WHEN closest_sub IS NOT NULL 
+               THEN [{{name: closest_sub.name, dist: toInteger(closest_r_sub.distance), time: toInteger(closest_r_sub.walking_time)}}]
+               ELSE [] 
+           END as trans_details
+    """
 
 
 def build_subway_query() -> str:

@@ -12,6 +12,7 @@ from .utils.price_utils import (
     extract_total_floors,
 )
 from .utils.radar_chart_utils import calculate_radar_chart_data
+from .utils.temperature_utils import get_land_temperatures
 import random
 
 
@@ -81,8 +82,12 @@ class LandSerializer(serializers.ModelSerializer):
     # 가격 분류 정보
     price_prediction = serializers.SerializerMethodField()
     
-    # 레이더 차트 데이터
+    # 레이더 차트 데이터 (추후 제거 예정이나 하위 호환성을 위해 유지)
     radar_chart_data = serializers.SerializerMethodField()
+    
+    # 부동산 온도 데이터
+    temperatures = serializers.SerializerMethodField()
+
     
     # listing_info (시설 정보)
     listing_info = serializers.JSONField(read_only=True)
@@ -120,6 +125,8 @@ class LandSerializer(serializers.ModelSerializer):
             'move_in_report',
             'broker',
             'price_prediction',
+            'radar_chart_data',
+            'temperatures'
             'radar_chart_data',
             'listing_info'
         ]
@@ -295,4 +302,8 @@ class LandSerializer(serializers.ModelSerializer):
                 'space_efficiency': 50,
                 'optional_facilities': 50
             }
+    
+    def get_temperatures(self, obj):
+        """Neo4j에서 부동산 온도 정보 조회"""
+        return get_land_temperatures(obj.land_num)
     
