@@ -80,28 +80,40 @@ class CultureScoreImporter:
                         ELSE 10 * (1 - r3.distance / 500.0)
                      END as unit_edu
                 WITH p, raw_cinema, raw_arts, sum(unit_edu) as raw_edu
+                
+                // 4. Park (Max 20) - 공원 추가
+                OPTIONAL MATCH (p)-[r4:NEAR_PARK]->(pk:Park)
+                WITH p, raw_cinema, raw_arts, raw_edu, min(r4.distance) as dist_park
+                WITH p, raw_cinema, raw_arts, raw_edu,
+                     CASE 
+                        WHEN dist_park IS NULL THEN 0
+                        WHEN dist_park <= 150 THEN 20
+                        WHEN dist_park >= 500 THEN 0
+                        ELSE 20 * (1 - (toFloat(dist_park) - 150) / (500 - 150))
+                     END as raw_park
                      
                 WITH p, 
                      CASE WHEN raw_cinema > 60 THEN 60.0 ELSE raw_cinema END as score_ent,
                      CASE WHEN raw_arts > 60 THEN 60.0 ELSE raw_arts END as score_arts,
-                     CASE WHEN raw_edu > 30 THEN 30.0 ELSE raw_edu END as score_edu
+                     CASE WHEN raw_edu > 30 THEN 30.0 ELSE raw_edu END as score_edu,
+                     raw_park as score_park
                 
-                // Current Raw Total (Max 150 -> 1.5x Multiplier to align with 100 scale)
-                WITH p, (score_ent + score_arts + score_edu) * (2.0/3.0) as boosted_score
+                // Total: 문화(150 cap) + 공원(20) = 170점 만점 → 100점 스케일
+                WITH p, (score_ent + score_arts + score_edu + score_park) * (100.0/170.0) as raw_total
                 
-                WITH p, CASE WHEN boosted_score > 100 THEN 100.0 ELSE boosted_score END as raw_total
+                WITH p, CASE WHEN raw_total > 100 THEN 100.0 ELSE raw_total END as capped_total
                 
                 // raw_score와 temperature를 한 번에 계산 (평균 50 기준)
-                WITH p, raw_total,
+                WITH p, capped_total,
                      CASE 
-                        WHEN raw_total <= 50 THEN raw_total * (36.5 / 50.0)
-                        ELSE 36.5 + (raw_total - 50) * (63.5 / 50.0)
+                        WHEN capped_total <= 50 THEN capped_total * (36.5 / 50.0)
+                        ELSE 36.5 + (capped_total - 50) * (63.5 / 50.0)
                      END as culture_temp
                 
                 MERGE (m:Metric {name: 'Culture'})
                 MERGE (p)-[r:HAS_TEMPERATURE]->(m)
                 SET r.temperature = round(CASE WHEN culture_temp > 100 THEN 100.0 WHEN culture_temp < 0 THEN 0.0 ELSE culture_temp END, 1),
-                    r.raw_score = raw_total,
+                    r.raw_score = capped_total,
                     r.updated_at = datetime()
             } IN TRANSACTIONS OF 1000 ROWS
             """)

@@ -12,9 +12,9 @@ class ConvenienceScoreImporter:
 
     def import_convenience_score(self):
         """
-        Calculate and import 'Convenience Temperature' (Max 100)
+        Calculate and import 'Convenience Temperature' (Max 80)
         
-        Metric (Total 100):
+        Metric (Total 80):
         1. Retail (40 pts)
            - Convenience Store (20 pts): 
              - Max if < 50m. 0 if > 150m. Linear decay.
@@ -24,10 +24,6 @@ class ConvenienceScoreImporter:
         2. Shopping (40 pts)
            - Mart/Dept (40 pts):
              - Max if < 300m. 0 if > 1000m. Linear decay.
-             
-        3. Leisure (20 pts)
-           - Park (20 pts) [Filtered >= 1500m2]:
-             - Max if < 150m. 0 if > 500m. Linear decay.
         """
         print("Calculating Convenience Temperature...")
         
@@ -37,9 +33,6 @@ class ConvenienceScoreImporter:
             MATCH (p:Property)-[r:HAS_TEMPERATURE]->(m:Metric {name: 'LivingConvenience'})
             DELETE r
             """)
-            
-            # Use batch processing for properties
-            # We calculate score per property
             
             session.run("""
             MATCH (p:Property)
@@ -82,24 +75,9 @@ class ConvenienceScoreImporter:
                         ELSE 40 * (1 - (toFloat(dist_mart) - 300) / (1000 - 300))
                      END as score_mart
 
-                // 4. Leisure: Park (Max 20)
-                // Threshold: 150m (Max), 500m (Zero)
-                // Note: Park nodes are already filtered by area >= 1500m2 during import
-                OPTIONAL MATCH (p)-[r4:NEAR_PARK]->(pk:Park)
-                WITH p, score_conv, score_laundry, score_mart, min(r4.distance) as dist_park
-                WITH p, score_conv, score_laundry, score_mart, dist_park,
-                     CASE 
-                        WHEN dist_park IS NULL THEN 0
-                        WHEN dist_park <= 150 THEN 20
-                        WHEN dist_park >= 500 THEN 0
-                        ELSE 20 * (1 - (toFloat(dist_park) - 150) / (500 - 150))
-                     END as score_park
-
-                // Total Score (Medical removed)
-                WITH p, (score_conv + score_laundry + score_mart + score_park) as raw_score
+                // Total Score (80점 만점 → 100점으로 스케일링)
+                WITH p, (score_conv + score_laundry + score_mart) * 1.25 as raw_score
                 
-                // Convert to 30-43°C Temperature Scale (기존 로직 주석 처리 또는 삭제)
-                // 대신 raw_score를 그대로 저장
                 MERGE (m:Metric {name: 'LivingConvenience'})
                 MERGE (p)-[r:HAS_TEMPERATURE]->(m)
                 SET r.raw_score = raw_score,
