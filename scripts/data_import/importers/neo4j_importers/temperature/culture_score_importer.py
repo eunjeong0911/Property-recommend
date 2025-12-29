@@ -69,7 +69,7 @@ class CultureScoreImporter:
                      END as unit_arts
                 WITH p, raw_cinema, sum(unit_arts) as raw_arts
 
-                // 3. History/Edu: Museum (15), Library/Other (10) (Max 30)
+                // 3. History/Edu: Museum (15), Library (5), Other (10) (Max 30)
                 OPTIONAL MATCH (p)-[r3:NEAR_CULTURE]->(c3:Culture)
                 WHERE c3.category IN ['박물관/기념관', '도서관', '기타', '문화원'] AND r3.distance <= 500
                 WITH p, raw_cinema, raw_arts, c3, r3
@@ -77,6 +77,7 @@ class CultureScoreImporter:
                      CASE 
                         WHEN c3 IS NULL THEN 0
                         WHEN c3.category = '박물관/기념관' THEN 15 * (1 - r3.distance / 500.0)
+                        WHEN c3.category = '도서관' THEN 5 * (1 - r3.distance / 500.0)
                         ELSE 10 * (1 - r3.distance / 500.0)
                      END as unit_edu
                 WITH p, raw_cinema, raw_arts, sum(unit_edu) as raw_edu
