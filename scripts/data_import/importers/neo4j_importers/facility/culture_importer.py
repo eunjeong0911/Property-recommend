@@ -115,6 +115,39 @@ class CultureImporter:
             c.latitude = row.lat,
             c.longitude = row.lon,
             c.location = point({latitude: row.lat, longitude: row.lon})
+        WITH c, row
+        
+        // 카테고리별 라벨 추가
+        CALL {
+            WITH c, row
+            WITH c, row WHERE row.category = '영화관'
+            SET c:Cinema
+        }
+        CALL {
+            WITH c, row
+            WITH c, row WHERE row.category = '미술관'
+            SET c:ArtGallery
+        }
+        CALL {
+            WITH c, row
+            WITH c, row WHERE row.category = '공연장'
+            SET c:PerformanceHall
+        }
+        CALL {
+            WITH c, row
+            WITH c, row WHERE row.category = '박물관/기념관'
+            SET c:Museum
+        }
+        CALL {
+            WITH c, row
+            WITH c, row WHERE row.category = '도서관'
+            SET c:Library
+        }
+        CALL {
+            WITH c, row
+            WITH c, row WHERE row.category = '문화원'
+            SET c:CultureCenter
+        }
         """, batch=batch)
     
     def link_culture(self):
