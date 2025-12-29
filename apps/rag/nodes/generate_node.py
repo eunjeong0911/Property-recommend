@@ -167,6 +167,22 @@ def generate(state: RAGState) -> RAGState:
             
             merged['formatted_safety'] = " | ".join(safe_summary) if safe_summary else ""
             
+            # 3-1. 온도 점수 포맷팅 (Temperature Scores) - 모든 온도 표시
+            # 검색 기준 온도
+            temperature = result.get('temperature')
+            
+            # 개별 온도 (기본값 36.5)
+            temp_safety = result.get('temp_safety', 36.5)
+            temp_traffic = result.get('temp_traffic', 36.5)
+            temp_convenience = result.get('temp_convenience', 36.5)
+            temp_culture = result.get('temp_culture', 36.5)
+            temp_pet = result.get('temp_pet', 36.5)
+            
+            # 항상 모든 온도 표시
+            temp_str = f"🔒안전 {temp_safety:.1f}도 | 🚇교통 {temp_traffic:.1f}도 | 🏪생활 {temp_convenience:.1f}도 | 🎨문화 {temp_culture:.1f}도 | 🐾펫 {temp_pet:.1f}도"
+            
+            merged['formatted_temperature'] = temp_str
+            
             # 4. Station Info
             merged['formatted_poi'] = poi_info
             
@@ -363,8 +379,7 @@ def generate(state: RAGState) -> RAGState:
 - 가격: [postgres_details.formatted_price]
 - 면적: [postgres_details.listing_info]
 - 역: [formatted_poi]
-- 시설: [formatted_infrastructure]
-- 안전: [formatted_safety] (있으면)
+- 온도: [formatted_temperature]
 👉 [detail_link]
 {followup_section}"""
     )
