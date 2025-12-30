@@ -32,6 +32,37 @@ const rankColors: Record<number, { bg: string; border: string; badge: string }> 
 
 const defaultRankColor = { bg: 'bg-gray-50', border: 'border-l-4 border-gray-300', badge: 'bg-gray-400 text-white' };
 
+// AI 응답에서 추가질문 섹션을 분리하는 함수
+const extractSuggestedQuestions = (content: string): { mainContent: string; questions: string[] } => {
+  // 추가질문 패턴: 다양한 형식 지원 (이모지 유무, 띄어쓰기 다양)
+  const suggestionPattern = /(?:👍|✨|💡)?\s*추가\s*질문[^\n]*(?:제안)?[^\n]*/i;
+  const match = content.match(suggestionPattern);
+
+  console.log('=== extractSuggestedQuestions 디버깅 ===');
+  console.log('원본 내용 마지막 200자:', content.substring(content.length - 200));
+  console.log('패턴 매치 결과:', match);
+
+  if (!match) {
+    return { mainContent: content, questions: [] };
+  }
+
+  const splitIndex = content.indexOf(match[0]);
+  const mainContent = content.substring(0, splitIndex).trim();
+  const questionSection = content.substring(splitIndex + match[0].length).trim();
+
+  console.log('질문 섹션:', questionSection);
+
+  // 줄바꿈으로 질문들 분리
+  const questions = questionSection
+    .split(/\n/)
+    .map(q => q.trim())
+    .filter(q => q.length > 0 && !q.match(/^👍/));
+
+  console.log('추출된 질문들:', questions);
+
+  return { mainContent, questions };
+};
+
 // AI 응답을 순위별로 파싱하는 함수
 const parseRankedContent = (content: string): { rank: number | null; content: string }[] => {
   // 순위 패턴: 1순위, 2순위, **1순위**, 1위, **1위** 등
@@ -578,38 +609,99 @@ export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
                     </div>
                   ) : (
                     /* AI 메시지 - 순위별 개별 말풍선 */
-                    <div className="space-y-3">
-                      {parseRankedContent(message.content).map((part, partIndex, arr) => {
-                        const colors = part.rank
-                          ? (rankColors[part.rank] || defaultRankColor)
-                          : { bg: 'bg-gray-100', border: '', badge: '' };
+                    (() => {
+                      const { mainContent, questions } = extractSuggestedQuestions(message.content);
+                      return (
+                        <div className="space-y-3">
+                          {parseRankedContent(mainContent).map((part, partIndex, arr) => {
+                            const colors = part.rank
+                              ? (rankColors[part.rank] || defaultRankColor)
+                              : { bg: 'bg-gray-100', border: '', badge: '' };
 
-                        return (
-                          <div key={`${message.id}-${partIndex}`} className="flex justify-start">
-                            <div className={`max-w-[85%] p-4 rounded-lg ${colors.bg} ${colors.border}`}>
-                              {part.rank && (
-                                <div className="flex items-center gap-2 mb-2">
-                                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${colors.badge}`}>
-                                    {part.rank === 1 && '🥇 '}
-                                    {part.rank === 2 && '🥈 '}
-                                    {part.rank === 3 && '🥉 '}
-                                    {part.rank}위
+                            return (
+                              <div key={`${message.id}-${partIndex}`} className="flex justify-start">
+                                <div className={`max-w-[85%] p-4 rounded-lg ${colors.bg} ${colors.border}`}>
+                                  {part.rank && (
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${colors.badge}`}>
+                                        {part.rank === 1 && '🥇 '}
+                                        {part.rank === 2 && '🥈 '}
+                                        {part.rank === 3 && '🥉 '}
+                                        {part.rank}위
+                                      </span>
+                                    </div>
+                                  )}
+                                  <div className="prose prose-sm max-w-none text-gray-900">
+                                    <ReactMarkdown
+                                      components={{
+                                        a: ({ href, children }) => {
+                                          const text = String(children);
+                                          if (text.includes('상세보기')) {
+                                            // 👉 이모지 제거
+                                            const cleanText = text.replace(/👉\s*/g, '');
+                                            return (
+                                              <div className="flex justify-end mt-3 not-prose">
+                                                <a
+                                                  href={href}
+                                                  className="font-bold text-black-600 hover:text-black-800 hover:underline"
+                                                >
+                                                  {cleanText}
+                                                </a>
+                                              </div>
+                                            );
+                                          }
+                                          return (
+                                            <a href={href} className="text-black-600 hover:underline">
+                                              {children}
+                                            </a>
+                                          );
+                                        },
+                                      }}
+                                    >
+                                      {part.content}
+                                    </ReactMarkdown>
+                                  </div>
+                                  {partIndex === arr.length - 1 && questions.length === 0 && (
+                                    <p className="text-xs mt-2 text-gray-500">
+                                      {formatTime(message.timestamp)}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+
+                          {/* 추가질문 섹션 - 별도 말풍선, 2열 그리드 */}
+                          {questions.length > 0 && (
+                            <div className="flex justify-start">
+                              <div className="max-w-[85%] p-4 rounded-lg bg-purple-50 border-l-4 border-purple-400">
+                                <div className="flex items-center gap-2 mb-3">
+                                  <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-purple-400 text-white">
+                                    💡 추가질문
                                   </span>
                                 </div>
-                              )}
-                              <div className="prose prose-sm max-w-none text-gray-900">
-                                <ReactMarkdown>{part.content}</ReactMarkdown>
-                              </div>
-                              {partIndex === arr.length - 1 && (
-                                <p className="text-xs mt-2 text-gray-500">
+                                <div className="grid grid-cols-2 gap-2">
+                                  {questions.map((question, qIndex) => (
+                                    <button
+                                      key={qIndex}
+                                      onClick={() => {
+                                        setInputValue(question);
+                                      }}
+                                      className="text-left px-3 py-2 bg-white border border-purple-200 rounded-lg text-sm text-purple-700 hover:bg-purple-100 hover:border-purple-300 transition-colors"
+                                    >
+                                      {question}
+                                    </button>
+                                  ))}
+                                </div>
+                                <p className="text-xs mt-3 text-gray-500">
                                   {formatTime(message.timestamp)}
                                 </p>
-                              )}
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                          )}
+                        </div>
+                      );
+                    })()
                   )}
                 </div>
               ))}
