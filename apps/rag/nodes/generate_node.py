@@ -315,6 +315,69 @@ def generate(state: RAGState) -> RAGState:
         # trade_info는 LLM에 보내지 않음 (formatted_price로 대체)
         if 'trade_info' in slim_details:
             del slim_details['trade_info']
+        
+        # 3. listing_info 파싱 (면적과 방/욕실 분리)
+        listing_info = slim_details.get('listing_info', '')
+        if listing_info:
+            import re
+            
+            # listing_info가 딕셔너리인 경우
+            if isinstance(listing_info, dict):
+                # 딕셔너리에서 직접 값 추출
+                area_info = listing_info.get('전용/공급면적', listing_info.get('면적', ''))
+                room_info = listing_info.get('방/욕실개수', '')
+                
+                if not area_info:
+                    # 다른 키 시도
+                    for key in listing_info.keys():
+                        if '면적' in key or '㎡' in str(listing_info.get(key, '')):
+                            area_info = str(listing_info[key])
+                            break
+                
+                if not room_info:
+                    for key in listing_info.keys():
+                        if '방' in key or '욕실' in key:
+                            room_info = str(listing_info[key])
+                            break
+                
+                # m2를 ㎡로 통일하고, 빈 값(-㎡, -평) 제거
+                area_str = str(area_info).replace('m2', '㎡').replace('M2', '㎡') if area_info else ''
+                import re
+                # "/-㎡" 제거 (슬래시 뒤의 빈 면적)
+                area_str = re.sub(r'/-㎡', '', area_str)
+                # "/-평" 제거 (슬래시 뒤의 빈 평수)
+                area_str = re.sub(r'/-평', '', area_str)
+                area_str = area_str.strip()
+                slim_details['listing_area'] = area_str
+                
+                # "1개/1개" 또는 "1/1" 형식을 "방 X개, 욕실 X개"로 변환
+                room_str = str(room_info) if room_info else ''
+                if room_str and '/' in room_str:
+                    parts = room_str.replace('개', '').split('/')
+                    if len(parts) == 2:
+                        room_str = f"방 {parts[0].strip()}개, 욕실 {parts[1].strip()}개"
+                slim_details['listing_room'] = room_str
+            else:
+                # 문자열인 경우 정규식으로 추출
+                listing_str = str(listing_info)
+                
+                # 면적 추출
+                area_match = re.search(r'전용\s*[\d.]+㎡?\s*/\s*공급\s*[\d.]+㎡?', listing_str)
+                if area_match:
+                    slim_details['listing_area'] = area_match.group()
+                else:
+                    alt_area = re.search(r'[\d.]+㎡', listing_str)
+                    slim_details['listing_area'] = alt_area.group() if alt_area else ''
+                
+                # 방/욕실 추출
+                room_match = re.search(r'방\s*\d+개', listing_str)
+                bath_match = re.search(r'욕실\s*\d+개', listing_str)
+                room_info = room_match.group() if room_match else ''
+                bath_info = bath_match.group() if bath_match else ''
+                slim_details['listing_room'] = f"{room_info}, {bath_info}".strip(', ')
+            
+            # 원본 listing_info 삭제
+            del slim_details['listing_info']
             
         new_item['postgres_details'] = slim_details
         
@@ -357,7 +420,7 @@ def generate(state: RAGState) -> RAGState:
         # 추가 질문 섹션 준비 (마지막 항목에만 포함)
         followup_section = ""
         if is_last:
-            followup_section = f"\n💬 추가질문 2개 제안\n질문: {question}"
+            followup_section = f"\n추가질문 2개 제안\n질문: {question}"
             
         batch_inputs.append({
             "rank": f"{i+1}순위",
@@ -377,10 +440,10 @@ def generate(state: RAGState) -> RAGState:
 **{rank}**
 - 주소: [postgres_details.address]
 - 가격: [postgres_details.formatted_price]
-- 면적: [postgres_details.listing_info]
+- 면적: [postgres_details.listing_area]
+- 구성: [postgres_details.listing_room]
 - 역: [formatted_poi]
-- 온도: [formatted_temperature]
-👉 [detail_link]
+[detail_link]
 {followup_section}"""
     )
     
