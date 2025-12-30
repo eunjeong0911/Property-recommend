@@ -23,6 +23,59 @@ interface ChatbotProps {
   onRecommendLands?: (landIds: number[]) => void
 }
 
+// 순위별 색상 정의
+const rankColors: Record<number, { bg: string; border: string; badge: string }> = {
+  1: { bg: 'bg-amber-50', border: 'border-l-4 border-amber-400', badge: 'bg-amber-400 text-white' },
+  2: { bg: 'bg-slate-100', border: 'border-l-4 border-slate-400', badge: 'bg-slate-400 text-white' },
+  3: { bg: 'bg-orange-50', border: 'border-l-4 border-orange-400', badge: 'bg-orange-400 text-white' },
+};
+
+const defaultRankColor = { bg: 'bg-gray-50', border: 'border-l-4 border-gray-300', badge: 'bg-gray-400 text-white' };
+
+// AI 응답을 순위별로 파싱하는 함수
+const parseRankedContent = (content: string): { rank: number | null; content: string }[] => {
+  // 순위 패턴: 1순위, 2순위, **1순위**, 1위, **1위** 등
+  const rankPattern = /(?:#{1,3}\s*)?(?:\*\*)?(?:🥇|🥈|🥉)?(\d+)(?:순위|위)(?:\*\*)?[:\s]*/g;
+
+  const parts: { rank: number | null; content: string }[] = [];
+  const matches: { index: number; rank: number; fullMatch: string }[] = [];
+
+  let match;
+  while ((match = rankPattern.exec(content)) !== null) {
+    matches.push({
+      index: match.index,
+      rank: parseInt(match[1]),
+      fullMatch: match[0]
+    });
+  }
+
+  if (matches.length === 0) {
+    return [{ rank: null, content }];
+  }
+
+  // 첫 번째 순위 전의 텍스트 (인트로)
+  if (matches[0].index > 0) {
+    const introContent = content.substring(0, matches[0].index).trim();
+    if (introContent) {
+      parts.push({ rank: null, content: introContent });
+    }
+  }
+
+  // 각 순위별 콘텐츠 분리
+  for (let i = 0; i < matches.length; i++) {
+    const currentMatch = matches[i];
+    const nextMatch = matches[i + 1];
+    const startIndex = currentMatch.index + currentMatch.fullMatch.length;
+    const endIndex = nextMatch ? nextMatch.index : content.length;
+    const rankContent = content.substring(startIndex, endIndex).trim();
+    if (rankContent) {
+      parts.push({ rank: currentMatch.rank, content: rankContent });
+    }
+  }
+
+  return parts;
+};
+
 export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
   const [sessions, setSessions] = useState<ChatSession[]>([])
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
@@ -510,30 +563,54 @@ export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
             /* 기존 메시지 표시 */
             <>
               {messages.map(message => (
-                <div
-                  key={message.id}
-                  className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'
-                    }`}
-                >
-                  <div
-                    className={`max-w-[75%] p-4 rounded-lg ${message.type === 'user'
-                      ? 'bg-[#16375B] text-white'
-                      : 'bg-gray-100'
-                      }`}
-                  >
-                    {message.type === 'ai' ? (
-                      <div className="prose prose-sm max-w-none text-gray-900">
-                        <ReactMarkdown>{message.content}</ReactMarkdown>
+                <div key={message.id}>
+                  {message.type === 'user' ? (
+                    /* 사용자 메시지 */
+                    <div className="flex justify-end">
+                      <div className="max-w-[75%] p-4 rounded-lg bg-[#16375B] text-white">
+                        <p className="text-sm whitespace-pre-wrap break-words">
+                          {message.content}
+                        </p>
+                        <p className="text-xs mt-2 text-gray-300">
+                          {formatTime(message.timestamp)}
+                        </p>
                       </div>
-                    ) : (
-                      <p className="text-sm whitespace-pre-wrap break-words">
-                        {message.content}
-                      </p>
-                    )}
-                    <p className="text-xs mt-2 text-gray-500">
-                      {formatTime(message.timestamp)}
-                    </p>
-                  </div>
+                    </div>
+                  ) : (
+                    /* AI 메시지 - 순위별 개별 말풍선 */
+                    <div className="space-y-3">
+                      {parseRankedContent(message.content).map((part, partIndex, arr) => {
+                        const colors = part.rank
+                          ? (rankColors[part.rank] || defaultRankColor)
+                          : { bg: 'bg-gray-100', border: '', badge: '' };
+
+                        return (
+                          <div key={`${message.id}-${partIndex}`} className="flex justify-start">
+                            <div className={`max-w-[85%] p-4 rounded-lg ${colors.bg} ${colors.border}`}>
+                              {part.rank && (
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${colors.badge}`}>
+                                    {part.rank === 1 && '🥇 '}
+                                    {part.rank === 2 && '🥈 '}
+                                    {part.rank === 3 && '🥉 '}
+                                    {part.rank}위
+                                  </span>
+                                </div>
+                              )}
+                              <div className="prose prose-sm max-w-none text-gray-900">
+                                <ReactMarkdown>{part.content}</ReactMarkdown>
+                              </div>
+                              {partIndex === arr.length - 1 && (
+                                <p className="text-xs mt-2 text-gray-500">
+                                  {formatTime(message.timestamp)}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               ))}
 
