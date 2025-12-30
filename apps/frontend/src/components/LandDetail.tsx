@@ -195,6 +195,17 @@ export default function LandDetail({ landId }: LandDetailProps) {
     setActiveTempId((prev) => (prev === id ? null : id));
   };
 
+  const tempItems = [
+    { id: 'safety', label: '안전 온도', value: land.temperatures?.safety || 36.5, icon: '🛡️', desc: '치안 및 인프라' },
+    { id: 'convenience', label: '편의 온도', value: land.temperatures?.convenience || 36.5, icon: '🛒', desc: '생활 밀접 시설' },
+    { id: 'pet', label: '반려동물 온도', value: land.temperatures?.pet || 36.5, icon: '🐾', desc: '반려견 산책 및 병원' },
+    { id: 'traffic', label: '교통 온도', value: land.temperatures?.traffic || 36.5, icon: '🚇', desc: '대중교통 접근성' },
+    { id: 'culture', label: '문화 온도', value: land.temperatures?.culture || 36.5, icon: '🏛️', desc: '문화 및 예술 시설' },
+  ];
+
+  const activeTemp = activeTempId ? tempExplain[activeTempId] : null;
+  const activeTempItem = activeTempId ? tempItems.find((item) => item.id === activeTempId) : null;
+
   // 이미지가 없으면 기본 placeholder 사용
   const defaultPlaceholder = '/images/placeholder.svg';
   const images = land.images && land.images.length > 0 ? land.images : [land.image || defaultPlaceholder];
@@ -381,7 +392,7 @@ export default function LandDetail({ landId }: LandDetailProps) {
         </div>
 
         {/* ✅ 부동산 온도 지수 + 아이콘 클릭 설명 토글 */}
-        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm flex flex-col">
+        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm flex flex-col aspect-square">
           <div className="bg-slate-700 text-white px-4 py-3 rounded-t-2xl">
             <h3 className="font-bold flex items-center gap-3">
               <span className="flex items-center gap-2">
@@ -394,29 +405,21 @@ export default function LandDetail({ landId }: LandDetailProps) {
             </h3>
           </div>
 
-          <div className="p-6 flex-1 flex flex-col justify-around space-y-4">
-            {[
-              { id: 'safety', label: '안전 온도', value: land.temperatures?.safety || 36.5, icon: '🛡️', desc: '치안 및 인프라' },
-              { id: 'convenience', label: '편의 온도', value: land.temperatures?.convenience || 36.5, icon: '🛒', desc: '생활 밀접 시설' },
-              { id: 'pet', label: '반려동물 온도', value: land.temperatures?.pet || 36.5, icon: '🐾', desc: '반려견 산책 및 병원' },
-              { id: 'traffic', label: '교통 온도', value: land.temperatures?.traffic || 36.5, icon: '🚇', desc: '대중교통 접근성' },
-              { id: 'culture', label: '문화 온도', value: land.temperatures?.culture || 36.5, icon: '🏛️', desc: '문화 및 예술 시설' },
-            ].map((temp) => {
-              const isActive = activeTempId === (temp.id as TempId);
+          <div className="p-6 flex-1 overflow-hidden">
+            <div className="relative h-full">
+              <div className="space-y-[51px]">
+                {tempItems.map((temp) => {
+                  const isActive = activeTempId === (temp.id as TempId);
 
-              return (
-                <div key={temp.id} className="group" onClick={() => toggleTemp(temp.id as TempId)} role="button" tabIndex={0}>
-                  <div className="flex justify-between items-end mb-2">
-                    <div className="flex items-center gap-3">
+                  return (
+                    <div key={temp.id} className="grid grid-cols-[56px_1fr] items-center gap-4">
                       <button
                         type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          toggleTemp(temp.id as TempId);
-                        }}
+                        onClick={() => toggleTemp(temp.id as TempId)}
                         aria-pressed={isActive}
+                        aria-label={`${temp.label} 설명 ${isActive ? '닫기' : '보기'}`}
                         className={[
-                          'w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-sm border transition-all duration-200 relative z-10',
+                          'w-14 h-14 rounded-xl flex items-center justify-center text-[24px] shadow-sm border transition-all duration-200',
                           'bg-gray-50 border-gray-100 hover:scale-110 active:scale-105',
                           isActive ? 'ring-2 ring-slate-300 bg-white' : '',
                         ].join(' ')}
@@ -425,78 +428,71 @@ export default function LandDetail({ landId }: LandDetailProps) {
                         {temp.icon}
                       </button>
 
-                      <div>
-                        <div className="font-bold text-slate-700">{temp.label}</div>
-                        <div className="text-[10px] text-gray-400">{temp.desc}</div>
+                        <div>
+                          <div className="flex items-center justify-between text-lg mb-2">
+                            <span className="font-semibold text-slate-700">{temp.label}</span>
+                            <span
+                              className={`font-black ${
+                                temp.value >= 39 ? 'text-red-500' : temp.value >= 35 ? 'text-orange-500' : 'text-blue-500'
+                              }`}
+                            >
+                              {temp.value.toFixed(1)}
+                              <span className="text-base text-gray-400 ml-1">°C</span>
+                            </span>
+                          </div>
+                          <div className="h-5 bg-gray-100 rounded-full p-[2px] shadow-inner overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all duration-1000 ease-out relative bg-gradient-to-r from-blue-400 via-yellow-400 to-red-500"
+                            style={{
+                              width: `${Math.min(100, Math.max(0, temp.value))}%`,
+                              backgroundSize: `${100 / Math.max(0.01, temp.value / 100)}% 100%`,
+                            }}
+                          >
+                            <div className="absolute top-0 right-0 w-8 h-full bg-white/20 skew-x-[-20deg] animate-pulse"></div>
+                          </div>
+                        </div>
                       </div>
                     </div>
+                  );
+                })}
+              </div>
 
-                    <div className="text-right">
-                      <span
-                        className={`text-xl font-black ${
-                          temp.value >= 39 ? 'text-red-500' : temp.value >= 35 ? 'text-orange-500' : 'text-blue-500'
-                        }`}
-                      >
-                        {temp.value.toFixed(1)}
-                      </span>
-                      <span className="text-xs text-gray-400 ml-1">°C</span>
-                    </div>
-                  </div>
-
-                  <div className="h-3.5 bg-gray-100 rounded-full p-[2px] shadow-inner overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-1000 ease-out relative bg-gradient-to-r from-blue-400 via-yellow-400 to-red-500"
-                      style={{
-                        width: `${Math.min(100, Math.max(0, temp.value))}%`,
-                        backgroundSize: `${100 / Math.max(0.01, temp.value / 100)}% 100%`,
-                      }}
-                    >
-                      <div className="absolute top-0 right-0 w-8 h-full bg-white/20 skew-x-[-20deg] animate-pulse"></div>
-                    </div>
-                  </div>
-
-                  <div
-                    className={[
-                      'mt-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 relative z-10 overflow-hidden transition-all duration-700 ease-out shadow-sm',
-                      isActive ? 'max-h-[420px] opacity-100 translate-y-0' : 'max-h-0 opacity-0 -translate-y-1',
-                    ].join(' ')}
-                    aria-hidden={!isActive}
-                  >
-                    <div className="flex items-start justify-between gap-3 mb-2">
-                      <div>
-                        <div className="font-extrabold text-slate-800">{tempExplain[temp.id as TempId].title}</div>
-                        <div className="text-xs text-slate-500">{tempExplain[temp.id as TempId].subtitle}</div>
+              {activeTemp && (
+                <div className="absolute inset-y-0 right-0 left-[72px] rounded-2xl border border-slate-200 bg-white/95 backdrop-blur-sm p-4 shadow-sm flex items-center">
+                  <div className="w-full">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">{activeTempItem?.icon}</span>
+                        <div>
+                          <div className="text-lg font-extrabold text-slate-800">{activeTemp.title}</div>
+                          <div className="text-sm text-slate-500">{activeTemp.subtitle}</div>
+                        </div>
                       </div>
                       <button
                         type="button"
                         onClick={() => setActiveTempId(null)}
                         className="text-xs text-slate-500 hover:text-slate-700"
                       >
-                        닫기 ✕
+                        닫기 X
                       </button>
                     </div>
 
                     <ul className="space-y-2 text-sm text-slate-700 leading-relaxed">
-                      {tempExplain[temp.id as TempId].body.map((line, idx) => (
-                        <li key={idx} className="flex gap-2">
+                      {activeTemp.body.map((line, idx) => (
+                        <li key={idx} className="flex items-center gap-2">
                           <span className="mt-[6px] w-1.5 h-1.5 rounded-full bg-slate-300 shrink-0" />
                           <span>{line}</span>
                         </li>
                       ))}
                     </ul>
 
-                    <div className="mt-3 text-[11px] text-slate-500">
+                    <div className="mt-3 text-xs text-slate-500">
                       * 온도는 전체 매물 분포 대비 상대적 위치를 보여주며, 36.5°C는 평균 기준선입니다.
                     </div>
                   </div>
                 </div>
-              );
-            })}
-
-            {/* (원하면) 활용 팁 고정 영역 */}
-            {/* <div className="rounded-2xl border border-gray-200 bg-white p-4 text-sm text-slate-600">
-              💡 활용 팁: 온도 아이콘을 눌러 “왜 이 점수인지” 기준을 확인해보세요.
-            </div> */}
+              )}
+            </div>
           </div>
         </div>
       </div>
