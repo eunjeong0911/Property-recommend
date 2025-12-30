@@ -205,6 +205,7 @@ export default function LandDetail({ landId }: LandDetailProps) {
 
   const activeTemp = activeTempId ? tempExplain[activeTempId] : null;
   const activeTempItem = activeTempId ? tempItems.find((item) => item.id === activeTempId) : null;
+  const visibleTempItems = activeTempId ? tempItems.filter((item) => item.id !== activeTempId) : tempItems;
 
   // 이미지가 없으면 기본 placeholder 사용
   const defaultPlaceholder = '/images/placeholder.svg';
@@ -405,47 +406,55 @@ export default function LandDetail({ landId }: LandDetailProps) {
             </h3>
           </div>
 
-          <div className="p-6 flex-1 overflow-hidden">
-            <div className="relative h-full">
-              <div className="space-y-[51px]">
-                {tempItems.map((temp) => {
-                  const isActive = activeTempId === (temp.id as TempId);
-
-                  return (
-                    <div key={temp.id} className="grid grid-cols-[56px_1fr] items-center gap-4">
+          <div className="p-4 flex-1 overflow-hidden">
+            <div className="flex h-full flex-col transition-all duration-300 ease-out">
+              <div className={`flex-1 min-h-0 flex flex-col ${activeTemp ? 'gap-6' : ''}`}>
+              <div
+                className={[
+                  'overflow-hidden transition-all duration-500 ease-out',
+                  activeTempItem && activeTemp ? 'max-h-[260px] opacity-100 translate-y-0' : 'max-h-0 opacity-0 -translate-y-2',
+                ].join(' ')}
+              >
+                {activeTempItem && activeTemp && (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                    <div className="grid grid-cols-[56px_1fr] items-center gap-4">
                       <button
                         type="button"
-                        onClick={() => toggleTemp(temp.id as TempId)}
-                        aria-pressed={isActive}
-                        aria-label={`${temp.label} 설명 ${isActive ? '닫기' : '보기'}`}
+                        onClick={() => toggleTemp(activeTempItem.id as TempId)}
+                        aria-pressed
+                        aria-label={`${activeTempItem.label} 설명 닫기`}
                         className={[
                           'w-14 h-14 rounded-xl flex items-center justify-center text-[24px] shadow-sm border transition-all duration-200',
-                          'bg-gray-50 border-gray-100 hover:scale-110 active:scale-105',
-                          isActive ? 'ring-2 ring-slate-300 bg-white' : '',
+                          'bg-white border-gray-100 hover:scale-110 active:scale-105',
+                          'ring-2 ring-slate-300',
                         ].join(' ')}
-                        title={`${temp.label} 설명 ${isActive ? '닫기' : '보기'}`}
+                        title={`${activeTempItem.label} 설명 닫기`}
                       >
-                        {temp.icon}
+                        {activeTempItem.icon}
                       </button>
 
-                        <div>
-                          <div className="flex items-center justify-between text-lg mb-2">
-                            <span className="font-semibold text-slate-700">{temp.label}</span>
-                            <span
-                              className={`font-black ${
-                                temp.value >= 39 ? 'text-red-500' : temp.value >= 35 ? 'text-orange-500' : 'text-blue-500'
-                              }`}
-                            >
-                              {temp.value.toFixed(1)}
-                              <span className="text-base text-gray-400 ml-1">°C</span>
-                            </span>
-                          </div>
-                          <div className="h-5 bg-gray-100 rounded-full p-[2px] shadow-inner overflow-hidden">
+                      <div>
+                        <div className="flex items-center justify-between text-lg mb-2">
+                          <span className="font-semibold text-slate-700">{activeTempItem.label}</span>
+                          <span
+                            className={`font-black ${
+                              activeTempItem.value >= 39
+                                ? 'text-red-500'
+                                : activeTempItem.value >= 35
+                                ? 'text-orange-500'
+                                : 'text-blue-500'
+                            }`}
+                          >
+                            {activeTempItem.value.toFixed(1)}
+                            <span className="text-base text-gray-400 ml-1">°C</span>
+                          </span>
+                        </div>
+                        <div className="h-5 bg-gray-100 rounded-full p-[2px] shadow-inner overflow-hidden">
                           <div
                             className="h-full rounded-full transition-all duration-1000 ease-out relative bg-gradient-to-r from-blue-400 via-yellow-400 to-red-500"
                             style={{
-                              width: `${Math.min(100, Math.max(0, temp.value))}%`,
-                              backgroundSize: `${100 / Math.max(0.01, temp.value / 100)}% 100%`,
+                              width: `${Math.min(100, Math.max(0, activeTempItem.value))}%`,
+                              backgroundSize: `${100 / Math.max(0.01, activeTempItem.value / 100)}% 100%`,
                             }}
                           >
                             <div className="absolute top-0 right-0 w-8 h-full bg-white/20 skew-x-[-20deg] animate-pulse"></div>
@@ -453,16 +462,21 @@ export default function LandDetail({ landId }: LandDetailProps) {
                         </div>
                       </div>
                     </div>
-                  );
-                })}
+                  </div>
+                )}
               </div>
 
-              {activeTemp && (
-                <div className="absolute inset-y-0 right-0 left-[72px] rounded-2xl border border-slate-200 bg-white/95 backdrop-blur-sm p-4 shadow-sm flex items-center">
-                  <div className="w-full">
-                    <div className="flex items-start justify-between gap-3 mb-3">
+              <div
+                className={[
+                  'overflow-hidden transition-all duration-700 ease-out',
+                  activeTemp ? 'max-h-[520px] opacity-100 translate-y-0' : 'max-h-0 opacity-0 translate-y-2',
+                ].join(' ')}
+              >
+                {activeTempItem && activeTemp && (
+                  <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <div className="flex items-start justify-between gap-3 mb-4">
                       <div className="flex items-center gap-2">
-                        <span className="text-xl">{activeTempItem?.icon}</span>
+                        <span className="text-xl">{activeTempItem.icon}</span>
                         <div>
                           <div className="text-lg font-extrabold text-slate-800">{activeTemp.title}</div>
                           <div className="text-sm text-slate-500">{activeTemp.subtitle}</div>
@@ -477,7 +491,7 @@ export default function LandDetail({ landId }: LandDetailProps) {
                       </button>
                     </div>
 
-                    <ul className="space-y-2 text-sm text-slate-700 leading-relaxed">
+                    <ul className="space-y-3 text-sm text-slate-700 leading-relaxed">
                       {activeTemp.body.map((line, idx) => (
                         <li key={idx} className="flex items-center gap-2">
                           <span className="mt-[6px] w-1.5 h-1.5 rounded-full bg-slate-300 shrink-0" />
@@ -486,9 +500,89 @@ export default function LandDetail({ landId }: LandDetailProps) {
                       ))}
                     </ul>
 
-                    <div className="mt-3 text-xs text-slate-500">
+                    <div className="mt-4 text-xs text-slate-500">
                       * 온도는 전체 매물 분포 대비 상대적 위치를 보여주며, 36.5°C는 평균 기준선입니다.
                     </div>
+                  </div>
+                )}
+              </div>
+
+              {!activeTemp && (
+                <div className="grid h-full grid-rows-5 gap-3 transition-all duration-300 ease-out">
+                  {visibleTempItems.map((temp) => {
+                    const isActive = activeTempId === (temp.id as TempId);
+
+                    return (
+                      <div key={temp.id} className="grid grid-cols-[56px_1fr] items-center gap-4 h-full">
+                        <button
+                          type="button"
+                          onClick={() => toggleTemp(temp.id as TempId)}
+                          aria-pressed={isActive}
+                          aria-label={`${temp.label} 설명 ${isActive ? '닫기' : '보기'}`}
+                          className={[
+                            'w-14 h-14 rounded-xl flex items-center justify-center text-[24px] shadow-sm border transition-all duration-200',
+                            'bg-gray-50 border-gray-100 hover:scale-110 active:scale-105',
+                            isActive ? 'ring-2 ring-slate-300 bg-white' : '',
+                          ].join(' ')}
+                          title={`${temp.label} 설명 ${isActive ? '닫기' : '보기'}`}
+                        >
+                          {temp.icon}
+                        </button>
+
+                        <div>
+                          <div className="flex items-center justify-between text-lg mb-2">
+                            <span className="font-semibold text-slate-700">{temp.label}</span>
+                            <span
+                              className={`font-black ${
+                                temp.value >= 39 ? 'text-red-500' : temp.value >= 35 ? 'text-orange-500' : 'text-blue-500'
+                              }`}
+                            >
+                              {temp.value.toFixed(1)}
+                              <span className="text-base text-gray-400 ml-1">°C</span>
+                            </span>
+                          </div>
+                          <div className="h-5 bg-gray-100 rounded-full p-[2px] shadow-inner overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all duration-1000 ease-out relative bg-gradient-to-r from-blue-400 via-yellow-400 to-red-500"
+                              style={{
+                                width: `${Math.min(100, Math.max(0, temp.value))}%`,
+                                backgroundSize: `${100 / Math.max(0.01, temp.value / 100)}% 100%`,
+                              }}
+                            >
+                              <div className="absolute top-0 right-0 w-8 h-full bg-white/20 skew-x-[-20deg] animate-pulse"></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              </div>
+
+              {activeTemp && (
+                <div className="pt-4 mt-auto">
+                  <div className="flex items-center justify-between">
+                    {tempItems.map((temp) => {
+                      const isActive = activeTempId === (temp.id as TempId);
+
+                      return (
+                        <button
+                          key={temp.id}
+                          type="button"
+                          onClick={() => toggleTemp(temp.id as TempId)}
+                          aria-label={`${temp.label} 설명 ${isActive ? '닫기' : '보기'}`}
+                          className={[
+                            'w-16 h-16 rounded-xl flex items-center justify-center text-[26px] shadow-sm border transition-all duration-200',
+                            'bg-gray-50 border-gray-100 hover:scale-110 active:scale-105',
+                            isActive ? 'ring-2 ring-slate-300 bg-white' : '',
+                          ].join(' ')}
+                          title={`${temp.label} 설명 ${isActive ? '닫기' : '보기'}`}
+                        >
+                          {temp.icon}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
