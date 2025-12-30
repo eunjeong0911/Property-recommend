@@ -4,7 +4,7 @@ k-NN Query Format Property-Based Tests
 **Feature: aws-deployment-prep, Property 3: k-NN query format validity**
 **Validates: Requirements 2.2**
 
-Tests that k-NN queries are generated in valid OpenSearch k-NN DSL format.
+Tests that k-NN queries are generated in valid Elasticsearch 8.17 k-NN DSL format.
 """
 import pytest
 from hypothesis import given, strategies as st, settings
@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.abspath(rag_path))
 
 def validate_knn_query_structure(query: Dict[str, Any]) -> bool:
     """
-    OpenSearch k-NN 쿼리 구조 검증
+    Elasticsearch 8.17 k-NN 쿼리 구조 검증
     
     유효한 k-NN 쿼리는 다음 구조를 가져야 함:
     {
@@ -69,9 +69,9 @@ class TestKnnQueryFormatValidity:
     **Feature: aws-deployment-prep, Property 3: k-NN query format validity**
     **Validates: Requirements 2.2**
     
-    *For any* vector similarity search request, the generated OpenSearch query 
+    *For any* vector similarity search request, the generated Elasticsearch 8.17 query 
     SHALL use `knn` query type with valid `vector` and `k` parameters in 
-    OpenSearch k-NN DSL format.
+    Elasticsearch 8.17 k-NN DSL format.
     """
     
     @given(
@@ -85,7 +85,7 @@ class TestKnnQueryFormatValidity:
         **Validates: Requirements 2.2**
         
         *For any* k value and vector dimension, build_knn_query SHALL produce
-        a valid OpenSearch k-NN DSL query with 'knn' type, 'vector', and 'k' parameters.
+        a valid Elasticsearch 8.17 k-NN DSL query with 'knn' type, 'vector', and 'k' parameters.
         """
         from nodes.vector_search_node import build_knn_query
         
@@ -95,9 +95,9 @@ class TestKnnQueryFormatValidity:
         # k-NN 쿼리 빌드
         query = build_knn_query(query_vector, k=k)
         
-        # Property 검증: 쿼리가 유효한 OpenSearch k-NN DSL 형식인지 확인
+        # Property 검증: 쿼리가 유효한 Elasticsearch 8.17 k-NN DSL 형식인지 확인
         assert validate_knn_query_structure(query), \
-            f"생성된 쿼리가 유효한 OpenSearch k-NN DSL 형식이 아닙니다: {json.dumps(query, indent=2)}"
+            f"생성된 쿼리가 유효한 Elasticsearch 8.17 k-NN DSL 형식이 아닙니다: {json.dumps(query, indent=2)}"
         
         # 추가 검증: vector와 k 값이 올바른지 확인
         knn_config = query["knn"]["embedding"]
@@ -116,7 +116,7 @@ class TestKnnQueryFormatValidity:
         **Validates: Requirements 2.2**
         
         *For any* k value with 3072-dimensional embedding vector (text-embedding-3-large),
-        build_knn_query SHALL produce a valid OpenSearch k-NN DSL query.
+        build_knn_query SHALL produce a valid Elasticsearch 8.17 k-NN DSL query.
         """
         from nodes.vector_search_node import build_knn_query
         
@@ -193,7 +193,7 @@ class TestEsSearchNodeKnnQuery:
         **Validates: Requirements 2.2**
         
         *For any* k value and vector dimension, es_search_node.build_knn_query 
-        SHALL produce a valid OpenSearch k-NN DSL query.
+        SHALL produce a valid Elasticsearch 8.17 k-NN DSL query.
         """
         from nodes.es_search_node import build_knn_query
         
