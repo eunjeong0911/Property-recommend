@@ -16,8 +16,8 @@ import re
 from pathlib import Path
 from typing import List, Dict, Any, Tuple, Optional
 
-# Add project root to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+# Add project root to path (scripts/03_import/elasticsearch -> project root)
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 # Elasticsearch imports
 try:

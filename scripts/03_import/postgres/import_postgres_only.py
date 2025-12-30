@@ -4,12 +4,15 @@ data/landData 폴더의 4개 JSON 파일을 Land 테이블에 적재
 """
 import sys
 import os
+from pathlib import Path
 
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Add scripts/03_import to path for config/db_health_check
+IMPORT_DIR = Path(__file__).parent.parent
+sys.path.insert(0, str(IMPORT_DIR))
 
 from config import Config
 from db_health_check import DatabaseHealthCheck
-from importers.postgres_importer import PostgresImporter
+from postgres_importer import PostgresImporter
 
 
 def main():
