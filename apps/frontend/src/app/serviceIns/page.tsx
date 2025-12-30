@@ -468,17 +468,12 @@ export default function ServiceInsPage() {
 
           <div className="relative flex justify-center gap-4 flex-wrap">
             <Link
-              href="/chat"
+              href="/main"
               className="px-8 py-3 bg-white text-blue-700 font-bold rounded-xl hover:bg-blue-50 transition-all shadow-lg hover:-translate-y-0.5 active:translate-y-0"
             >
-              챗봇 상담 시작
+              GoZip과 매물 보러가기
             </Link>
-            <Link
-              href="/main"
-              className="px-8 py-3 bg-white/15 text-white font-bold rounded-xl hover:bg-white/25 transition-all border border-white/30 hover:-translate-y-0.5 active:translate-y-0"
-            >
-              매물 보러가기
-            </Link>
+            
           </div>
         </section>
       </div>
