@@ -16,8 +16,8 @@ from pathlib import Path
 from typing import List, Dict, Generator
 from concurrent.futures import ThreadPoolExecutor
 
-# 프로젝트 루트 경로 추가
-PROJECT_ROOT = Path(__file__).parent.parent.parent
+# 프로젝트 루트 경로 추가 (scripts/03_import/elasticsearch -> project root)
+PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 # .env 파일 로드
