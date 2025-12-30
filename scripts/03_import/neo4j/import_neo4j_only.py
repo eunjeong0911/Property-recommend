@@ -4,24 +4,28 @@ PostgreSQL 제외, Neo4j 노드 + 관계만 생성
 """
 import sys
 import os
+from pathlib import Path
 
-# Add scripts/data_import to path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Add scripts/03_import to path for config/db_health_check
+IMPORT_DIR = Path(__file__).parent.parent
+sys.path.insert(0, str(IMPORT_DIR))
 
 from config import Config
 from db_health_check import DatabaseHealthCheck
-from importers.neo4j_importers.facility.transport_importer import TransportImporter
-from importers.neo4j_importers.facility.amenity_importer import AmenityImporter
-from importers.neo4j_importers.facility.safety_importer import SafetyImporter
-from importers.neo4j_importers.facility.animal_importer import AnimalImporter
-from importers.neo4j_importers.facility.culture_importer import CultureImporter
-from importers.neo4j_importers.temperature.safety_score_importer import SafetyScoreImporter
-from importers.neo4j_importers.temperature.convenience_score_importer import ConvenienceScoreImporter
-from importers.neo4j_importers.temperature.traffic_score_importer import TrafficScoreImporter
-from importers.neo4j_importers.temperature.culture_score_importer import CultureScoreImporter
-from importers.neo4j_importers.temperature.pet_score_importer import PetScoreImporter
-from importers.neo4j_importers.property.property_importer import PropertyImporter
 from database import Database
+
+# Neo4j importer imports (현재 폴더 기준)
+from facility.transport_importer import TransportImporter
+from facility.amenity_importer import AmenityImporter
+from facility.safety_importer import SafetyImporter
+from facility.animal_importer import AnimalImporter
+from facility.culture_importer import CultureImporter
+from temperature.safety_score_importer import SafetyScoreImporter
+from temperature.convenience_score_importer import ConvenienceScoreImporter
+from temperature.traffic_score_importer import TrafficScoreImporter
+from temperature.culture_score_importer import CultureScoreImporter
+from temperature.pet_score_importer import PetScoreImporter
+from property.property_importer import PropertyImporter
 
 
 def main():
