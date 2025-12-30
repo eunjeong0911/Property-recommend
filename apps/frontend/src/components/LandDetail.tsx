@@ -368,7 +368,19 @@ export default function LandDetail({ landId }: LandDetailProps) {
                             </div>
                             <div className="flex justify-between border-b border-gray-100 pb-1">
                                 <span className="text-gray-500">공급면적/전용</span>
-                                <span className="font-medium text-slate-800">{land.area_supply || '-'} / {land.area_exclusive || '-'}</span>
+                                <span className="font-medium text-slate-800">
+                                    {(() => {
+                                        const supply = land.area_supply?.replace(/m2/gi, '㎡');
+                                        const exclusive = land.area_exclusive?.replace(/m2/gi, '㎡');
+                                        const hasSupply = supply && !supply.startsWith('-');
+                                        const hasExclusive = exclusive && !exclusive.startsWith('-');
+
+                                        if (hasSupply && hasExclusive) return `${supply} / ${exclusive}`;
+                                        if (hasSupply) return supply;
+                                        if (hasExclusive) return exclusive;
+                                        return '-';
+                                    })()}
+                                </span>
                             </div>
                             <div className="flex justify-between border-b border-gray-100 pb-1">
                                 <span className="text-gray-500">방/욕실</span>

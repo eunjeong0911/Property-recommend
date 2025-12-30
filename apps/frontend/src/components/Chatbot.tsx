@@ -620,7 +620,7 @@ export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
 
                             return (
                               <div key={`${message.id}-${partIndex}`} className="flex justify-start">
-                                <div className={`max-w-[85%] p-4 rounded-lg ${colors.bg} ${colors.border}`}>
+                                <div className={`w-[85%] p-4 rounded-lg ${colors.bg} ${colors.border}`}>
                                   {part.rank && (
                                     <div className="flex items-center gap-2 mb-2">
                                       <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${colors.badge}`}>
@@ -637,15 +637,13 @@ export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
                                         a: ({ href, children }) => {
                                           const text = String(children);
                                           if (text.includes('상세보기')) {
-                                            // 👉 이모지 제거
-                                            const cleanText = text.replace(/👉\s*/g, '');
                                             return (
                                               <div className="flex justify-end mt-3 not-prose">
                                                 <a
                                                   href={href}
                                                   className="font-bold text-black-600 hover:text-black-800 hover:underline"
                                                 >
-                                                  {cleanText}
+                                                  {children}
                                                 </a>
                                               </div>
                                             );
@@ -674,7 +672,7 @@ export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
                           {/* 추가질문 섹션 - 별도 말풍선, 2열 그리드 */}
                           {questions.length > 0 && (
                             <div className="flex justify-start">
-                              <div className="max-w-[85%] p-4 rounded-lg bg-purple-50 border-l-4 border-purple-400">
+                              <div className="w-[85%] p-4 rounded-lg bg-purple-50 border-l-4 border-purple-400">
                                 <div className="flex items-center gap-2 mb-3">
                                   <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-purple-400 text-white">
                                     💡 추가질문
