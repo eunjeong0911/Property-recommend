@@ -70,7 +70,7 @@ def import_elasticsearch():
     print(" " * 20 + "� Elasticsearch Import 시작")
     print("=" * 70)
     
-    es_script = IMPORT_DIR / "elasticsearch" / "opensearch_importer.py"
+    es_script = IMPORT_DIR / "elasticsearch" / "es817_property_importer.py"
     result = subprocess.run(
         [sys.executable, str(es_script)],
         cwd=str(IMPORT_DIR / "elasticsearch")
