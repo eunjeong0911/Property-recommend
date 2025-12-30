@@ -11,7 +11,6 @@ from .utils.price_utils import (
     extract_area_exclusive,
     extract_total_floors,
 )
-from .utils.radar_chart_utils import calculate_radar_chart_data
 from .utils.temperature_utils import get_land_temperatures
 import random
 
@@ -82,11 +81,12 @@ class LandSerializer(serializers.ModelSerializer):
     # 가격 분류 정보
     price_prediction = serializers.SerializerMethodField()
     
-    # 레이더 차트 데이터 (추후 제거 예정이나 하위 호환성을 위해 유지)
-    radar_chart_data = serializers.SerializerMethodField()
-    
     # 부동산 온도 데이터
     temperatures = serializers.SerializerMethodField()
+
+    
+    # listing_info (시설 정보)
+    listing_info = serializers.JSONField(read_only=True)
 
     class Meta:
         model = Land
@@ -121,8 +121,8 @@ class LandSerializer(serializers.ModelSerializer):
             'move_in_report',
             'broker',
             'price_prediction',
-            'radar_chart_data',
-            'temperatures'
+            'temperatures',
+            'listing_info'
         ]
 
     def get_title(self, obj):
@@ -244,9 +244,12 @@ class LandSerializer(serializers.ModelSerializer):
         return '-'
     
     def get_move_in_report(self, obj):
-        """전입신고 (trade_info에서 추출)"""
-        if obj.trade_info and isinstance(obj.trade_info, dict):
-            return obj.trade_info.get('전입신고', '-')
+        """전입신고 (listing_info에서 추출)"""
+        if obj.listing_info and isinstance(obj.listing_info, dict):
+            # listing_info에서 직접 확인 (최상위 레벨)
+            value = obj.listing_info.get('전입신고 여부', '')
+            if value and value != '-':
+                return value
         return '-'
     
     def get_price_prediction(self, obj):
@@ -277,22 +280,6 @@ class LandSerializer(serializers.ModelSerializer):
             print(f"Error fetching price classification: {e}")
         return None
     
-    def get_radar_chart_data(self, obj):
-        """레이더 차트 데이터 계산"""
-        try:
-            return calculate_radar_chart_data(obj)
-        except Exception as e:
-            import traceback
-            print(f"Error calculating radar chart data: {e}")
-            print(traceback.format_exc())
-            # 기본값 반환
-            return {
-                'building_age': 50,
-                'required_options': 50,
-                'security_facilities': 50,
-                'space_efficiency': 50,
-                'optional_facilities': 50
-            }
     
     def get_temperatures(self, obj):
         """Neo4j에서 부동산 온도 정보 조회"""

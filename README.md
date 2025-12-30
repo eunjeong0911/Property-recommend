@@ -1,3 +1,6 @@
+<img width="1277" height="653" alt="image" src="https://github.com/user-attachments/assets/aba2cb6d-e8ea-4809-b5f3-0ce2836f48b7" />
+
+
 # 🏠 부동산 매물 추천 AI 플랫폼
 
 > **AI 기반 부동산 매물 검색 및 추천 서비스**  
