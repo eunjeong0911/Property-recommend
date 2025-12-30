@@ -136,6 +136,60 @@ export default function Map({ landId, activeCategories }: MapProps) {
                 mapRef.current = map;
                 console.log('지도 생성 완료');
 
+                // 상세 페이지에서 매물 마커 즉시 생성
+                if (landId && currentLand) {
+                    console.log('📍 매물 마커 생성 시작:', currentLand);
+                    const position = new window.kakao.maps.LatLng(currentLand.latitude, currentLand.longitude);
+
+                    // 커스텀 마커 이미지 (빨간색 핀)
+                    const markerContent = document.createElement('div');
+                    markerContent.innerHTML = `
+                        <div style="
+                            position: relative;
+                            width: 40px;
+                            height: 50px;
+                            cursor: pointer;
+                        ">
+                            <svg viewBox="0 0 24 24" width="40" height="40" fill="#dc2626" stroke="#fff" stroke-width="1">
+                                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                            </svg>
+                            <div style="
+                                position: absolute;
+                                bottom: -8px;
+                                left: 50%;
+                                transform: translateX(-50%);
+                                background: #dc2626;
+                                color: white;
+                                padding: 2px 6px;
+                                border-radius: 4px;
+                                font-size: 10px;
+                                font-weight: bold;
+                                white-space: nowrap;
+                                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                            ">매물</div>
+                        </div>
+                    `;
+
+                    const customOverlay = new window.kakao.maps.CustomOverlay({
+                        position: position,
+                        content: markerContent,
+                        yAnchor: 1.2,
+                        xAnchor: 0.5,
+                        zIndex: 100
+                    });
+
+                    customOverlay.setMap(map);
+
+                    // 기존 마커 배열에 저장
+                    markersRef.current.push({
+                        marker: customOverlay,
+                        overlay: null,
+                        overlayState: undefined
+                    });
+
+                    console.log('✅ 매물 마커 생성 완료');
+                }
+
                 // 메인 페이지에서만 구별 폴리곤 표시
                 if (!landId) {
                     // 지도 이동/확대 제한 (서울 전역 고정)
@@ -483,6 +537,17 @@ export default function Map({ landId, activeCategories }: MapProps) {
             'safety': '/assets/map_pin/cctv.png'
         };
 
+        // 카테고리별 색상 및 이모지 매핑
+        const categoryStyles: Record<string, { color: string; bgColor: string; emoji: string; label: string }> = {
+            'transportation': { color: '#2563eb', bgColor: '#dbeafe', emoji: '🚇', label: '교통' },
+            'medical': { color: '#dc2626', bgColor: '#fee2e2', emoji: '🏥', label: '의료' },
+            'convenience': { color: '#16a34a', bgColor: '#dcfce7', emoji: '🏪', label: '편의' },
+            'safety': { color: '#7c3aed', bgColor: '#ede9fe', emoji: '📹', label: '안전' }
+        };
+
+        // 현재 열린 오버레이 추적 (클로저로 관리)
+        let currentOpenOverlay: any = null;
+
         // 각 활성화된 카테고리에 대해 시설 위치 가져오기
         activeCategories.forEach(async (category) => {
             try {
@@ -498,6 +563,8 @@ export default function Map({ landId, activeCategories }: MapProps) {
                     console.warn(`${category} 시설이 없습니다.`);
                     return;
                 }
+
+                const style = categoryStyles[category] || categoryStyles['convenience'];
 
                 // 시설 마커 생성
                 response.facilities.forEach((facility: FacilityLocation) => {
@@ -518,13 +585,116 @@ export default function Map({ landId, activeCategories }: MapProps) {
                     marker.setMap(mapRef.current);
                     facilityMarkersRef.current.push(marker);
 
-                    // 마커 클릭 시 인포윈도우 표시 (선택사항)
-                    const infowindow = new window.kakao.maps.InfoWindow({
-                        content: `<div style="padding:5px;font-size:12px;">${facility.name}</div>`
+                    // 커스텀 오버레이 콘텐츠 (더 예쁜 디자인)
+                    const overlayContent = document.createElement('div');
+                    overlayContent.innerHTML = `
+                        <div style="
+                            position: relative;
+                            background: white;
+                            border-radius: 12px;
+                            padding: 12px 14px;
+                            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                            border: 2px solid ${style.color};
+                            min-width: 120px;
+                            max-width: 200px;
+                            animation: fadeIn 0.2s ease-out;
+                        ">
+                            <style>
+                                @keyframes fadeIn {
+                                    from { opacity: 0; transform: translateY(-5px); }
+                                    to { opacity: 1; transform: translateY(0); }
+                                }
+                            </style>
+                            
+                            <!-- 카테고리 태그 -->
+                            <div style="
+                                display: inline-flex;
+                                align-items: center;
+                                gap: 4px;
+                                background: ${style.bgColor};
+                                color: ${style.color};
+                                padding: 3px 8px;
+                                border-radius: 6px;
+                                font-size: 10px;
+                                font-weight: 700;
+                                margin-bottom: 8px;
+                            ">
+                                <span>${style.emoji}</span>
+                                <span>${style.label}</span>
+                            </div>
+                            
+                            <!-- 시설 이름 -->
+                            <div style="
+                                font-size: 13px;
+                                font-weight: 600;
+                                color: #1f2937;
+                                line-height: 1.4;
+                                word-break: keep-all;
+                            ">${facility.name}</div>
+                            
+                            <!-- 화살표 -->
+                            <div style="
+                                position: absolute;
+                                bottom: -8px;
+                                left: 50%;
+                                transform: translateX(-50%);
+                                width: 0;
+                                height: 0;
+                                border-left: 8px solid transparent;
+                                border-right: 8px solid transparent;
+                                border-top: 8px solid ${style.color};
+                            "></div>
+                            <div style="
+                                position: absolute;
+                                bottom: -5px;
+                                left: 50%;
+                                transform: translateX(-50%);
+                                width: 0;
+                                height: 0;
+                                border-left: 6px solid transparent;
+                                border-right: 6px solid transparent;
+                                border-top: 6px solid white;
+                            "></div>
+                        </div>
+                    `;
+
+                    // 커스텀 오버레이 생성
+                    const customOverlay = new window.kakao.maps.CustomOverlay({
+                        position: position,
+                        content: overlayContent,
+                        yAnchor: 1.3,
+                        xAnchor: 0.5,
+                        zIndex: 50
                     });
 
+                    // 오버레이 열림 상태 추적
+                    let isOpen = false;
+
+                    // 마커 클릭 시 토글 (열기/닫기)
                     window.kakao.maps.event.addListener(marker, 'click', () => {
-                        infowindow.open(mapRef.current, marker);
+                        if (isOpen) {
+                            // 이미 열려있으면 닫기
+                            customOverlay.setMap(null);
+                            isOpen = false;
+                            currentOpenOverlay = null;
+                        } else {
+                            // 다른 오버레이가 열려있으면 먼저 닫기
+                            if (currentOpenOverlay) {
+                                currentOpenOverlay.overlay.setMap(null);
+                                currentOpenOverlay.setOpen(false);
+                            }
+                            // 새 오버레이 열기
+                            customOverlay.setMap(mapRef.current);
+                            isOpen = true;
+                            currentOpenOverlay = { overlay: customOverlay, setOpen: (val: boolean) => { isOpen = val; } };
+                        }
+                    });
+
+                    // 오버레이 클릭 시에도 닫기
+                    overlayContent.addEventListener('click', () => {
+                        customOverlay.setMap(null);
+                        isOpen = false;
+                        currentOpenOverlay = null;
                     });
                 });
 
@@ -536,12 +706,51 @@ export default function Map({ landId, activeCategories }: MapProps) {
     }, [activeCategories, landId]);
 
 
+    // 매물 위치로 이동하는 함수
+    const moveToPropertyLocation = () => {
+        if (!mapRef.current || !currentLand) return;
+
+        const position = new window.kakao.maps.LatLng(currentLand.latitude, currentLand.longitude);
+        mapRef.current.setCenter(position);
+        mapRef.current.setLevel(3); // 적절한 줌 레벨로 설정
+    };
+
     return (
         <div className="relative w-full h-[450px] rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden p-2">
             <div
                 ref={mapContainer}
                 className="w-full h-full rounded-xl overflow-hidden"
             />
+
+            {/* 매물위치 버튼 (상세 페이지에서만 표시) */}
+            {landId && currentLand && (
+                <button
+                    onClick={moveToPropertyLocation}
+                    className="absolute bottom-4 right-4 z-10 flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-gray-50 text-slate-700 font-semibold text-sm rounded-xl shadow-lg border border-gray-200 transition-all hover:shadow-xl active:scale-95"
+                    title="매물 위치로 이동"
+                >
+                    <svg
+                        className="w-4 h-4 text-purple-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                        />
+                        <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                    </svg>
+                    <span>매물위치</span>
+                </button>
+            )}
         </div>
     );
 }
