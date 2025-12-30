@@ -52,10 +52,10 @@ const extractSuggestedQuestions = (content: string): { mainContent: string; ques
 
   console.log('질문 섹션:', questionSection);
 
-  // 줄바꿈으로 질문들 분리
+  // 줄바꿈으로 질문들 분리, 순번 제거
   const questions = questionSection
     .split(/\n/)
-    .map(q => q.trim())
+    .map(q => q.trim().replace(/^\d+\.\s*/, '')) // 앞의 "1.", "2." 등 순번 제거
     .filter(q => q.length > 0 && !q.match(/^👍/));
 
   console.log('추출된 질문들:', questions);
@@ -684,8 +684,62 @@ export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
                                   {questions.map((question, qIndex) => (
                                     <button
                                       key={qIndex}
-                                      onClick={() => {
-                                        setInputValue(question);
+                                      onClick={async () => {
+                                        // 바로 질문 전송
+                                        const sessionId = currentSessionId || Date.now().toString();
+                                        if (!currentSessionId) {
+                                          const newSession: ChatSession = {
+                                            id: sessionId,
+                                            title: '새 대화',
+                                            messages: [],
+                                            createdAt: new Date(),
+                                            updatedAt: new Date(),
+                                          };
+                                          setSessions(prev => [newSession, ...prev]);
+                                          setCurrentSessionId(sessionId);
+                                        }
+
+                                        const userMessage: Message = {
+                                          id: Date.now().toString(),
+                                          type: 'user',
+                                          content: question,
+                                          timestamp: new Date(),
+                                        };
+
+                                        setMessages(prev => [...prev, userMessage]);
+                                        setIsLoading(true);
+
+                                        try {
+                                          const answer = await sendChatQuestion(question, sessionId);
+                                          const aiMessage: Message = {
+                                            id: (Date.now() + 1).toString(),
+                                            type: 'ai',
+                                            content: answer,
+                                            timestamp: new Date(),
+                                          };
+                                          setMessages(prev => [...prev, aiMessage]);
+
+                                          if (onRecommendLands) {
+                                            const landIds = [...answer.matchAll(/\/landDetail\/(\d+)/g)]
+                                              .map(match => Number(match[1]))
+                                              .filter(Boolean);
+                                            if (landIds.length > 0) {
+                                              onRecommendLands(landIds);
+                                            }
+                                          }
+                                        } catch (error) {
+                                          setMessages(prev => [
+                                            ...prev,
+                                            {
+                                              id: (Date.now() + 2).toString(),
+                                              type: 'ai',
+                                              content: '응답 중 오류가 발생했습니다. 다시 시도해주세요.',
+                                              timestamp: new Date(),
+                                            },
+                                          ]);
+                                        } finally {
+                                          setIsLoading(false);
+                                        }
                                       }}
                                       className="text-left px-3 py-2 bg-white border border-purple-200 rounded-lg text-sm text-purple-700 hover:bg-purple-100 hover:border-purple-300 transition-colors"
                                     >
