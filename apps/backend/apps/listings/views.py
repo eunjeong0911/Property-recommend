@@ -328,23 +328,28 @@ class LandViewSet(viewsets.ReadOnlyModelViewSet):
         try:
             with driver.session() as session:
                 # 카테고리별 노드 타입과 관계 매핑 (실제 Neo4j 스키마)
+                # 안전 시설은 노드별로 다른 속성 사용:
+                # - CCTV: purpose (설치목적), address
+                # - EmergencyBell: location_desc (설치위치), address
+                # - PoliceStation: name
+                # - FireStation: name
                 category_mapping = {
                     'transportation': [
-                        ('SubwayStation', 'NEAR_SUBWAY'),
-                        ('BusStation', 'NEAR_BUS')
+                        ('SubwayStation', 'NEAR_SUBWAY', 'f.name'),
+                        ('BusStation', 'NEAR_BUS', 'f.name')
                     ],
                     'medical': [
-                        ('Hospital', 'NEAR_HOSPITAL'),
-                        ('Pharmacy', 'NEAR_PHARMACY')
+                        ('Hospital', 'NEAR_HOSPITAL', 'f.name'),
+                        ('Pharmacy', 'NEAR_PHARMACY', 'f.name')
                     ],
                     'convenience': [
-                        ('Store', 'NEAR_CONVENIENCE')
+                        ('Store', 'NEAR_CONVENIENCE', 'f.name')
                     ],
                     'safety': [
-                        ('CCTV', 'NEAR_CCTV'),
-                        ('PoliceStation', 'NEAR_POLICE'),
-                        ('FireStation', 'NEAR_FIRE'),
-                        ('EmergencyBell', 'NEAR_BELL')
+                        ('CCTV', 'NEAR_CCTV', "COALESCE(f.purpose, 'CCTV') + ' (' + COALESCE(SPLIT(f.address, ' ')[-1], '주변') + ')'"),
+                        ('PoliceStation', 'NEAR_POLICE', 'f.name'),
+                        ('FireStation', 'NEAR_FIRE', 'f.name'),
+                        ('EmergencyBell', 'NEAR_BELL', "'비상벨 (' + COALESCE(f.location_desc, SPLIT(f.address, ' ')[-1], '주변') + ')'")
                     ]
                 }
                 
@@ -355,11 +360,11 @@ class LandViewSet(viewsets.ReadOnlyModelViewSet):
                 facilities = []
                 
                 # 각 노드 타입과 관계별로 쿼리 실행
-                for node_type, rel_type in node_rel_pairs:
+                for node_type, rel_type, name_expr in node_rel_pairs:
                     query = f"""
                     MATCH (p:Property {{id: $land_num}})-[:{rel_type}]->(f:{node_type})
                     WHERE f.latitude IS NOT NULL AND f.longitude IS NOT NULL
-                    RETURN f.name as name, 
+                    RETURN {name_expr} as name, 
                            f.latitude as latitude, 
                            f.longitude as longitude,
                            '{node_type}' as type

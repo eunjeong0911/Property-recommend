@@ -26,9 +26,9 @@ except ImportError:
     class Config:
         BASE_DIR = project_root
 
-class OpenSearchImporter:
+class ES817PropertyImporter:
     """
-    OpenSearch에 매물 데이터를 적재하는 Importer
+    Elasticsearch 8.17에 매물 데이터를 적재하는 Importer
     
     데이터 소스:
     - data/RDB/land/*.json (전처리 및 search_text 생성 완료된 데이터)
@@ -46,15 +46,15 @@ class OpenSearchImporter:
     }
 
     def __init__(self):
-        # OpenSearch 연결 설정 (환경변수 우선)
-        host = os.environ.get("OPENSEARCH_HOST") or os.environ.get("ELASTICSEARCH_HOST", "localhost")
-        port = os.environ.get("OPENSEARCH_PORT") or os.environ.get("ELASTICSEARCH_PORT", "9200")
+        # Elasticsearch 8.17 연결 설정 (환경변수 우선)
+        host = os.environ.get("ELASTICSEARCH_HOST", "localhost")
+        port = os.environ.get("ELASTICSEARCH_PORT", "9200")
         
         # URL 포맷팅
         if not host.startswith("http"):
             host = f"http://{host}:{port}"
 
-        print(f"[OpenSearch] Connecting to {host}...")
+        print(f"[ES 8.17] Connecting to {host}...")
         self.es = Elasticsearch(
             hosts=[host],
             request_timeout=30,
@@ -64,9 +64,9 @@ class OpenSearchImporter:
         
         if self.es.ping():
             info = self.es.info()
-            print(f"[OpenSearch] Connected! Version: {info['version']['number']}")
+            print(f"[ES 8.17] Connected! Version: {info['version']['number']}")
         else:
-            print(f"[OpenSearch] ⚠️ Connection failed to {host}")
+            print(f"[ES 8.17] ⚠️ Connection failed to {host}")
 
     def _parse_price(self, price_str: str) -> int:
         """가격 문자열을 만원 단위 정수로 변환"""
@@ -149,7 +149,7 @@ class OpenSearchImporter:
     def create_index(self):
         """인덱스 생성 및 매핑 설정"""
         if self.es.indices.exists(index=self.INDEX_NAME):
-            print(f"[OpenSearch] Index '{self.INDEX_NAME}' already exists.")
+            print(f"[ES 8.17] Index '{self.INDEX_NAME}' already exists.")
             return
 
         # 매핑 설정 (Nori 분석기 및 KNN 벡터 적용)
@@ -226,9 +226,9 @@ class OpenSearchImporter:
         
         try:
             self.es.indices.create(index=self.INDEX_NAME, body=mapping)
-            print(f"[OpenSearch] Created index '{self.INDEX_NAME}' with mappings.")
+            print(f"[ES 8.17] Created index '{self.INDEX_NAME}' with mappings.")
         except Exception as e:
-            print(f"[OpenSearch] ❌ Failed to create index: {e}")
+            print(f"[ES 8.17] ❌ Failed to create index: {e}")
 
     def import_properties(self):
         """매물 데이터 적재 실행"""
@@ -242,11 +242,11 @@ class OpenSearchImporter:
             data_dir = os.path.join(Config.BASE_DIR, "data", "RDB", "land")
             
         if not os.path.exists(data_dir):
-            print(f"[OpenSearch] ❌ Data directory not found: {data_dir}")
+            print(f"[ES 8.17] ❌ Data directory not found: {data_dir}")
             return
 
         json_files = [f for f in os.listdir(data_dir) if f.endswith('.json') and f in self.FILE_TYPE_MAPPING]
-        print(f"[OpenSearch] Found {len(json_files)} JSON files to import.")
+        print(f"[ES 8.17] Found {len(json_files)} JSON files to import.")
 
         total_success = 0
         total_failed = 0
@@ -278,7 +278,7 @@ class OpenSearchImporter:
                 print(f"  ❌ Error processing file: {e}")
 
         print("\n" + "="*50)
-        print("OpenSearch Import Completed")
+        print("Elasticsearch 8.17 Import Completed")
         print(f"Total Indexed: {total_success}")
         print(f"Total Failed:  {total_failed}")
         print("="*50)
@@ -287,5 +287,5 @@ class OpenSearchImporter:
         self.es.indices.refresh(index=self.INDEX_NAME)
 
 if __name__ == "__main__":
-    importer = OpenSearchImporter()
+    importer = ES817PropertyImporter()
     importer.import_properties()
