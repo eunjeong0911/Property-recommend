@@ -402,13 +402,13 @@ export default function ServiceInsPage() {
 
               <div className="mt-4 space-y-2 text-sm text-slate-700">
                 <div className="bg-emerald-50 border border-emerald-200/70 rounded-xl px-4 py-3">
-                  비슷한 가격대의 다른 매물
+                  주변 인프라가 비슷한 매물
                 </div>
                 <div className="bg-emerald-50 border border-emerald-200/70 rounded-xl px-4 py-3">
-                  같은 생활권에 속한 지역
+                  각종 온도를 통한 직관적인 매물 비교
                 </div>
                 <div className="bg-emerald-50 border border-emerald-200/70 rounded-xl px-4 py-3">
-                  교통·편의시설이 겹치는 매물
+                  사용자의 선호도를 반영한 맞춤 추천
                 </div>
               </div>
             </div>
