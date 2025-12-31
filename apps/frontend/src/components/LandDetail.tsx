@@ -453,8 +453,8 @@ export default function LandDetail({ landId }: LandDetailProps) {
                             <div
                               className="h-full rounded-full transition-all duration-1000 ease-out relative bg-gradient-to-r from-blue-400 via-yellow-400 to-red-500"
                               style={{
-                                width: `${Math.min(100, Math.max(0, activeTempItem.value))}%`,
-                                backgroundSize: `${100 / Math.max(0.01, activeTempItem.value / 100)}% 100%`,
+                                width: `${Math.min(100, Math.max(0, ((activeTempItem.value - 13) / (60 - 13)) * 100))}%`,
+                                backgroundSize: '500px 100%',
                               }}
                             >
                               <div className="absolute top-0 right-0 w-8 h-full bg-white/20 skew-x-[-20deg] animate-pulse"></div>
@@ -544,8 +544,8 @@ export default function LandDetail({ landId }: LandDetailProps) {
                               <div
                                 className="h-full rounded-full transition-all duration-1000 ease-out relative bg-gradient-to-r from-blue-400 via-yellow-400 to-red-500"
                                 style={{
-                                  width: `${Math.min(100, Math.max(0, temp.value))}%`,
-                                  backgroundSize: `${100 / Math.max(0.01, temp.value / 100)}% 100%`,
+                                  width: `${Math.min(100, Math.max(0, ((temp.value - 13) / (60 - 13)) * 100))}%`,
+                                  backgroundSize: '500px 100%',
                                 }}
                               >
                                 <div className="absolute top-0 right-0 w-8 h-full bg-white/20 skew-x-[-20deg] animate-pulse"></div>
