@@ -98,6 +98,30 @@ class PostgresImporter:
             self.cur.execute(create_image_table_query)
             print("✓ Land Image 테이블 생성 완료")
         
+        # landbroker 테이블 확인 및 생성
+        check_broker_query = """
+        SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_name = 'landbroker'
+        );
+        """
+        self.cur.execute(check_broker_query)
+        broker_exists = self.cur.fetchone()[0]
+        
+        if not broker_exists:
+            create_broker_table_query = """
+            CREATE TABLE IF NOT EXISTS landbroker (
+                landbroker_id SERIAL PRIMARY KEY,
+                name VARCHAR(100),
+                phone VARCHAR(20),
+                office_name VARCHAR(200),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            """
+            self.cur.execute(create_broker_table_query)
+            print("✓ LandBroker 테이블 생성 완료")
+        
         self.conn.commit()
         if exists:
             print("✓ Land 테이블 확인 완료")
