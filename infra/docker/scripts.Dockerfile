@@ -1,7 +1,7 @@
 # =============================================================================
 # Scripts Dockerfile (데이터 Import, 유틸리티 스크립트용)
 # =============================================================================
-# NOTE: data 폴더와 scripts 폴더는 docker-compose에서 볼륨으로 마운트됨
+# NOTE: scripts와 apps(모델 포함)는 이미지에 포함됨. data 폴더만 볼륨 마운트됨
 # =============================================================================
 
 FROM python:3.11-slim
@@ -25,7 +25,7 @@ RUN pip install --no-cache-dir \
 
 # Copy Code & Models (Bake into image)
 COPY libs /libs
-# COPY scripts /app
+COPY scripts /app/scripts
 COPY apps /app/apps
 
 ENV PYTHONPATH=/app:/libs:/data
