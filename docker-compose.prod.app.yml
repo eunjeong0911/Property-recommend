@@ -16,7 +16,7 @@ services:
   # ===========================================================================
 
   backend:
-    image: ${ECR_REGISTRY}/realestate-backend:${IMAGE_TAG:-latest}
+    image: 046685909225.dkr.ecr.ap-northeast-2.amazonaws.com/realestate-backend:latest
     container_name: realestate-backend
     command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120
     # ports:
