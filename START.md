@@ -40,9 +40,12 @@ docker compose ps
 docker compose exec backend python manage.py migrate
 
 # 4. 데이터 Import (30분~1시간 소요)
-docker compose --profile scripts run --rm scripts python data_import/main.py
+docker compose --profile scripts run --rm scripts python 03_import/import_all.py
 
-# 5. 완료! 브라우저에서 http://localhost:3000 접속
+# 5. Trust Score Import (30분~1시간 소요)
+docker compose exec backend python /scripts/03_import/trust/import_trust_all.py
+
+# 6. 완료! 브라우저에서 http://localhost:3000 접속
 ```
 
 ---

@@ -4,25 +4,29 @@
 import os
 import sys
 import pickle
-import django
 
-# Django 설정
-backend_path = '/app/apps/backend' if os.path.exists('/app/apps/backend') else 'apps/backend'
-if backend_path not in sys.path:
-    sys.path.append(backend_path)
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.dev')
-django.setup()
-
-from django.utils import timezone
-from apps.listings.models import LandBroker
+def _setup_django():
+    """Django 초기화 (lazy loading)"""
+    # scripts 폴더의 config.py와 충돌 방지
+    backend_path = '/app'
+    
+    # sys.path에서 scripts 관련 경로 제거 후 backend를 최우선으로 추가
+    sys.path = [p for p in sys.path if 'scripts' not in p]
+    if backend_path not in sys.path:
+        sys.path.insert(0, backend_path)
+    
+    os.environ['DJANGO_SETTINGS_MODULE'] = 'config.settings.dev'
+    
+    import django
+    django.setup()
 
 
 def load_model():
     """모델 로드"""
-    model_path = '/app/apps/reco/models/trust_model/model/final_trust_model.pkl'
+    model_path = '/app/apps/reco/trust_model/final_trust_model.pkl'
     if not os.path.exists(model_path):
-        model_path = 'apps/reco/models/trust_model/model/final_trust_model.pkl'
+        model_path = 'apps/reco/trust_model/final_trust_model.pkl'
     
     with open(model_path, 'rb') as f:
         model_data = pickle.load(f)
@@ -122,6 +126,11 @@ def create_features(broker):
 
 def predict():
     """예측 실행"""
+    # Django 초기화
+    _setup_django()
+    from django.utils import timezone
+    from apps.listings.models import LandBroker
+    
     print("\n" + "=" * 70)
     print(" " * 15 + "Trust Score 예측 시작")
     print("=" * 70 + "\n")
