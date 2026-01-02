@@ -48,20 +48,8 @@ services:
           memory: 256M
 
   frontend:
-    image: ${ECR_REGISTRY}/realestate-frontend:${IMAGE_TAG:-latest}
+    image: 046685909225.dkr.ecr.ap-northeast-2.amazonaws.com/realestate-frontend:latest
     container_name: realestate-frontend
-    build:
-      context: .
-      dockerfile: infra/docker/frontend.Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
-        NEXT_PUBLIC_RAG_URL: ${NEXT_PUBLIC_RAG_URL}
-        NEXT_PUBLIC_KAKAO_MAP_KEY: ${NEXT_PUBLIC_KAKAO_MAP_KEY}
-        NEXTAUTH_URL: ${NEXTAUTH_URL}
-        NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
-        GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-        GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-        SERVER_API_URL: ${SERVER_API_URL}
     command: node server.js
     # ports:
     #   - "3000:3000"  # Nginx를 통해서만 접근하도록 주석 처리
@@ -102,7 +90,7 @@ services:
           memory: 128M
 
   scripts:
-    image: skn18-final-1team-scripts:latest
+    image: 046685909225.dkr.ecr.ap-northeast-2.amazonaws.com/realestate-scripts:latest
     container_name: realestate-scripts
     volumes:
       # Code is baked into image, only mount data
