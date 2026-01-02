@@ -21,6 +21,7 @@ numpy>=1.24                    # Numerical operations
 # Django (Required for trust_prediction/predict_trust_scores.py)
 # -----------------------------------------------------------------------------
 Django>=4.2                    # Django ORM for database access
+djangorestframework>=3.14      # Django REST Framework
 python-json-logger>=2.0        # For Django JSON logging
 
 # -----------------------------------------------------------------------------
