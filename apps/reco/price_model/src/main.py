@@ -4,13 +4,14 @@
 import argparse
 from pathlib import Path
 
-from data_loader import DataLoader
-from preprocessor import PriceDataPreprocessor
-from model import get_models
-from trainer import ModelTrainer
+from loaders.data_loader import DataLoader
+from preprocessing.preprocessor import PriceDataPreprocessor
+from training.model import get_models
+from training.trainer import ModelTrainer
 
-ML_ROOT = Path(__file__).resolve().parent.parent  # .../ML
-REPO_ROOT = ML_ROOT.parent.parent.parent.parent.parent  # SKN18-FINAL-1TEAM
+ML_ROOT = Path(__file__).resolve().parent.parent  # src -> price_model
+# price_model -> reco -> apps -> SKN18-FINAL-1TEAM (3개 parent)
+REPO_ROOT = ML_ROOT.parents[2]  # SKN18-FINAL-1TEAM
 DEFAULT_DATA_DIR = REPO_ROOT / "data" / "actual_transaction_price"
 
 
@@ -106,7 +107,7 @@ def main(
         resolved_output_dir = str(ml_root / output_dir)
 
     model_path = trainer.save_model(
-        preprocessor=pipeline,
+        preprocessor=preprocessor,
         output_dir=resolved_output_dir
     )
 

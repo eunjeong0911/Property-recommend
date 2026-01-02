@@ -28,6 +28,13 @@ class PriceDataPreprocessor:
             1: {"label": "FAIR", "label_kr": "적정"},
             2: {"label": "OVERPRICED", "label_kr": "비쌈"}
         }
+        
+        # 학습 데이터 통계 저장용
+        self.train_stats = {}
+        self.area_bins = None
+        self.gu_deposit_mean = None
+        self.train_gu_quantiles = None
+        self.gu_count_qcat = None
 
     def create_target(self, df: pd.DataFrame, train_stats: Dict = None) -> pd.DataFrame:
         """
@@ -150,13 +157,17 @@ class PriceDataPreprocessor:
 
         # 1. 면적 범주화 (5분위수 기반)
         print("1. 면적 범주화 중...")
-        qbin, bins = pd.qcut(
-            df_train["임대면적"],
-            q=5,
-            labels=False,
-            retbins=True,
-            duplicates="drop"
-        )
+        if self.area_bins is None:
+            qbin, bins = pd.qcut(
+                df_train["임대면적"],
+                q=5,
+                labels=False,
+                retbins=True,
+                duplicates="drop"
+            )
+            self.area_bins = bins
+        else:
+            bins = self.area_bins
 
         label_map = {
             0: "초소형",
@@ -282,22 +293,18 @@ class PriceDataPreprocessor:
         df_test["자치구_거래량"] = df_test["자치구명"].map(gu_count)
 
         # 자치구 거래량 구간화
-        qbin, _ = pd.qcut(
-            df_train["자치구_거래량"],
-            q=3,
-            labels=['상위거래구', '중위거래구', '하위거래구'],
-            retbins=True,
-            duplicates="drop"
-        )
-
-        # train의 경계값을 기준으로 test도 구간화
-        train_boundaries = df_train.groupby("자치구명")["자치구_거래량"].first()
-        train_qcat = pd.qcut(
-            train_boundaries,
-            q=3,
-            labels=['하위거래구', '중위거래구', '상위거래구'],
-            duplicates="drop"
-        ).to_dict()
+        if self.gu_count_qcat is None:
+            # train의 경계값을 기준으로 test도 구간화
+            train_boundaries = df_train.groupby("자치구명")["자치구_거래량"].first()
+            train_qcat = pd.qcut(
+                train_boundaries,
+                q=3,
+                labels=['하위거래구', '중위거래구', '상위거래구'],
+                duplicates="drop"
+            ).to_dict()
+            self.gu_count_qcat = train_qcat
+        else:
+            train_qcat = self.gu_count_qcat
 
         df_train["자치구_거래량_구간"] = df_train["자치구명"].map(train_qcat)
         df_test["자치구_거래량_구간"] = df_test["자치구명"].map(train_qcat)
@@ -652,15 +659,14 @@ class PriceDataPreprocessor:
         print("16. 보증금_지역대비 생성 중...")
 
         # 1) Train: 자치구별 평균 보증금(만원) 기준으로 비율 계산
-        gu_deposit_mean_train = df_train.groupby("자치구명")["보증금(만원)"].transform("mean")
+        if self.gu_deposit_mean is None:
+            self.gu_deposit_mean = df_train.groupby("자치구명")["보증금(만원)"].mean().to_dict()
+        
+        gu_deposit_mean_train = df_train["자치구명"].map(self.gu_deposit_mean)
         df_train["보증금_지역대비"] = df_train["보증금(만원)"] / gu_deposit_mean_train
 
         # 2) Test: Train에서 구한 자치구별 평균을 사용
-        gu_deposit_mean = (
-            df_train.groupby("자치구명")["보증금(만원)"]
-            .mean()
-        )
-        df_test["보증금_지역대비"] = df_test["보증금(만원)"] / df_test["자치구명"].map(gu_deposit_mean)
+        df_test["보증금_지역대비"] = df_test["보증금(만원)"] / df_test["자치구명"].map(self.gu_deposit_mean)
 
         # 매핑되지 않은 자치구(새로운 구 등)는 기본값 1.0으로 처리
         df_test["보증금_지역대비"] = df_test["보증금_지역대비"].fillna(1.0)
@@ -1017,3 +1023,30 @@ class PriceDataPreprocessor:
         print(f"   - Test shape:  {X_test_transformed.shape}")
 
         return X_train_transformed, X_val_transformed, X_test_transformed
+
+    def transform(self, df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        """
+        추론용 데이터 변환 (학습 시 저장된 통계 사용)
+        
+        Args:
+            df: 원본 데이터프레임
+            
+        Returns:
+            (변환된 피처 데이터프레임 X, 계산된 컬럼이 포함된 데이터프레임 df_proc)
+        """
+        # 1. 타깃 생성 (통계만 계산하고 타깃 컬럼은 무시)
+        df_proc = self.create_target(df, train_stats={"gu_quantiles": self.train_gu_quantiles})
+        
+        # 2. 고급 피처 엔지니어링 (Test 모드로 실행)
+        # 빈 데이터프레임을 train으로 전달하여 self에 저장된 bins 등을 사용하게 함
+        _, df_proc = self.advanced_feature_engineering(df_proc.iloc[:0], df_proc)
+        
+        # 3. Tree 모델용 피처 변환
+        # 빈 데이터프레임을 train/val로 전달하여 self에 저장된 label_encoders를 사용하게 함
+        _, _, df_proc_tree = self.prepare_tree_features(df_proc.iloc[:0], df_proc.iloc[:0], df_proc)
+        
+        # 4. 최종 피처 선택
+        X = df_proc_tree[self.candidate_features]
+        
+        return X, df_proc
+

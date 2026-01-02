@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from data_loader import DataLoader
-from preprocessor import PriceDataPreprocessor
-from trainer import ModelTrainer
+from loaders.data_loader import DataLoader
+from preprocessing.preprocessor import PriceDataPreprocessor
+from training.trainer import ModelTrainer
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
@@ -12,8 +12,8 @@ plt.rcParams["font.family"] = "Malgun Gothic"
 # 2) 마이너스(-) 깨짐 방지
 mpl.rcParams["axes.unicode_minus"] = False
 
-# 경로 설정
-ML_ROOT = Path(__file__).resolve().parent.parent
+# 경로 설정 (analysis 폴더 안에 있으므로 parent가 한 단계 더 필요)
+ML_ROOT = Path(__file__).resolve().parent.parent.parent  # analysis -> src -> price_model
 PLOTS_DIR = ML_ROOT / "shap_plots"
 PLOTS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -31,7 +31,8 @@ def example_shap_analysis():
 
     # 1. 데이터 로딩
     print("\n[Step 1] 데이터 로딩")
-    REPO_ROOT = ML_ROOT.parent.parent.parent.parent.parent  # SKN18-FINAL-1TEAM
+    # price_model -> reco -> apps -> SKN18-FINAL-1TEAM (3개 parent)
+    REPO_ROOT = ML_ROOT.parents[2]  # SKN18-FINAL-1TEAM
     data_dir = REPO_ROOT / "data" / "actual_transaction_price"
     loader = DataLoader(str(data_dir))
     train_df, test_df = loader.load_train_test(

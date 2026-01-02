@@ -9,11 +9,11 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
-from json_data_parser import JSONDataParser
-from db_manager import DatabaseManager
-from preprocessor import PriceDataPreprocessor
-from data_loader import DataLoader
-from config import (
+from loaders.json_data_parser import JSONDataParser
+from loaders.data_loader import DataLoader
+from core.db_manager import DatabaseManager
+from preprocessing.preprocessor import PriceDataPreprocessor
+from core.config import (
     JSON_DATA_DIR, 
     MODEL_PATH, 
     INTEREST_RATE_PATH,

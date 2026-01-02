@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # 프로젝트 루트 경로
-PROJECT_ROOT = Path(__file__).resolve().parents[6]
+PROJECT_ROOT = Path(__file__).resolve().parents[5]
 DATA_ROOT = PROJECT_ROOT / "data"
 
 # 데이터베이스 설정
