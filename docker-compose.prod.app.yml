@@ -56,6 +56,11 @@ services:
     #   - "3000:3000"  # Nginx를 통해서만 접근하도록 주석 처리
     env_file:
       - .env.production
+    environment:
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - NEXTAUTH_URL=https://goziphouse.com
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-your-secret-key-here}
     depends_on:
       - backend
     networks:
