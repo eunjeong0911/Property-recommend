@@ -13,11 +13,20 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Common Requirements
 COPY infra/docker/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# libs만 COPY (scripts, data는 볼륨으로 마운트)
+# Install ML Dependencies for Reco Models (Cpu-only to save space)
+RUN pip install --no-cache-dir \
+    "torch>=2.1" --extra-index-url https://download.pytorch.org/whl/cpu \
+    "xgboost>=2.0.0" \
+    "lightgbm>=4.0"
+
+# Copy Code & Models (Bake into image)
 COPY libs /libs
+COPY scripts /app
+COPY apps /app/apps
 
 ENV PYTHONPATH=/app:/libs:/data
 
