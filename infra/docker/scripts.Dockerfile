@@ -25,7 +25,7 @@ RUN pip install --no-cache-dir \
 
 # Copy Code & Models (Bake into image)
 COPY libs /libs
-COPY scripts /app
+# COPY scripts /app
 COPY apps /app/apps
 
 ENV PYTHONPATH=/app:/libs:/data
