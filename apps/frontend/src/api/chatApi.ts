@@ -1,11 +1,13 @@
 export const sendChatQuestion = async (question: string, sessionId?: string): Promise<string> => {
   try {
-    const response = await fetch('http://localhost:8001/query', {
+    // Use environment variable or fallback to relative path for production
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+    const response = await fetch(`${apiUrl}/rag/query`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         question,
         session_id: sessionId || undefined  // 세션 ID 전달
       }),
