@@ -76,7 +76,7 @@ services:
   # RAG Service
   # ===========================================================================
   rag:
-    image: ${ECR_REGISTRY}/realestate-rag:${IMAGE_TAG:-latest}
+    image: 046685909225.dkr.ecr.ap-northeast-2.amazonaws.com/realestate-rag:latest
     container_name: realestate-rag
     command: uvicorn main:app --host 0.0.0.0 --port 8001 --workers 2
     ports:
