@@ -341,7 +341,7 @@ export default function LandDetail({ landId }: LandDetailProps) {
                       <p className="text-sm text-slate-700">
                         해당 매물은 서울특별시 법정동 건물용도별 평당가로 분석했을 때{' '}
                         <strong className={getPriceBadgeColor(land.price_prediction.prediction_label_korean)}>
-                          '{land.price_prediction.prediction_label_korean}'
+                          &apos;{land.price_prediction.prediction_label_korean}&apos;
                         </strong>
                         에 해당합니다.
                       </p>
