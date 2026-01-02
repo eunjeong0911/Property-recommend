@@ -74,10 +74,35 @@ class PostgresImporter:
             );
             """
             self.cur.execute(create_table_query)
-            self.conn.commit()
             print("✓ Land 테이블 생성 완료")
-        else:
+        
+        # land_image 테이블 확인 및 생성
+        check_image_query = """
+        SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_name = 'land_image'
+        );
+        """
+        self.cur.execute(check_image_query)
+        image_exists = self.cur.fetchone()[0]
+        
+        if not image_exists:
+            create_image_table_query = """
+            CREATE TABLE IF NOT EXISTS land_image (
+                image_id SERIAL PRIMARY KEY,
+                land_id INT REFERENCES land(land_id) ON DELETE CASCADE,
+                img_url TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            """
+            self.cur.execute(create_image_table_query)
+            print("✓ Land Image 테이블 생성 완료")
+        
+        self.conn.commit()
+        if exists:
             print("✓ Land 테이블 확인 완료")
+        if image_exists:
+            print("✓ Land Image 테이블 확인 완료")
     
     def _get_existing_count(self):
         """기존 매물 개수 확인"""
