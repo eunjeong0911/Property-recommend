@@ -103,11 +103,14 @@ analytics/
 **/*.csv
 **/*.xlsx
 **/*.xls
-# Allow model files for scripts.Dockerfile
-!apps/reco/models/**/*.pkl
-**/*.pkl
 **/*.pickle
 **/*.parquet
+
+# Model files - MUST come AFTER general exclusions
+# Allow production model files (exception must be BEFORE the general rule)
+!apps/reco/models/
+!apps/reco/models/**
+**/*.pkl
 
 # JSON (필수 설정 파일 제외)
 *.json
