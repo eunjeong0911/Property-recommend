@@ -91,13 +91,10 @@ services:
           memory: 128M
 
   scripts:
-    build:
-      context: .
-      dockerfile: infra/docker/scripts.Dockerfile
-    image: realestate-scripts:local
+    image: 046685909225.dkr.ecr.ap-northeast-2.amazonaws.com/realestate-scripts:latest
     container_name: realestate-scripts
     volumes:
-      - ./scripts:/app/scripts
+      # Scripts and models are baked into image, only mount data
       - ./data:/data
     env_file:
       - .env.production
