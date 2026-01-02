@@ -89,7 +89,7 @@ class PostgresImporter:
         if not image_exists:
             create_image_table_query = """
             CREATE TABLE IF NOT EXISTS land_image (
-                image_id SERIAL PRIMARY KEY,
+                landimage_id SERIAL PRIMARY KEY,
                 land_id INT REFERENCES land(land_id) ON DELETE CASCADE,
                 img_url TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
