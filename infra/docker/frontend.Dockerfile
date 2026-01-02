@@ -28,21 +28,13 @@ COPY apps/frontend .
 # Disable telemetry during build
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Build arguments for environment variables (baked into the build)
-ARG NEXT_PUBLIC_API_URL
+# Build arguments for PUBLIC environment variables only (safe to bake into build)
+ARG NEXT_PUBLIC_API_URL=https://goziphouse.com
 ARG NEXT_PUBLIC_KAKAO_MAP_KEY
-ARG NEXTAUTH_URL
-ARG NEXTAUTH_SECRET
-ARG GOOGLE_CLIENT_ID
-ARG GOOGLE_CLIENT_SECRET
 
-# Set environment variables for build
+# Set PUBLIC environment variables for build
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
-    NEXT_PUBLIC_KAKAO_MAP_KEY=$NEXT_PUBLIC_KAKAO_MAP_KEY \
-    NEXTAUTH_URL=$NEXTAUTH_URL \
-    NEXTAUTH_SECRET=$NEXTAUTH_SECRET \
-    GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID \
-    GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET
+    NEXT_PUBLIC_KAKAO_MAP_KEY=$NEXT_PUBLIC_KAKAO_MAP_KEY
 
 RUN npm run build
 
