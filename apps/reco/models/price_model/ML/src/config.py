@@ -11,7 +11,12 @@ load_dotenv()
 
 # 프로젝트 루트 경로
 PROJECT_ROOT = Path(__file__).resolve().parents[6]
-DATA_ROOT = PROJECT_ROOT / "data"
+
+# Docker 환경에서는 /data 사용, 로컬에서는 PROJECT_ROOT/data 사용
+if Path("/data").exists():
+    DATA_ROOT = Path("/data")
+else:
+    DATA_ROOT = PROJECT_ROOT / "data"
 
 # 데이터베이스 설정
 DB_CONFIG = {
