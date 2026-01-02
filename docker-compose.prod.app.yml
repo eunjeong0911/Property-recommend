@@ -29,6 +29,7 @@ services:
     volumes:
       # Data only (Codes are baked in)
       - ./data:/app/data
+      - ./apps/backend/config/settings/prod.py:/app/config/settings/prod.py
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8000/api/health/" ]
       interval: 30s
