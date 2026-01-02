@@ -112,9 +112,20 @@ class PostgresImporter:
             create_broker_table_query = """
             CREATE TABLE IF NOT EXISTS landbroker (
                 landbroker_id SERIAL PRIMARY KEY,
-                name VARCHAR(100),
-                phone VARCHAR(20),
                 office_name VARCHAR(200),
+                representative VARCHAR(100),
+                phone VARCHAR(50),
+                address VARCHAR(500),
+                registration_number VARCHAR(100) UNIQUE,
+                completed_deals INT DEFAULT 0,
+                registered_properties INT DEFAULT 0,
+                brokers_count INT DEFAULT 0,
+                assistants_count INT DEFAULT 0,
+                staff_count INT DEFAULT 0,
+                region VARCHAR(100),
+                registration_date DATE,
+                trust_score VARCHAR(1),
+                trust_score_updated_at TIMESTAMP,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
