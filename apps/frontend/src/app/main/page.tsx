@@ -40,7 +40,8 @@ const loadFilterFromStorage = (): LandFilterParams => {
 };
 
 export default function MainPage() {
-    useBackendUserGuard();
+    // 로그인 없이도 main 페이지 접근 가능 (찜하기만 로그인 필요)
+    // useBackendUserGuard();
     const [filterParams, setFilterParams] = useState<LandFilterParams>({});
     const [recommendedLandIds, setRecommendedLandIds] = useState<number[]>([]);
 
