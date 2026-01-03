@@ -99,8 +99,7 @@ def main(
 
     # 6. 모델 저장
     print(f"\n[Step 6] 모델 저장")
-    # 항상 ML 디렉터리 하위에 저장되도록 절대 경로 계산
-    ml_root = Path(__file__).resolve().parent.parent  # .../ML
+    ml_root = Path(__file__).resolve().parent.parent
     if Path(output_dir).is_absolute():
         resolved_output_dir = output_dir
     else:

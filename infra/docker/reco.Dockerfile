@@ -14,7 +14,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY apps/reco/requirements.txt .
-COPY apps/reco/price_model/requirements.txt ./price_model/requirements.txt
 RUN pip wheel --no-cache-dir --wheel-dir /wheels -r requirements.txt
 
 # -----------------------------------------------------------------------------

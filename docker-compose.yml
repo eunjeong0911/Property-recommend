@@ -308,10 +308,12 @@ services:
       context: .
       dockerfile: infra/docker/scripts.Dockerfile
     container_name: realestate-scripts
+    command: python run_all.py
     volumes:
       - ./scripts:/app
       - ./libs:/libs:ro
       - ./data:/data
+      - ./apps/reco:/app/apps/reco:ro
     env_file:
       - .env
     environment:
