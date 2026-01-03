@@ -5,6 +5,8 @@ docker compose build backend
 docker compose build rag
 docker compose build reco
 docker compose build frontend
+docker compose build scripts
+
 # 전체 시작
 docker compose up -d
 ### 환경 변수 설정

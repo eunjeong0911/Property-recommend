@@ -3,12 +3,12 @@
 
 사용법:
     # 전체 실행 (Import → 통계 → 예측)
-    docker compose exec backend python /scripts/03_import/trust/import_trust_all.py
+    docker compose --profile scripts run --rm scripts python 03_import/trust/import_trust_all.py
 
     # 개별 실행
-    docker compose exec backend python /scripts/03_import/trust/import_trust_all.py --import-only
-    docker compose exec backend python /scripts/03_import/trust/import_trust_all.py --stats-only
-    docker compose exec backend python /scripts/03_import/trust/import_trust_all.py --predict-only
+    docker compose --profile scripts run --rm scripts python 03_import/trust/import_trust_all.py --import-only
+    docker compose --profile scripts run --rm scripts python 03_import/trust/import_trust_all.py --stats-only
+    docker compose --profile scripts run --rm scripts python 03_import/trust/import_trust_all.py --predict-only
 """
 import sys
 import os
@@ -16,11 +16,9 @@ import argparse
 
 # 경로 설정
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(SCRIPT_DIR)))
 sys.path.insert(0, SCRIPT_DIR)
-sys.path.insert(0, os.path.join(ROOT_DIR, 'scripts', '04_analysis', 'trust_prediction'))
 
-# 기존 모듈 import
+# 같은 폴더의 모듈 import
 from reimport_brokers import import_brokers_from_json
 from update_broker_stats import update_broker_stats
 from predict_trust_scores import predict
