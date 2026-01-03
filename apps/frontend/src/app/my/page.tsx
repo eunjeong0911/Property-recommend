@@ -90,14 +90,7 @@ export default function MyPage() {
       return
     }
     setIsLoggingOut(true)
-    try {
-      await axiosInstance.post('/api/users/logout/')
-    } catch (logoutError) {
-      console.error(logoutError)
-    } finally {
-      setIsLoggingOut(false)
-      await signOut({ callbackUrl: '/' })
-    }
+    await signOut({ callbackUrl: '/' })
   }, [])
 
   const handleDeleteAccount = useCallback(async () => {
