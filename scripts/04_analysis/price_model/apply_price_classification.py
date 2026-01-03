@@ -366,37 +366,49 @@ class DatabaseManager:
             return pd.DataFrame()
     
     def create_table(self):
-        """결과 저장 테이블 생성"""
+        """결과 저장 테이블 생성 (간소화 + 영어 컬럼명 + 외래키)"""
+        # 기존 테이블 삭제
+        drop_sql = f"DROP TABLE IF EXISTS {RESULTS_TABLE} CASCADE;"
+        self.cursor.execute(drop_sql)
+        
         create_sql = f"""
-        CREATE TABLE IF NOT EXISTS {RESULTS_TABLE} (
+        CREATE TABLE {RESULTS_TABLE} (
             id SERIAL PRIMARY KEY,
-            매물번호 VARCHAR(50),
-            매물_URL TEXT,
-            전체주소 TEXT,
-            자치구명 VARCHAR(50),
-            법정동명 VARCHAR(100),
-            건물용도 VARCHAR(50),
-            보증금_만원 DECIMAL(12, 2),
-            월세_만원 DECIMAL(12, 2),
-            임대면적 DECIMAL(10, 2),
-            층 INTEGER,
-            건축년도 INTEGER,
-            예측_클래스 INTEGER,
-            예측_레이블 VARCHAR(20),
-            예측_레이블_한글 VARCHAR(20),
-            저렴_확률 DECIMAL(5, 4),
-            적정_확률 DECIMAL(5, 4),
-            비쌈_확률 DECIMAL(5, 4),
-            예측_일시 TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(매물번호)
+            land_num VARCHAR(50) NOT NULL,
+            predicted_class INTEGER NOT NULL,
+            predicted_label VARCHAR(20) NOT NULL,
+            predicted_label_kr VARCHAR(20) NOT NULL,
+            underpriced_prob DECIMAL(5, 4) NOT NULL,
+            fair_prob DECIMAL(5, 4) NOT NULL,
+            overpriced_prob DECIMAL(5, 4) NOT NULL,
+            predicted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            
+            -- 외래키 제약조건: land 테이블과 연결
+            CONSTRAINT fk_price_class_land 
+                FOREIGN KEY (land_num) 
+                REFERENCES land(land_num) 
+                ON DELETE CASCADE,
+            
+            -- 유니크 제약조건
+            UNIQUE(land_num)
         );
+        
+        -- 인덱스 생성
+        CREATE INDEX idx_price_class_land_num ON {RESULTS_TABLE}(land_num);
+        CREATE INDEX idx_price_class_label_kr ON {RESULTS_TABLE}(predicted_label_kr);
+        CREATE INDEX idx_price_class_predicted_at ON {RESULTS_TABLE}(predicted_at);
+        
+        -- 코멘트 추가
+        COMMENT ON TABLE {RESULTS_TABLE} IS '월세 매물 가격 분류 결과 (AI 모델 예측)';
+        COMMENT ON COLUMN {RESULTS_TABLE}.land_num IS 'land 테이블의 land_num (외래키)';
+        COMMENT ON COLUMN {RESULTS_TABLE}.predicted_class IS '0: 저렴, 1: 적정, 2: 비쌈';
         """
         self.cursor.execute(create_sql)
         self.conn.commit()
-        print(f"✅ 테이블 생성/확인 완료: {RESULTS_TABLE}")
+        print(f"✅ 테이블 생성 완료 (외래키 연결): {RESULTS_TABLE}")
     
     def save_results(self, df: pd.DataFrame):
-        """분류 결과 저장 (UPSERT)"""
+        """분류 결과 저장 (UPSERT) - 간소화된 구조"""
         from psycopg2.extras import execute_batch
         
         if df.empty:
@@ -405,36 +417,29 @@ class DatabaseManager:
         
         insert_sql = f"""
         INSERT INTO {RESULTS_TABLE} (
-            매물번호, 매물_URL, 전체주소, 자치구명, 법정동명, 건물용도,
-            보증금_만원, 월세_만원, 임대면적, 층, 건축년도,
-            예측_클래스, 예측_레이블, 예측_레이블_한글,
-            저렴_확률, 적정_확률, 비쌈_확률
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        ON CONFLICT (매물번호) DO UPDATE SET
-            예측_클래스 = EXCLUDED.예측_클래스,
-            예측_레이블 = EXCLUDED.예측_레이블,
-            예측_레이블_한글 = EXCLUDED.예측_레이블_한글,
-            저렴_확률 = EXCLUDED.저렴_확률,
-            적정_확률 = EXCLUDED.적정_확률,
-            비쌈_확률 = EXCLUDED.비쌈_확률,
-            예측_일시 = CURRENT_TIMESTAMP;
+            land_num,
+            predicted_class,
+            predicted_label,
+            predicted_label_kr,
+            underpriced_prob,
+            fair_prob,
+            overpriced_prob
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (land_num) DO UPDATE SET
+            predicted_class = EXCLUDED.predicted_class,
+            predicted_label = EXCLUDED.predicted_label,
+            predicted_label_kr = EXCLUDED.predicted_label_kr,
+            underpriced_prob = EXCLUDED.underpriced_prob,
+            fair_prob = EXCLUDED.fair_prob,
+            overpriced_prob = EXCLUDED.overpriced_prob,
+            predicted_at = CURRENT_TIMESTAMP;
         """
         
         records = []
         for _, row in df.iterrows():
             try:
                 record = (
-                    str(row.get("매물번호", "")),
-                    str(row.get("매물_URL", "")),
-                    str(row.get("전체주소", "")),
-                    str(row.get("자치구명", "")),
-                    str(row.get("법정동명", "")),
-                    str(row.get("건물용도", "")),
-                    float(row.get("보증금(만원)", 0) or 0),
-                    float(row.get("임대료(만원)", 0) or 0),
-                    float(row.get("임대면적", 0) or 0),
-                    int(row.get("층", 0) or 0),
-                    int(row.get("건축년도", 2000) or 2000),
+                    str(row.get("land_num", "")),
                     int(row["예측_클래스"]),
                     row["예측_레이블"],
                     row["예측_레이블_한글"],
@@ -444,7 +449,7 @@ class DatabaseManager:
                 )
                 records.append(record)
             except Exception as e:
-                print(f"⚠ 레코드 변환 실패: {e}")
+                print(f"⚠ 레코드 변환 실패 (land_num={row.get('land_num')}): {e}")
                 continue
         
         if records:

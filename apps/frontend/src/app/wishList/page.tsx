@@ -88,7 +88,7 @@ export default function WishListPage() {
   // 온도 계산 (가격 예측 정보 기반)
   const getTemperature = (land: Land): number => {
     if (land.price_prediction) {
-      const label = land.price_prediction.prediction_label_korean
+      const label = land.price_prediction.predicted_label_kr;
       if (label === '저렴') return 0.3
       if (label === '적정') return 0.6
       if (label === '비쌈') return 0.9
@@ -126,10 +126,10 @@ export default function WishListPage() {
           // 중개사 온도 (temperature)
           temperature: land.temperature,
           // ML 가격 예측
-          pricePredictionLabel: land.price_prediction?.prediction_label_korean,
-          pricePredictionProb: land.price_prediction?.probability_underpriced ||
-            land.price_prediction?.probability_fair ||
-            land.price_prediction?.probability_overpriced,
+          pricePredictionLabel: land.price_prediction?.predicted_label_kr,
+          pricePredictionProb: land.price_prediction?.underpriced_prob ||
+            land.price_prediction?.fair_prob ||
+            land.price_prediction?.overpriced_prob,
           // 중개사 신뢰도
           brokerTrustScore: land.broker?.trust_score,
           brokerTrustGrade: land.broker?.trust_grade,
