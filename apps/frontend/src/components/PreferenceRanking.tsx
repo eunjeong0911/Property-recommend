@@ -11,7 +11,7 @@ const JOB_OPTIONS = [
   { value: "프리랜서", label: "프리랜서" },
   { value: "자영업", label: "자영업자" },
 ];
-const FEATURES = ["주변 공원", "편의시설", "대중교통", "치안/안전", "허위매물"];
+const FEATURES = ["안전", "편의시설", "교통", "문화", "반려동물"];
 const RANKS = [1, 2, 3, 4, 5];
 
 interface Props {
@@ -198,7 +198,7 @@ export default function PreferenceRanking({
         <div className="flex items-center mb-4">
           <span className="text-3xl mr-3">⭐</span>
           <div>
-            <h3 className="text-lg font-bold text-slate-800">매물 선택 우선순위 (5위까지)</h3>
+            <h3 className="text-lg font-bold text-slate-800">매물 선택 우선 순위 (5위까지)</h3>
             <p className="text-sm text-slate-500">우선순위는 매물 추천에 반영됩니다</p>
           </div>
         </div>
