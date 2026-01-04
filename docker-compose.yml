@@ -309,8 +309,7 @@ services:
       dockerfile: infra/docker/scripts.Dockerfile
     container_name: realestate-scripts
     volumes:
-      - ./scripts:/app/scripts
-      - ./apps:/app/apps # ← Django 모델 접근용
+      - ./scripts:/app
       - ./libs:/libs:ro
       - ./data:/data
     env_file:
