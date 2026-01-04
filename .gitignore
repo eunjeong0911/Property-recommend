@@ -22,6 +22,7 @@ dmypy.json
 env/
 venv/
 ENV/
+.env.production
 
 # Django
 db.sqlite3
