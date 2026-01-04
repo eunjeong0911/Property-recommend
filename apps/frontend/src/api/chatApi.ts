@@ -1,8 +1,8 @@
 export const sendChatQuestion = async (question: string, sessionId?: string): Promise<string> => {
   try {
-    // Use environment variable or fallback to relative path for production
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? window.location.origin : '');
-    const response = await fetch(`${apiUrl}/rag/query`, {
+    // RAG 서비스 직접 호출 (로컬: localhost:8001, 프로덕션: Backend Proxy)
+    const ragUrl = process.env.NEXT_PUBLIC_RAG_URL || 'http://localhost:8001';
+    const response = await fetch(`${ragUrl}/query`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
