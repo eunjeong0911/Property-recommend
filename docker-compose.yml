@@ -210,6 +210,7 @@ services:
         condition: service_healthy
     networks:
       - backend-network
+      - frontend-network
     deploy:
       resources:
         limits:
@@ -263,7 +264,8 @@ services:
     env_file:
       - .env
     environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_RAG_URL=http://rag:8001
       - SERVER_API_URL=http://backend:8000
       - NEXT_PUBLIC_KAKAO_MAP_KEY=${NEXT_PUBLIC_KAKAO_MAP_KEY}
       - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}

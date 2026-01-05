@@ -1,8 +1,7 @@
 export const sendChatQuestion = async (question: string, sessionId?: string): Promise<string> => {
   try {
-    // Use environment variable or fallback to relative path for production
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? window.location.origin : '');
-    const response = await fetch(`${apiUrl}/rag/query`, {
+    // Use relative path to leverage Next.js rewrites (proxies to RAG service)
+    const response = await fetch('/rag/query', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

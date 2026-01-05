@@ -20,6 +20,23 @@ const nextConfig = {
       },
     ],
   },
+  async rewrites() {
+    return [
+      {
+        source: '/rag/:path*',
+        destination: process.env.NEXT_PUBLIC_RAG_URL
+          ? `${process.env.NEXT_PUBLIC_RAG_URL}/:path*`
+          : 'http://127.0.0.1:8001/:path*',
+      },
+      // Backend API Proxy (Optional, for consistent /api path usage)
+      {
+        source: '/api/:path*',
+        destination: process.env.NEXT_PUBLIC_API_URL
+          ? `${process.env.NEXT_PUBLIC_API_URL}/api/:path*`
+          : 'http://127.0.0.1:8000/api/:path*',
+      },
+    ];
+  },
 }
 
 module.exports = nextConfig
