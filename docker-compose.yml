@@ -313,6 +313,7 @@ services:
       - ./scripts:/app
       - ./libs:/libs:ro
       - ./data:/data
+      - ./apps/reco/trust_model:/data/trust_model:ro
     env_file:
       - .env
     environment:
