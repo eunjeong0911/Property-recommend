@@ -16,6 +16,7 @@ elasticsearch>=8.17,<8.18      # Elasticsearch
 # -----------------------------------------------------------------------------
 pandas>=2.0                    # Data manipulation
 numpy>=1.24                    # Numerical operations
+openpyxl>=3.1                  # Excel file support (Required for medical data)
 
 # -----------------------------------------------------------------------------
 # Django (Required for trust_prediction/predict_trust_scores.py)
