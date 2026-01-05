@@ -188,7 +188,7 @@ export default function Comparison({ lands, land1, land2 }: ComparisonProps) {
           <div key={land.id} className="bg-white rounded-lg shadow-md p-6">
             {/* 매물 번호 라벨 */}
             <div className="mb-3">
-              <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-bold">
+              <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-bold" style={{ color: '#ffffff' }}>
                 매물{index + 1}
               </span>
             </div>
@@ -325,7 +325,12 @@ export default function Comparison({ lands, land1, land2 }: ComparisonProps) {
                           <span className="text-2xl">{cat.icon}</span>
                           <span className="text-gray-700 font-medium">{cat.label} 온도</span>
                         </div>
-                        <span className={`font-bold text-lg ${tempValue >= 39 ? 'text-red-500' : tempValue >= 35 ? 'text-orange-500' : 'text-blue-500'}`}>
+                        <span
+                          className={`font-bold text-lg ${tempValue >= 39 ? 'text-red-500' : tempValue >= 35 ? 'text-orange-500' : 'text-blue-500'}`}
+                          style={{
+                            color: tempValue >= 39 ? '#ef4444' : tempValue >= 35 ? '#f97316' : '#3b82f6'
+                          }}
+                        >
                           {tempValue.toFixed(1)}°C
                         </span>
                       </div>

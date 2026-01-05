@@ -193,7 +193,7 @@ export default function LandDetail({ landId }: LandDetailProps) {
       </div>
     );
   }
-  
+
   // ✅ 온도 설명 내용
   const tempExplain: Record<TempId, { title: string; subtitle: string; body: string[] }> = {
     safety: {
@@ -463,9 +463,9 @@ export default function LandDetail({ landId }: LandDetailProps) {
             <h3 className="font-bold flex items-center gap-3">
               <span className="flex items-center gap-2">
                 <span className="text-xl">🌡️</span>
-                <span>부동산 온도</span>
+                <span style={{ color: '#ffffff' }}>부동산 온도</span>
               </span>
-              <span className="text-[11px] text-gray-300 font-normal text-left flex-1">
+              <span className="text-[11px] font-normal text-left flex-1" style={{ color: '#d1d5db' }}>
                 온도에 대해 궁금한점은 아이콘을 눌러보세요
               </span>
             </h3>
@@ -508,6 +508,9 @@ export default function LandDetail({ landId }: LandDetailProps) {
                                   ? 'text-orange-500'
                                   : 'text-blue-500'
                                 }`}
+                              style={{
+                                color: activeTempItem.value >= 39 ? '#ef4444' : activeTempItem.value >= 35 ? '#f97316' : '#3b82f6'
+                              }}
                             >
                               {activeTempItem.value.toFixed(1)}
                               <span className="text-base text-gray-400 ml-1">°C</span>
@@ -595,10 +598,13 @@ export default function LandDetail({ landId }: LandDetailProps) {
 
                           <div>
                             <div className="flex items-center justify-between text-lg mb-2">
-                              <span className="font-semibold text-slate-700">{temp.label}</span>
+                              <span className="font-semibold text-slate-800">{temp.label}</span>
                               <span
                                 className={`font-black ${temp.value >= 39 ? 'text-red-500' : temp.value >= 35 ? 'text-orange-500' : 'text-blue-500'
                                   }`}
+                                style={{
+                                  color: temp.value >= 39 ? '#ef4444' : temp.value >= 35 ? '#f97316' : '#3b82f6'
+                                }}
                               >
                                 {temp.value.toFixed(1)}
                                 <span className="text-base text-gray-400 ml-1">°C</span>
@@ -659,7 +665,7 @@ export default function LandDetail({ landId }: LandDetailProps) {
         {/* 핵심정보 */}
         <div className="rounded-2xl border border-gray-200 bg-white shadow-sm flex flex-col">
           <div className="bg-slate-700 text-white px-4 py-2 rounded-t-2xl">
-            <h3 className="font-bold text-sm">핵심정보</h3>
+            <h3 className="font-bold text-sm" style={{ color: '#ffffff' }}>핵심정보</h3>
           </div>
           <div className="p-4 flex-1">
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
@@ -718,7 +724,7 @@ export default function LandDetail({ landId }: LandDetailProps) {
         {/* 계약 및 매물정보 */}
         <div className="rounded-2xl border border-gray-200 bg-white shadow-sm flex flex-col">
           <div className="bg-slate-700 text-white px-4 py-2 rounded-t-2xl">
-            <h3 className="font-bold text-sm">계약 및 매물정보</h3>
+            <h3 className="font-bold text-sm" style={{ color: '#ffffff' }}>계약 및 매물정보</h3>
           </div>
           <div className="p-4 flex-1">
             <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
@@ -764,7 +770,7 @@ export default function LandDetail({ landId }: LandDetailProps) {
         additionalOptions.length > 0) && (
           <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
             <div className="bg-slate-700 text-white px-4 py-2 rounded-t-2xl">
-              <h3 className="font-bold text-sm">생활 및 옵션정보</h3>
+              <h3 className="font-bold text-sm" style={{ color: '#ffffff' }}>생활 및 옵션정보</h3>
             </div>
             <div className="p-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -883,7 +889,7 @@ export default function LandDetail({ landId }: LandDetailProps) {
       {/* 상세 설명 섹션 */}
       <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
         <div className="bg-slate-700 text-white px-4 py-2 rounded-t-2xl">
-          <h3 className="font-bold text-sm">상세 설명</h3>
+          <h3 className="font-bold text-sm" style={{ color: '#ffffff' }}>상세 설명</h3>
         </div>
         <div className="p-4">
           <p className="text-slate-700 whitespace-pre-line leading-relaxed text-sm">
@@ -895,7 +901,7 @@ export default function LandDetail({ landId }: LandDetailProps) {
       {/* 중개사 정보 */}
       <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
         <div className="bg-slate-700 text-white px-4 py-2 rounded-t-2xl">
-          <h3 className="font-bold text-sm">중개사 정보</h3>
+          <h3 className="font-bold text-sm" style={{ color: '#ffffff' }}>중개사 정보</h3>
         </div>
         <div className="p-4">
           <div className="flex items-start gap-4">
