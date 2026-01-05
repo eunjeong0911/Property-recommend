@@ -296,3 +296,103 @@ class LandSerializer(serializers.ModelSerializer):
             return [tag.strip() for tag in obj.style_tags.split(',') if tag.strip()]
         return []
 
+
+class LandListSerializer(serializers.ModelSerializer):
+    """목록 조회용 시리얼라이저"""
+    id = serializers.IntegerField(source='land_id')
+    title = serializers.SerializerMethodField()
+    image = serializers.SerializerMethodField()
+    price = serializers.SerializerMethodField()
+    transaction_type = serializers.CharField(source='deal_type', allow_null=True, allow_blank=True)
+    building_type = serializers.CharField(allow_null=True, allow_blank=True)
+    floor = serializers.SerializerMethodField()
+    room_count = serializers.SerializerMethodField()
+    area_supply = serializers.SerializerMethodField()
+    
+    # 중개업소 정보
+    broker = BrokerSerializer(source='landbroker', read_only=True)
+    
+    # 가격 분류 정보 (캐시된 데이터 활용)
+    price_prediction = serializers.SerializerMethodField()
+    
+    # 스타일 태그
+    style_tags = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Land
+        fields = [
+            'id', 
+            'title', 
+            'image', 
+            'price',
+            'transaction_type',
+            'building_type',
+            'land_num', # land_num 추가 (상세페이지 이동 등에 필요)
+            'address',
+            'floor',
+            'room_count',
+            'area_supply',
+            'broker',
+            'price_prediction',
+            'style_tags'
+        ]
+
+    def get_title(self, obj):
+        if obj.listing_info and isinstance(obj.listing_info, dict):
+            building_form = obj.listing_info.get('건물형태', obj.building_type)
+            area = obj.listing_info.get('전용/공급면적', '')
+            if area:
+                pyeong = extract_area_pyeong(area)
+                if pyeong:
+                    area = pyeong
+            return f"{building_form} {area}".strip() or obj.land_num
+        return obj.land_num
+
+    def get_image(self, obj):
+        if obj.images and isinstance(obj.images, list) and len(obj.images) > 0:
+            return obj.images[0]
+        return None
+
+    def get_price(self, obj):
+        return get_price_display(obj)
+
+    def _get_listing_info_field(self, obj, field_name):
+        if obj.listing_info and isinstance(obj.listing_info, dict):
+            return obj.listing_info.get(field_name, '-')
+        return '-'
+
+    def get_floor(self, obj):
+        return self._get_listing_info_field(obj, '해당층/전체층')
+    
+    def get_room_count(self, obj):
+        return self._get_listing_info_field(obj, '방/욕실개수')
+    
+    def get_area_supply(self, obj):
+        area = self._get_listing_info_field(obj, '전용/공급면적')
+        return extract_area_supply(area)
+    
+    def get_price_prediction(self, obj):
+        # prefetch_related를 통해 미리 로딩된 데이터 사용 (DB 쿼리 발생 안 함)
+        try:
+            # .all()을 호출하여 prefetch된 캐시를 활용
+            # (queryset에서 prefetch_related('price_predictions') 사용 필수)
+            price_list = list(obj.price_predictions.all())
+            if price_list:
+                price_class = price_list[0]
+                return {
+                    'predicted_class': price_class.predicted_class,
+                    'predicted_label': price_class.predicted_label,
+                    'predicted_label_kr': price_class.predicted_label_kr,
+                    'underpriced_prob': price_class.underpriced_prob,
+                    'fair_prob': price_class.fair_prob,
+                    'overpriced_prob': price_class.overpriced_prob
+                }
+            return None
+        except Exception:
+            return None
+        
+    def get_style_tags(self, obj):
+        if obj.style_tags:
+            return [tag.strip() for tag in obj.style_tags.split(',') if tag.strip()]
+        return []
+
