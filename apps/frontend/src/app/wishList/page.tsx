@@ -49,7 +49,6 @@ export default function WishListPage() {
 
         setWishlistLands(lands)
       } catch (err) {
-        console.error('Failed to load wishlist:', err)
         setError('찜 매물을 불러오는데 실패했습니다.')
       } finally {
         setLoading(false)
@@ -133,6 +132,8 @@ export default function WishListPage() {
           // 중개사 신뢰도
           brokerTrustScore: land.broker?.trust_score,
           brokerTrustGrade: land.broker?.trust_grade,
+          // 온도 데이터
+          temperatures: land.temperatures,
         }
       })
       .filter(Boolean) as any[]
