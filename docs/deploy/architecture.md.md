@@ -1,16 +1,4 @@
-# 배포 아키텍처 및 프로세스 가이드
-
-## 📋 목차
-1. [전체 아키텍처 개요](#1-전체-아키텍처-개요)
-2. [서버 구성](#2-서버-구성)
-3. [Docker 이미지 구성](#3-docker-이미지-구성)
-4. [빌드 및 배포 프로세스](#4-빌드-및-배포-프로세스)
-5. [볼륨 마운트 전략](#5-볼륨-마운트-전략)
-6. [환경변수 관리](#6-환경변수-관리)
-7. [배포 체크리스트](#7-배포-체크리스트)
-
----
-
+# 상세 아키텍처 및 배포 가이드
 ## 1. 전체 아키텍처 개요
 
 ### 1.1 네트워크 구성
@@ -38,7 +26,6 @@ Private Subnet:
 ### 1.2 외부 서비스
 - **AWS RDS PostgreSQL**: 메인 데이터베이스
 - **AWS ECR**: Docker 이미지 저장소
-- **AWS S3**: 정적 파일 저장소
 
 ---
 
@@ -113,16 +100,6 @@ realestate-scripts:latest
 - Python 패키지 (requirements.txt)
 - Gunicorn WSGI 서버
 
-**빌드 명령어**:
-```bash
-docker build -f infra/docker/backend.Dockerfile -t realestate-backend:latest .
-```
-
-**실행 명령어**:
-```bash
-gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120
-```
-
 **볼륨 마운트**:
 - `./data:/app/data` (데이터 파일)
 - `./apps/backend/config/settings/prod.py:/app/config/settings/prod.py` (설정 파일)
@@ -139,20 +116,6 @@ gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120
 NEXT_PUBLIC_API_URL=https://goziphouse.com
 NEXT_PUBLIC_KAKAO_MAP_KEY=<카카오맵_키>
 NEXT_PUBLIC_GOOGLE_CLIENT_ID=<구글_클라이언트_ID>
-```
-
-**빌드 명령어**:
-```bash
-docker build -f infra/docker/frontend.Dockerfile \
-  --build-arg NEXT_PUBLIC_API_URL=https://goziphouse.com \
-  --build-arg NEXT_PUBLIC_KAKAO_MAP_KEY=29d460d952fdd2737e2be0432924660c \
-  --build-arg NEXT_PUBLIC_GOOGLE_CLIENT_ID=427910451644-tbsnm5701k94burftvo12kv8p8ngpcvo.apps.googleusercontent.com \
-  -t realestate-frontend:latest .
-```
-
-**실행 명령어**:
-```bash
-node server.js
 ```
 
 **런타임 환경변수** (docker-compose에서 주입):
@@ -178,16 +141,6 @@ environment:
 - Python 패키지
 - Uvicorn ASGI 서버
 
-**빌드 명령어**:
-```bash
-docker build -f infra/docker/rag.Dockerfile -t realestate-rag:latest .
-```
-
-**실행 명령어**:
-```bash
-uvicorn main:app --host 0.0.0.0 --port 8001
-```
-
 **볼륨 마운트**: 없음
 
 ---
@@ -202,16 +155,6 @@ uvicorn main:app --host 0.0.0.0 --port 8001
 - 데이터 임포트 스크립트
 - ML 모델 파일 (`apps/reco/models/**/*.pkl`)
 - Python 패키지
-
-**빌드 명령어**:
-```bash
-docker build -f infra/docker/scripts.Dockerfile -t realestate-scripts:latest .
-```
-
-**실행 명령어**:
-```bash
-tail -f /dev/null  # 컨테이너를 계속 실행 상태로 유지
-```
 
 **볼륨 마운트**:
 - `./data:/app/data` (크롤링 데이터 저장)
@@ -356,54 +299,7 @@ volumes:
 
 ---
 
-## 6. 환경변수 관리
-
-### 6.1 `.env.production` 구조
-```bash
-# Django
-SECRET_KEY=<시크릿_키>
-DEBUG=False
-ALLOWED_HOSTS=goziphouse.com,10.0.139.182
-
-# Database
-DB_NAME=realestate
-DB_USER=postgres
-DB_PASSWORD=<비밀번호>
-DB_HOST=<RDS_엔드포인트>
-DB_PORT=5432
-
-# Neo4j
-NEO4J_URI=bolt://10.0.24.54:7687
-NEO4J_USER=neo4j
-NEO4J_PASSWORD=<비밀번호>
-
-# Redis
-REDIS_HOST=10.0.14.99
-REDIS_PORT=6379
-
-# Elasticsearch
-ELASTICSEARCH_HOST=10.0.14.99
-ELASTICSEARCH_PORT=9200
-
-# Google OAuth
-GOOGLE_CLIENT_ID=<클라이언트_ID>
-GOOGLE_CLIENT_SECRET=<클라이언트_시크릿>
-
-# NextAuth
-NEXTAUTH_SECRET=<시크릿>
-NEXTAUTH_URL=https://goziphouse.com
-
-# AWS
-AWS_ACCESS_KEY_ID=<액세스_키>
-AWS_SECRET_ACCESS_KEY=<시크릿_키>
-AWS_STORAGE_BUCKET_NAME=<버킷_이름>
-AWS_S3_REGION_NAME=ap-northeast-2
-
-# OpenAI
-OPENAI_API_KEY=<API_키>
-```
-
-### 6.2 환경변수 주입 방식
+# 6. 환경변수 주입 방식
 
 **빌드타임 (Frontend)**:
 - `NEXT_PUBLIC_*` 변수는 빌드 시 `--build-arg`로 주입
@@ -412,93 +308,3 @@ OPENAI_API_KEY=<API_키>
 **런타임 (Backend, RAG, Scripts)**:
 - `.env.production` 파일에서 읽음
 - `docker-compose`의 `env_file` 또는 `environment`로 주입
-
----
-
-## 7. 배포 체크리스트
-
-### 7.1 배포 전 체크
-- [ ] `.env.production` 파일 준비
-- [ ] ECR 로그인 완료
-- [ ] Git 코드 최신화 (`git pull`)
-- [ ] Frontend 빌드 인자 확인
-
-### 7.2 빌드 체크
-- [ ] Backend 이미지 빌드 성공
-- [ ] Frontend 이미지 빌드 성공 (빌드 인자 포함)
-- [ ] RAG 이미지 빌드 성공
-- [ ] Scripts 이미지 빌드 성공
-
-### 7.3 Push 체크
-- [ ] 모든 이미지 ECR Push 완료
-- [ ] ECR에서 이미지 확인
-
-### 7.4 배포 체크
-- [ ] EC2 서버 접속 확인
-- [ ] ECR 로그인 완료
-- [ ] 이미지 Pull 완료
-- [ ] 서비스 재시작 완료
-- [ ] `docker ps`로 컨테이너 상태 확인
-
-### 7.5 동작 확인
-- [ ] `https://goziphouse.com` 접속 확인
-- [ ] Backend API 응답 확인
-- [ ] Frontend 페이지 로딩 확인
-- [ ] Google 로그인 테스트
-- [ ] 챗봇 동작 확인
-- [ ] 매물 검색 확인
-
----
-
-## 8. 트러블슈팅
-
-### 8.1 이미지 빌드 실패
-**문제**: `No space left on device`
-
-**해결**:
-```bash
-docker system prune -a -f
-docker builder prune -f
-```
-
-### 8.2 ECR Push 실패
-**문제**: `denied: Your authorization token has expired`
-
-**해결**:
-```bash
-aws ecr get-login-password --region ap-northeast-2 | \
-  docker login --username AWS --password-stdin \
-  046685909225.dkr.ecr.ap-northeast-2.amazonaws.com
-```
-
-### 8.3 컨테이너 시작 실패
-**문제**: 환경변수 누락
-
-**해결**:
-```bash
-# 환경변수 확인
-docker exec <컨테이너_이름> env
-
-# 로그 확인
-docker logs <컨테이너_이름> --tail 100
-```
-
-### 8.4 Frontend 환경변수 문제
-**문제**: `NEXT_PUBLIC_*` 변수가 undefined
-
-**해결**: 이미지 재빌드 (빌드 인자 포함)
-```bash
-docker build -f infra/docker/frontend.Dockerfile \
-  --build-arg NEXT_PUBLIC_API_URL=https://goziphouse.com \
-  --build-arg NEXT_PUBLIC_KAKAO_MAP_KEY=<키> \
-  --build-arg NEXT_PUBLIC_GOOGLE_CLIENT_ID=<ID> \
-  -t realestate-frontend:latest .
-```
-
----
-
-## 9. 참고 자료
-
-- [서버 접속 가이드](./server.md)
-- [Docker Compose 설정](../../docker-compose.prod.app.yml)
-- [Nginx 설정](../../infra/nginx/nginx.prod.conf)
