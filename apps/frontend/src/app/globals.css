@@ -64,6 +64,13 @@ body {
     background: var(--color-bg-secondary);
 }
 
+/* 입력 요소 텍스트 색상 고정 (다크모드에서도 검정색) */
+input,
+textarea,
+select {
+    color: #1A1A1A !important;
+}
+
 /* 챗봇 커스텀 애니메이션 */
 @keyframes bounce-slow {
 
@@ -117,5 +124,3 @@ body {
 .property-card-animate {
     animation: slideInRight 0.4s ease-out;
 }
-
-
