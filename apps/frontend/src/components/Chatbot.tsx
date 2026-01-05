@@ -165,6 +165,19 @@ export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // 모달 열릴 때 배경 스크롤 막기
+  useEffect(() => {
+    if (showHistoryModal) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [showHistoryModal])
+
   const formatTime = (date: Date) => {
     const hours = date.getHours().toString().padStart(2, '0')
     const minutes = date.getMinutes().toString().padStart(2, '0')
@@ -794,7 +807,7 @@ export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
             className="absolute inset-0 bg-black/70 backdrop-blur-md"
             onClick={() => setShowHistoryModal(false)}
           />
-          <div className="relative bg-white rounded-xl shadow-[var(--shadow-xl)] w-full max-w-2xl max-h-[80vh] flex flex-col z-[10000]">
+          <div className="relative bg-white rounded-xl shadow-[var(--shadow-xl)] w-full max-w-2xl max-h-[70vh] flex flex-col z-[10000]">
             <div className="flex items-center justify-between p-6 border-b">
               <h3 className="text-xl font-semibold text-[var(--color-primary)]">
                 과거 대화 내역
@@ -819,7 +832,7 @@ export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
                 </svg>
               </button>
             </div>
-            <div className="p-6 overflow-y-auto">
+            <div className="p-6 overflow-y-auto flex-1">
               {sessions.length === 0 ? (
                 <p className="text-sm text-[var(--color-text-tertiary)] text-center py-8">
                   저장된 대화가 없습니다
