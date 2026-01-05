@@ -5,44 +5,35 @@
 # =============================================================================
 
 # -----------------------------------------------------------------------------
-# Database Clients (Required for all import scripts)
+# Database Clients
 # -----------------------------------------------------------------------------
-psycopg2-binary==2.9.9          # PostgreSQL
-neo4j==5.15.0                   # Neo4j
-elasticsearch==8.17.0           # Elasticsearch
+psycopg2-binary>=2.9
+neo4j>=5.0
+elasticsearch>=8.17,<8.18
 
 # -----------------------------------------------------------------------------
-# Data Processing (Required for imports and preprocessing)
+# ML & Data Processing
 # -----------------------------------------------------------------------------
-pandas==2.1.4                   # Data manipulation
-numpy==1.26.2                   # Numerical operations
-openpyxl==3.1.2                 # Excel file support (Required for medical data)
+pandas>=2.0
+numpy>=1.24
+openpyxl>=3.1
+lightgbm>=4.0
+scikit-learn>=1.3
+xgboost>=2.0.0
 
 # -----------------------------------------------------------------------------
-# Django (Required for trust_prediction/predict_trust_scores.py)
+# OpenAI (Embeddings)
 # -----------------------------------------------------------------------------
-Django==4.2.8                   # Django ORM for database access
-djangorestframework==3.14.0     # Django REST Framework
-djangorestframework-simplejwt==5.3.1  # JWT authentication
-django-cors-headers==4.3.1      # CORS support
-django-filter==23.5             # Filtering support
-python-json-logger==2.0.7       # For Django JSON logging
+openai>=1.0
 
 # -----------------------------------------------------------------------------
-# Machine Learning (Required for trust prediction)
+# Utils
 # -----------------------------------------------------------------------------
-scikit-learn==1.3.2             # ML algorithms and preprocessing
-joblib==1.3.2                   # Model serialization
+python-dotenv>=1.0
+requests>=2.31
 
 # -----------------------------------------------------------------------------
-# Utilities
+# ML (Trust Score 예측)
 # -----------------------------------------------------------------------------
-python-dotenv==1.0.0            # Environment variables
-requests==2.31.0                # HTTP requests (for pet_score_importer, geocoding)
-
-# -----------------------------------------------------------------------------
-# Preprocessing (If running in production)
-# -----------------------------------------------------------------------------
-openai==1.6.1                   # For generate_search_text_parallel.py
-tqdm==4.66.1                    # Progress bars for preprocessing scripts
-
+scikit-learn>=1.3
+python-dateutil>=2.8
