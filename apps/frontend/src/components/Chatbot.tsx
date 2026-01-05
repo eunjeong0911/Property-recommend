@@ -23,14 +23,14 @@ interface ChatbotProps {
   onRecommendLands?: (landIds: number[]) => void
 }
 
-// 순위별 색상 정의 (다크모드: 대비 강화)
+// 순위별 색상 정의
 const rankColors: Record<number, { bg: string; border: string; badge: string }> = {
-  1: { bg: 'bg-amber-50 dark:bg-amber-900/50', border: 'border-l-4 border-amber-400 dark:border-amber-300', badge: 'bg-amber-400 text-white' },
-  2: { bg: 'bg-slate-100 dark:bg-slate-600/50', border: 'border-l-4 border-slate-400 dark:border-slate-300', badge: 'bg-slate-400 text-white' },
-  3: { bg: 'bg-orange-50 dark:bg-orange-900/50', border: 'border-l-4 border-orange-400 dark:border-orange-300', badge: 'bg-orange-400 text-white' },
+  1: { bg: 'bg-amber-50', border: 'border-l-4 border-amber-400', badge: 'bg-amber-400 text-white' },
+  2: { bg: 'bg-slate-100', border: 'border-l-4 border-slate-400', badge: 'bg-slate-400 text-white' },
+  3: { bg: 'bg-orange-50', border: 'border-l-4 border-orange-400', badge: 'bg-orange-400 text-white' },
 };
 
-const defaultRankColor = { bg: 'bg-gray-50 dark:bg-gray-700', border: 'border-l-4 border-gray-300 dark:border-gray-400', badge: 'bg-gray-400 text-white' };
+const defaultRankColor = { bg: 'bg-gray-50', border: 'border-l-4 border-gray-300', badge: 'bg-gray-400 text-white' };
 
 // AI 응답에서 추가질문 섹션을 분리하는 함수
 const extractSuggestedQuestions = (content: string): { mainContent: string; questions: string[] } => {
@@ -325,19 +325,19 @@ export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
 
   return (
     <>
-      <div className="flex flex-col h-full bg-white dark:bg-gray-900 rounded-xl border dark:border-gray-700"
+      <div className="flex flex-col h-full bg-white rounded-xl border"
         style={{ height: 'calc(100vh - 120px)' }}
       >
 
         {/* 헤더 */}
         <div className="flex justify-between p-4 border-b">
-          <h2 className="text-lg font-bold text-black dark:text-white">매물 추천 챗봇</h2>
+          <h2 className="text-lg font-bold text-black">매물 추천 챗봇</h2>
 
           <div className="flex items-center gap-2">
             {/* 새 채팅(+ 버튼) */}
             <button
               onClick={startNewChat}
-              className="w-9 h-9 flex items-center justify-center rounded-full border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              className="w-9 h-9 flex items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] transition-colors"
             >
               <svg
                 width="18"
@@ -354,7 +354,7 @@ export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
             {/* 과거 대화보기 버튼 */}
             <button
               onClick={() => setShowHistoryModal(true)}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-[var(--color-text-secondary)] border border-[var(--color-border)] rounded-lg hover:bg-[var(--color-bg-hover)] transition-colors"
             >
               <svg
                 width="16"
@@ -631,7 +631,7 @@ export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
                                       </span>
                                     </div>
                                   )}
-                                  <div className="prose prose-sm max-w-none text-gray-900 dark:text-gray-100">
+                                  <div className="prose prose-sm max-w-none text-gray-900">
                                     <ReactMarkdown
                                       components={{
                                         a: ({ href, children }) => {
@@ -672,7 +672,7 @@ export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
                           {/* 추가질문 섹션 - 별도 말풍선, 2열 그리드 */}
                           {questions.length > 0 && (
                             <div className="flex justify-start">
-                              <div className="w-[85%] p-4 rounded-lg bg-purple-50 dark:bg-gray-700 border-l-4 border-purple-400 dark:border-purple-500">
+                              <div className="w-[85%] p-4 rounded-lg bg-purple-50 border-l-4 border-purple-400">
                                 <div className="flex items-center gap-2 mb-3">
                                   <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-purple-400 text-white">
                                     💡 추가질문
@@ -739,7 +739,7 @@ export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
                                           setIsLoading(false);
                                         }
                                       }}
-                                      className="text-left px-3 py-2 bg-white dark:bg-gray-600 border border-purple-200 dark:border-gray-500 rounded-lg text-sm text-purple-700 dark:text-gray-200 hover:bg-purple-100 dark:hover:bg-gray-500 hover:border-purple-300 transition-colors"
+                                      className="text-left px-3 py-2 bg-white border border-purple-200 rounded-lg text-sm text-purple-700 hover:bg-purple-100 hover:border-purple-300 transition-colors"
                                     >
                                       {question}
                                     </button>
@@ -773,7 +773,7 @@ export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
             value={inputValue}
             onChange={e => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="flex-1 border dark:border-gray-600 rounded px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+            className="flex-1 border rounded px-3 py-2 text-sm"
             placeholder="궁금한 매물 정보를 물어보세요"
             disabled={isLoading}
           />
