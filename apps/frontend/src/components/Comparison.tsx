@@ -158,7 +158,7 @@ export default function Comparison({ lands, land1, land2 }: ComparisonProps) {
 
   return (
     <div className="max-w-7xl mx-auto p-6">
-      <h2 className="text-3xl font-bold text-center mb-4">매물 비교</h2>
+      <h2 className="text-3xl font-bold text-center mb-4" style={{ color: '#16375B' }}>매물 비교</h2>
 
       {/* 탭 버튼 */}
       <div className="flex justify-center gap-2 mb-8">
