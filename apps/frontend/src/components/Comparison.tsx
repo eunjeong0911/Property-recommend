@@ -208,9 +208,9 @@ export default function Comparison({ lands, land1, land2 }: ComparisonProps) {
               <div className="mt-6 space-y-3">
                 {/* 위치 */}
                 {land.address && (
-                  <div className="border-b pb-2">
-                    <span className="text-gray-600 block mb-1">위치</span>
-                    <span className="font-semibold text-sm break-words">{land.address}</span>
+                  <div className="flex justify-between border-b pb-2">
+                    <span className="text-gray-600">위치</span>
+                    <span className="font-semibold">{land.address}</span>
                   </div>
                 )}
                 {land.deposit && (
@@ -274,9 +274,9 @@ export default function Comparison({ lands, land1, land2 }: ComparisonProps) {
                   </div>
                 )}
                 {land.moveInDate && (
-                  <div className="border-b pb-2">
-                    <span className="text-gray-600 block mb-1">입주가능일</span>
-                    <span className="font-semibold text-sm">{land.moveInDate}</span>
+                  <div className="flex justify-between border-b pb-2">
+                    <span className="text-gray-600">입주가능일</span>
+                    <span className="font-semibold">{land.moveInDate}</span>
                   </div>
                 )}
                 {/* 중개사 신뢰도 */}
