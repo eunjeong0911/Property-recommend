@@ -284,7 +284,7 @@ class ModelTrainer:
         Returns:
             ModelExplainer 객체
         """
-        from explainer import ModelExplainer
+        from analysis.explainer import ModelExplainer
 
         if model_name is None:
             if self.best_model is None:

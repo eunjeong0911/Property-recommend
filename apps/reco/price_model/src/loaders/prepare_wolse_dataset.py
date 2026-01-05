@@ -2,7 +2,8 @@ import pandas as pd
 from pathlib import Path
 
 # 이 파일 위치 기준으로 프로젝트 루트 찾기
-REPO_ROOT = Path(__file__).resolve().parents[4]
+# loaders/ -> src/ -> price_model/ -> reco/ -> apps/ -> SKN18-FINAL-1TEAM (6개 parent)
+REPO_ROOT = Path(__file__).resolve().parents[5]
 BASE_DIR = REPO_ROOT / "data" / "actual_transaction_price"
 
 
@@ -211,10 +212,13 @@ def load_and_filter_monthly(path: Path) -> pd.DataFrame:
 
 
 # -------------------------------
-# 3) 실행 파트
+# 3) 메인 실행 함수
 # -------------------------------
-if __name__ == "__main__":
-
+def run():
+    """
+    월세 데이터셋 준비 전체 파이프라인 실행
+    외부 모듈에서 호출 가능
+    """
     print("\n" + "=" * 60)
     print("월세 데이터셋 준비 시작")
     print("=" * 60 + "\n")
@@ -316,8 +320,22 @@ if __name__ == "__main__":
     print("전체 작업 완료!")
     print("=" * 60)
     print("\n생성된 파일:")
-    print(f"1. {BASE_DIR / '(총합)시장금리_및_대출금리(24.8~25.11).csv'}")
+    print(f"1. {BASE_DIR / '(총합)시장금리_및_대출금리(24.8~25.10).csv'}")
     print(f"2. {out}")
     print(f"3. {out_train}")
     print(f"4. {out_test}")
     print("\n" + "=" * 60 + "\n")
+    
+    return {
+        "rate_data_path": BASE_DIR / "(총합)시장금리_및_대출금리(24.8~25.10).csv",
+        "model_data_path": out,
+        "train_path": out_train,
+        "test_path": out_test,
+    }
+
+
+# -------------------------------
+# 4) 단독 실행 시
+# -------------------------------
+if __name__ == "__main__":
+    run()

@@ -43,12 +43,12 @@ export interface Land {
 
     // 가격 예측 정보
     price_prediction?: {
-        prediction_class: number;
-        prediction_label: string;
-        prediction_label_korean: string;
-        probability_underpriced: number;
-        probability_fair: number;
-        probability_overpriced: number;
+        predicted_class: number;
+        predicted_label: string;
+        predicted_label_kr: string;
+        underpriced_prob: number;
+        fair_prob: number;
+        overpriced_prob: number;
     };
 
     // 부동산 온도 데이터

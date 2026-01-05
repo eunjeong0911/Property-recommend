@@ -366,17 +366,17 @@ export default function LandDetail({ landId }: LandDetailProps) {
             <div className="flex items-center gap-3 mb-3">
               <span className="text-2xl font-bold text-blue-600">{land.price || '-'}</span>
 
-              {land.price_prediction?.prediction_label_korean && (
+              {land.price_prediction?.predicted_label_kr && (
                 <div className="relative inline-flex items-center gap-2">
                   <span
-                    className={`px-3 py-1 rounded-lg text-sm font-bold ${land.price_prediction.prediction_label_korean === '저렴'
+                    className={`px-3 py-1 rounded-lg text-sm font-bold ${land.price_prediction.predicted_label_kr === '저렴'
                       ? 'bg-green-500 text-white'
-                      : land.price_prediction.prediction_label_korean === '적정'
+                      : land.price_prediction.predicted_label_kr === '적정'
                         ? 'bg-blue-500 text-white'
                         : 'bg-red-500 text-white'
                       }`}
                   >
-                    {land.price_prediction.prediction_label_korean}
+                    {land.price_prediction.predicted_label_kr}
                   </span>
                   <button
                     className="w-5 h-5 rounded-full bg-gray-200 text-gray-600 text-xs font-bold hover:bg-gray-300 transition-colors"
@@ -390,8 +390,8 @@ export default function LandDetail({ landId }: LandDetailProps) {
                     <div className="absolute top-full left-0 mt-2 w-72 bg-white rounded-lg shadow-xl border border-gray-200 p-4 z-50">
                       <p className="text-sm text-slate-700">
                         해당 매물은 서울특별시 법정동 건물용도별 평당가로 분석했을 때{' '}
-                        <strong className={getPriceBadgeColor(land.price_prediction.prediction_label_korean)}>
-                          '{land.price_prediction.prediction_label_korean}'
+                        <strong className={getPriceBadgeColor(land.price_prediction.predicted_label_kr)}>
+                          '{land.price_prediction.predicted_label_kr}'
                         </strong>
                         에 해당합니다.
                       </p>
