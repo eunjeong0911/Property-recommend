@@ -598,11 +598,11 @@ export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
                   {message.type === 'user' ? (
                     /* 사용자 메시지 */
                     <div className="flex justify-end">
-                      <div className="max-w-[75%] p-4 rounded-lg bg-[#16375B] text-white">
+                      <div className="max-w-[75%] p-4 rounded-lg bg-sky-100 text-gray-900">
                         <p className="text-sm whitespace-pre-wrap break-words">
                           {message.content}
                         </p>
-                        <p className="text-xs mt-2 text-gray-300">
+                        <p className="text-xs mt-2 text-gray-500">
                           {formatTime(message.timestamp)}
                         </p>
                       </div>
