@@ -492,14 +492,28 @@ export default function LandDetail({ landId }: LandDetailProps) {
                   </button>
 
                   {showPriceTooltip && (
-                    <div className="absolute top-full left-0 mt-2 w-72 bg-white rounded-lg shadow-xl border border-gray-200 p-4 z-50">
-                      <p className="text-sm text-slate-700">
-                        해당 매물은 서울특별시 법정동 건물용도별 평당가로 분석했을 때{' '}
+                    <div className="absolute top-full left-0 mt-2 w-[340px] bg-white rounded-lg shadow-xl border border-gray-200 p-4 z-50">
+                      <p className="text-sm font-bold text-blue-600 mb-3">
+                        💡 가격 적정성 평가
+                      </p>
+                      <p className="text-sm text-slate-700 mb-2 leading-relaxed">
+                        해당 매물은 서울특별시 법정동 건물용도별 평당가로<br />
+                        분석했을 때{' '}
                         <strong className={getPriceBadgeColor(land.price_prediction.predicted_label_kr)}>
                           '{land.price_prediction.predicted_label_kr}'
                         </strong>
-                        에 해당합니다.
+                        으로 분류됩니다.
                       </p>
+                      <div className="bg-blue-50 rounded p-2.5 mb-2">
+                        <p className="text-xs text-blue-700">
+                          💬 <strong>쉽게 말하면?</strong> 같은 법정동·같은 건물용도 기준으로<br />
+                          비교했을 때의 가격 수준입니다.
+                        </p>
+                      </div>
+                      <div className="border-t border-slate-200 pt-2 text-xs text-slate-600 space-y-1">
+                        <p>✓ 같은 법정동·같은 건물용도 매물 중 상대적 위치로 판단</p>
+                        <p>✓ 월세는 전세로 환산하여 평당가로 비교</p>
+                      </div>
                     </div>
                   )}
                 </div>
