@@ -163,7 +163,7 @@ export default function WishListPage() {
 
   if (loading) {
     return (
-      <div className="max-w-5xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto px-4 py-8">
         <SideTab />
         <LoadingSpinner message="찜 매물을 불러오는 중..." />
       </div>
@@ -172,7 +172,7 @@ export default function WishListPage() {
 
   if (error) {
     return (
-      <div className="max-w-5xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto px-4 py-8">
         <SideTab />
         <div>
           <div className="bg-red-50 border border-red-200 rounded-lg p-12 text-center">
@@ -184,7 +184,7 @@ export default function WishListPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
+    <div className="max-w-4xl mx-auto px-4 py-8">
       {/* 가로 탭 */}
       <SideTab />
 
