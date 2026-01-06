@@ -19,8 +19,29 @@ interface ChatSession {
   updatedAt: Date
 }
 
+interface FilterInfo {
+  summary: string
+  details: {
+    location?: string
+    facilities?: string[]
+    deal_type?: string
+    building_type?: string
+    max_deposit?: string
+    max_rent?: string
+    style?: string[]
+  }
+  search_strategy?: string
+}
+
+interface ChatbotRecommendData {
+  landIds: number[]
+  filterInfo: FilterInfo | null
+  properties: any[]  // graph_results from backend
+}
+
 interface ChatbotProps {
   onRecommendLands?: (landIds: number[]) => void
+  onChatbotRecommend?: (data: ChatbotRecommendData) => void
 }
 
 // 순위별 색상 정의
@@ -107,15 +128,16 @@ const parseRankedContent = (content: string): { rank: number | null; content: st
   return parts;
 };
 
-export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
+export default function Chatbot({ onRecommendLands, onChatbotRecommend }: ChatbotProps = {}) {
   const [sessions, setSessions] = useState<ChatSession[]>([])
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [inputValue, setInputValue] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [showHistoryModal, setShowHistoryModal] = useState(false)
+  const [latestFilterInfo, setLatestFilterInfo] = useState<FilterInfo | null>(null)
+  const [latestProperties, setLatestProperties] = useState<any[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
-
   // 초기 마운트 시 저장된 세션 복원
   useEffect(() => {
     const savedSessions = localStorage.getItem('chatSessions')
@@ -245,7 +267,17 @@ export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
     setIsLoading(true)
 
     try {
-      const answer = await sendChatQuestion(userMessage.content, sessionId)
+      // 직접 fetch로 filter_info와 graph_results 받아오기
+      const response = await fetch('http://localhost:8001/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: userMessage.content,
+          session_id: sessionId
+        }),
+      });
+      const data = await response.json();
+      const answer = data.answer || '응답을 받을 수 없습니다.';
 
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -256,15 +288,28 @@ export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
 
       setMessages(prev => [...prev, aiMessage])
 
-      // AI 응답에서 /landDetail/{id} 형태의 링크를 찾아 매물 ID 추천
-      if (onRecommendLands) {
-        const landIds = [...answer.matchAll(/\/landDetail\/(\d+)/g)]
-          .map(match => Number(match[1]))
-          .filter(Boolean)
+      // 필터 정보와 매물 데이터 저장
+      if (data.filter_info) {
+        setLatestFilterInfo(data.filter_info);
+      }
 
-        if (landIds.length > 0) {
-          onRecommendLands(landIds)
-        }
+      // AI 응답에서 /landDetail/{id} 형태의 링크를 찾아 매물 ID 추출
+      const landIds = [...answer.matchAll(/\/landDetail\/(\d+)/g)]
+        .map(match => Number(match[1]))
+        .filter(Boolean);
+
+      // 새로운 콜백으로 전달 (우선)
+      if (onChatbotRecommend && (landIds.length > 0 || data.filter_info)) {
+        onChatbotRecommend({
+          landIds,
+          filterInfo: data.filter_info || null,
+          properties: data.graph_results || []  // 백엔드의 graph_results 전달
+        });
+        setLatestProperties(data.graph_results || []);
+      }
+      // 기존 콜백 호환성 유지
+      else if (onRecommendLands && landIds.length > 0) {
+        onRecommendLands(landIds);
       }
     } catch (error) {
       setMessages(prev => [
@@ -771,11 +816,10 @@ export default function Chatbot({ onRecommendLands }: ChatbotProps = {}) {
                 </div>
               ))}
 
+
               {isLoading && (
                 <p className="text-sm text-gray-400">AI가 답변을 생성 중입니다...</p>
               )}
-
-              <div ref={messagesEndRef} />
             </>
           )}
         </div>
