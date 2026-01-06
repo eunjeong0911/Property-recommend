@@ -3,7 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import Land, PriceClassificationResult
-from .serializers import LandSerializer
+from .serializers import LandSerializer, LandListSerializer
 from .utils.price_utils import get_price_display
 from .neo4j_client import Neo4jClient
 import logging
@@ -12,13 +12,20 @@ logger = logging.getLogger(__name__)
 
 class LandViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Land.objects.all()
-    serializer_class = LandSerializer
+    # serializers.py의 LandListSerializer와 LandSerializer를 동적으로 선택
+
+    def get_serializer_class(self):
+        if self.action == 'list': # 목록 조회 API
+            return LandListSerializer # 목록 조회 시리얼라이저
+        return LandSerializer # 개별 조회 시리얼라이저
     filter_backends = [filters.SearchFilter]
     search_fields = ['land_num', 'address']
 
     def get_queryset(self):
         # with_images() + select_related로 N+1 쿼리 방지
-        queryset = Land.objects.with_images().select_related('landbroker')
+        # price_predictions도 미리 로딩 (N+1 방지)
+        # N+1 쿼리 방지: 이미지, 중개업소, 가격 정보를 한 번에 조회
+        queryset = Land.objects.with_images().select_related('landbroker').prefetch_related('price_predictions')
         
         # 지역 필터 (부분 일치)
         address = self.request.query_params.get('address', None)
@@ -45,21 +52,7 @@ class LandViewSet(viewsets.ReadOnlyModelViewSet):
             queryset = queryset.filter(building_type=building_type)
         
         return queryset
-    
-    def get_serializer_context(self):
-        """Serializer context에 price_predictions 캐시 추가 (N+1 쿼리 방지)"""
-        context = super().get_serializer_context()
-        
-        # 모든 price_classification을 한 번에 조회하여 캐싱
-        # 테이블이 없을 수 있으므로 예외 처리
-        try:
-            price_predictions = PriceClassificationResult.objects.all()
-            context['price_predictions'] = {p.land_num: p for p in price_predictions}
-        except Exception:
-            # 테이블이 없거나 오류 시 빈 딕셔너리
-            context['price_predictions'] = {}
-        
-        return context
+
     
     @action(detail=False, methods=['get'])
     def locations(self, request):
@@ -419,7 +412,7 @@ class LandViewSet(viewsets.ReadOnlyModelViewSet):
             return Response({'error': f'매물 ID {pk}를 찾을 수 없습니다.'}, status=404)
         
         # 현재 매물의 온도 데이터 가져오기
-        from .utils.temperature_utils import get_land_temperatures
+        from .utils.temperature_utils import get_land_temperatures, get_bulk_land_temperatures
         current_temps = get_land_temperatures(current_land.land_num)
         
         # 온도 벡터 생성 (5차원)
@@ -521,12 +514,24 @@ class LandViewSet(viewsets.ReadOnlyModelViewSet):
             logger.info(f"매물 {pk}에 대한 유사 매물 후보가 없습니다.")
             return Response({'results': []})
         
+        # --- 최적화: 후보 매물들의 온도 데이터를 한 번에 조회 (Bulk Fetch) ---
+        candidate_land_nums = [c.land_num for c in candidates]
+        try:
+            bulk_temps = get_bulk_land_temperatures(candidate_land_nums)
+        except Exception as e:
+            logger.error(f"Bulk temperature fetch failed: {e}")
+            bulk_temps = {}
+
         # 각 후보 매물과의 유사도 계산
         import numpy as np
         similarities = []
         
         for candidate in candidates:
-            candidate_temps = get_land_temperatures(candidate.land_num)
+            # Bulk Data에서 조회
+            candidate_temps = bulk_temps.get(candidate.land_num)
+            if not candidate_temps:
+                candidate_temps = get_land_temperatures(candidate.land_num) # Fallback
+
             candidate_vector = [
                 candidate_temps.get('safety', 36.5),
                 candidate_temps.get('convenience', 36.5),

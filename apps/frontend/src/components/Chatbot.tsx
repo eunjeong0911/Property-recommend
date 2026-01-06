@@ -137,7 +137,7 @@ export default function Chatbot({ onRecommendLands, onChatbotRecommend }: Chatbo
   const [showHistoryModal, setShowHistoryModal] = useState(false)
   const [latestFilterInfo, setLatestFilterInfo] = useState<FilterInfo | null>(null)
   const [latestProperties, setLatestProperties] = useState<any[]>([])
-  // const messagesEndRef = useRef<HTMLDivElement>(null) // 자동 스크롤 제거됨
+  const messagesEndRef = useRef<HTMLDivElement>(null)
   // 초기 마운트 시 저장된 세션 복원
   useEffect(() => {
     const savedSessions = localStorage.getItem('chatSessions')
@@ -181,6 +181,24 @@ export default function Chatbot({ onRecommendLands, onChatbotRecommend }: Chatbo
       localStorage.setItem('currentSessionId', currentSessionId)
     }
   }, [currentSessionId])
+
+  // 메시지 변경 시 자동 스크롤
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  // 모달 열릴 때 배경 스크롤 막기
+  useEffect(() => {
+    if (showHistoryModal) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [showHistoryModal])
 
   const formatTime = (date: Date) => {
     const hours = date.getHours().toString().padStart(2, '0')
@@ -833,7 +851,7 @@ export default function Chatbot({ onRecommendLands, onChatbotRecommend }: Chatbo
             className="absolute inset-0 bg-black/70 backdrop-blur-md"
             onClick={() => setShowHistoryModal(false)}
           />
-          <div className="relative bg-white rounded-xl shadow-[var(--shadow-xl)] w-full max-w-2xl max-h-[80vh] flex flex-col z-[10000]">
+          <div className="relative bg-white rounded-xl shadow-[var(--shadow-xl)] w-full max-w-2xl max-h-[70vh] flex flex-col z-[10000]">
             <div className="flex items-center justify-between p-6 border-b">
               <h3 className="text-xl font-semibold text-[var(--color-primary)]">
                 과거 대화 내역
@@ -858,7 +876,7 @@ export default function Chatbot({ onRecommendLands, onChatbotRecommend }: Chatbo
                 </svg>
               </button>
             </div>
-            <div className="p-6 overflow-y-auto">
+            <div className="p-6 overflow-y-auto flex-1">
               {sessions.length === 0 ? (
                 <p className="text-sm text-[var(--color-text-tertiary)] text-center py-8">
                   저장된 대화가 없습니다
