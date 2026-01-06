@@ -551,8 +551,7 @@ def _generate_followup_question(missing_type: str, current_conditions: Dict) -> 
 • 월세
 • 매매
 • 단기임대
-
-예: "보증금 1000에 월세 50 정도"
+• "보증금 1000에 월세 50 정도"
 """
     
     elif missing_type == "style":
