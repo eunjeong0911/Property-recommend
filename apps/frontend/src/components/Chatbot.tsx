@@ -42,6 +42,7 @@ interface ChatbotRecommendData {
 interface ChatbotProps {
   onRecommendLands?: (landIds: number[]) => void
   onChatbotRecommend?: (data: ChatbotRecommendData) => void
+  onChatStart?: () => void
 }
 
 // 순위별 색상 정의
@@ -128,7 +129,7 @@ const parseRankedContent = (content: string): { rank: number | null; content: st
   return parts;
 };
 
-export default function Chatbot({ onRecommendLands, onChatbotRecommend }: ChatbotProps = {}) {
+export default function Chatbot({ onRecommendLands, onChatbotRecommend, onChatStart }: ChatbotProps = {}) {
   const [sessions, setSessions] = useState<ChatSession[]>([])
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -248,6 +249,11 @@ export default function Chatbot({ onRecommendLands, onChatbotRecommend }: Chatbo
     setInputValue('')
     setIsLoading(true)
 
+    // 대화 시작 알림 (필터 모드 전환)
+    if (onChatStart) {
+      onChatStart();
+    }
+
     try {
       // 직접 fetch로 filter_info와 graph_results 받아오기
       const response = await fetch('http://localhost:8001/query', {
@@ -285,9 +291,9 @@ export default function Chatbot({ onRecommendLands, onChatbotRecommend }: Chatbo
         onChatbotRecommend({
           landIds,
           filterInfo: data.filter_info || null,
-          properties: data.graph_results || []  // 백엔드의 graph_results 전달
+          properties: data.properties || []  // 백엔드의 properties 필드 사용
         });
-        setLatestProperties(data.graph_results || []);
+        setLatestProperties(data.properties || []);
       }
       // 기존 콜백 호환성 유지
       else if (onRecommendLands && landIds.length > 0) {

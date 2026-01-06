@@ -697,6 +697,64 @@ def build_university_multi_query() -> str:
 # 4. 쿼리 실행 함수 (Query Execution)
 # -----------------------------------------------------------------------------
 
+
+
+
+def _clean_location_keyword(location: str) -> str:
+    """
+    위치 키워드 정제 (접미사 제거)
+    예: '합정동' -> '합정', '강남역' -> '강남', '마포구' -> '마포'
+    """
+    if not location:
+        return ""
+        
+    # 이미 2글자 이하면 제거하지 않음 (예: '중구' -> '중' X)
+    if len(location) <= 2:
+        return location
+        
+    # 행정구역/역 접미사 제거 패턴
+    import re
+    # 1. 역 제거
+    cleaned = re.sub(r'역$', '', location)
+    # 2. 동/구/시 제거 (단, '역삼동' -> '역삼' 처럼 의미 유지될 때만)
+    if cleaned != location: # 역이 제거되었으면 리턴
+        return cleaned
+        
+    cleaned = re.sub(r'(?:[동구시])$', '', location)
+    return cleaned if len(cleaned) >= 2 else location
+
+
+# -----------------------------------------------------------------------------
+# 5. 메인 검색 함수 (Main Search Function)
+# -----------------------------------------------------------------------------
+
+def generate_search_steps(location: str, facilities: List[str]) -> List[str]:
+    """검색 의도에 따른 사용자 친화적 진행 메시지 생성"""
+    steps = []
+    
+    # 1. 위치 검색 메시지
+    if location:
+        steps.append(f"{location} 근처 매물 찾는 중...")
+    
+    # 2. 시설별 검색 메시지
+    facility_msg_map = {
+        "safety": "안전한 방(CCTV/치안) 찾는 중...",
+        "convenience": "가까운 편의점 찾는 중...",
+        "hospital": "가까운 병원 확인하는 중...",
+        "general_hospital": "종합병원 접근성 확인 중...",
+        "pharmacy": "근처 약국 찾는 중...",
+        "park": "산책하기 좋은 공원 찾는 중...",
+        "university": "대학교 통학 거리 계산 중...",
+        "subway": "역세권 매물 스캔 중..."
+    }
+    
+    for fac in facilities:
+        if fac in facility_msg_map:
+            steps.append(facility_msg_map[fac])
+            
+    return steps
+
+
 def execute_query(location: str, analysis: Dict) -> List[Dict]:
     """
     분석 결과를 기반으로 적절한 Cypher 쿼리 실행
@@ -713,6 +771,11 @@ def execute_query(location: str, analysis: Dict) -> List[Dict]:
     facilities_dict = analysis['facilities_dict']
     location_type = analysis.get('location_type', '')
     
+    # ★ 키워드 정제 (합정동 -> 합정)
+    clean_location = _clean_location_keyword(location)
+    if clean_location != location:
+        print(f"[QueryBuilder] 🧹 Keyword cleaned: '{location}' -> '{clean_location}'")
+    
     try:
         # 다중 시설 검색
         if search_type == "multi":
@@ -723,7 +786,7 @@ def execute_query(location: str, analysis: Dict) -> List[Dict]:
                 print(f"[QueryBuilder] 🎓 Using university-anchor multi-criteria query")
                 query = build_university_multi_query()
                 params = {
-                    "keyword": location,
+                    "keyword": clean_location,
                     "need_conv": facilities_dict.get("convenience", False),
                     "need_hosp": facilities_dict.get("hospital", False) or facilities_dict.get("general_hospital", False),
                     "need_pharm": facilities_dict.get("pharmacy", False),
@@ -733,7 +796,7 @@ def execute_query(location: str, analysis: Dict) -> List[Dict]:
             else:
                 query = build_multi_criteria_query()
                 params = {
-                    "keyword": location,
+                    "keyword": clean_location,
                     "need_conv": facilities_dict.get("convenience", False),
                     "need_hosp": facilities_dict.get("hospital", False) or facilities_dict.get("general_hospital", False),
                     "need_pharm": facilities_dict.get("pharmacy", False),
@@ -750,7 +813,7 @@ def execute_query(location: str, analysis: Dict) -> List[Dict]:
             if location_type == "university":
                 print(f"[QueryBuilder] 🎓 University location detected - using university query")
                 query = build_university_query()
-                return get_graph().query(query, params={"keyword": location})
+                return get_graph().query(query, params={"keyword": clean_location})
             
             # 시설 타입별 우선순위 조정
             if facilities_dict.get("general_hospital"):
@@ -758,7 +821,7 @@ def execute_query(location: str, analysis: Dict) -> List[Dict]:
             
             print(f"[QueryBuilder] 🔍 Single facility search: {facility_type}")
             query = build_single_facility_query(facility_type)
-            return get_graph().query(query, params={"keyword": location})
+            return get_graph().query(query, params={"keyword": clean_location})
         
         # 기본 검색 - location_type에 따라 분기
         else:
@@ -768,7 +831,7 @@ def execute_query(location: str, analysis: Dict) -> List[Dict]:
             else:
                 print(f"[QueryBuilder] 🚇 Default subway search")
                 query = build_subway_query()
-            return get_graph().query(query, params={"keyword": location})
+            return get_graph().query(query, params={"keyword": clean_location})
     
     except Exception as e:
         print(f"[QueryBuilder] ❌ Query execution error: {e}")

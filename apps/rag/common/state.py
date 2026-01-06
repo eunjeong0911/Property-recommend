@@ -51,3 +51,9 @@ class RAGState(TypedDict):
     collected_conditions: Optional[Dict[str, Any]]  # 지금까지 수집된 조건
     conversation_complete: Optional[bool]  # 모든 조건 수집 완료 여부
 
+    # =====================================================================
+    # 저결과 필터 제거 제안 (Low Result Fallback)
+    # =====================================================================
+    suggest_filter_removal: Optional[bool]  # 필터 제거 제안 여부
+    low_result_filters: Optional[List[str]]  # 제거 가능한 필터 목록 ["direction", "excluded_floors"]
+    removed_filters: Optional[List[str]]  # 이미 제거된 필터 목록 (재검색 시)

@@ -47,6 +47,116 @@ def analyze_query(state: RAGState) -> RAGState:
     collected = state.get("collected_conditions") or {}
     print(f"[QueryAnalyzer] 📦 기존 수집 조건: {list(collected.keys())}")
     
+    # =====================================================================
+    # 필터 제거 확인 응답 처리 (Low Result Fallback)
+    # =====================================================================
+    pending_filter = collected.get("pending_filter_removal")
+    if pending_filter:
+        confirmation_keywords = ["응", "네", "ㅇ", "ㅇㅇ", "제외해줘", "빼줘", "그래", "좋아", "ok", "yes"]
+        rejection_keywords = ["아니", "ㄴㄴ", "싫어", "괜찮아", "그냥 둬", "no"]
+        
+        q_lower = question.strip().lower()
+        
+        # ★★★ 사용자가 다른 필터를 제거해달라고 요청하는 경우 ★★★
+        # 필터 키워드 매핑: 사용자가 언급할 수 있는 키워드 → 실제 필터 키
+        filter_keyword_map = {
+            # 위치 관련
+            "location": ["위치", "지역", "동네", "장소", "근처", "주변", "홍대", "강남", "신촌", "대학교", "역"],
+            # 방향 관련  
+            "direction": ["남향", "북향", "동향", "서향", "방향", "햇빛", "채광"],
+            # 층수 제외 관련
+            "excluded_floors": ["1층", "반지하", "탑층", "층수", "층"],
+            # 가격 관련
+            "max_rent": ["월세", "렌트"],
+            "max_deposit": ["보증금", "전세금", "deposit"],
+            # 건물 타입
+            "building_type": ["원룸", "투룸", "오피스텔", "아파트", "빌라", "건물"],
+            # 거래 유형
+            "deal_type": ["전세", "매매"]
+        }
+        
+        # 사용자가 특정 필터 제거를 요청했는지 확인
+        requested_filter = None
+        for filter_key, keywords in filter_keyword_map.items():
+            if any(kw in q_lower for kw in keywords):
+                # "X 빼줘", "X 제외해줘" 패턴 확인
+                if any(remove_kw in q_lower for remove_kw in ["빼", "제외", "없이", "말고"]):
+                    requested_filter = filter_key
+                    print(f"[QueryAnalyzer] 🎯 사용자가 '{filter_key}' 필터 제거 요청")
+                    break
+        
+        if requested_filter:
+            # 사용자가 요청한 필터 제거
+            print(f"[QueryAnalyzer] ✅ 사용자 지정 필터 제거: '{requested_filter}'")
+            
+            # ★★★ 저장된 필터 스냅샷에서 복원 (핵심 수정!) ★★★
+            saved_hard_filters = collected.get("saved_hard_filters", {}).copy()
+            saved_soft_filters = collected.get("saved_soft_filters", [])
+            
+            # 요청한 필터만 제거
+            if requested_filter in saved_hard_filters:
+                del saved_hard_filters[requested_filter]
+            
+            # 복원된 필터를 state에 설정
+            state["hard_filters"] = saved_hard_filters
+            state["soft_filters"] = saved_soft_filters
+            
+            print(f"[QueryAnalyzer] 📋 복원된 필터: {list(saved_hard_filters.keys())}")
+            
+            # collected에서 임시 데이터 제거
+            collected.pop("pending_filter_removal", None)
+            collected.pop("saved_hard_filters", None)
+            collected.pop("saved_soft_filters", None)
+            state["collected_conditions"] = collected
+            state["conversation_complete"] = True
+            state["pending_question"] = None
+            state["removed_filters"] = state.get("removed_filters", []) + [requested_filter]
+            
+            print(f"[QueryAnalyzer] 🔄 필터 '{requested_filter}' 제거 완료 → 재검색 실행")
+            return state
+        
+        elif any(kw in q_lower for kw in confirmation_keywords):
+            # 사용자가 제안된 필터 제거 확인 → 해당 필터 삭제
+            print(f"[QueryAnalyzer] ✅ 제안 필터 제거 확인! '{pending_filter}' 제거하고 재검색")
+            
+            # ★★★ 저장된 필터 스냅샷에서 복원 (핵심 수정!) ★★★
+            saved_hard_filters = collected.get("saved_hard_filters", {}).copy()
+            saved_soft_filters = collected.get("saved_soft_filters", [])
+            
+            # 제안된 필터만 제거
+            if pending_filter in saved_hard_filters:
+                del saved_hard_filters[pending_filter]
+            
+            # 복원된 필터를 state에 설정
+            state["hard_filters"] = saved_hard_filters
+            state["soft_filters"] = saved_soft_filters
+            
+            print(f"[QueryAnalyzer] 📋 복원된 필터: {list(saved_hard_filters.keys())}")
+            
+            # collected_conditions에서 임시 데이터 제거
+            collected.pop("pending_filter_removal", None)
+            collected.pop("saved_hard_filters", None)
+            collected.pop("saved_soft_filters", None)
+            state["collected_conditions"] = collected
+            
+            # 재검색 트리거 (조건 완성 상태로)
+            state["conversation_complete"] = True
+            state["pending_question"] = None
+            state["removed_filters"] = state.get("removed_filters", []) + [pending_filter]
+            
+            print(f"[QueryAnalyzer] 🔄 필터 '{pending_filter}' 제거 완료 → 재검색 실행")
+            return state
+            
+        elif any(kw in q_lower for kw in rejection_keywords):
+            # 사용자가 거부 → 기존 결과 유지
+            print(f"[QueryAnalyzer] ❌ 필터 제거 거부 → 기존 결과 유지")
+            collected.pop("pending_filter_removal", None)
+            state["collected_conditions"] = collected
+            state["conversation_complete"] = True
+            state["pending_question"] = None
+            return state
+
+    
     # 최근 대화 히스토리 로드 (내부적으로 5개 제한됨)
     conversation_history = []
     if session_id:
@@ -232,6 +342,13 @@ def _analyze_with_openai(client, question: str, history: List[Dict] = None) -> D
             history_text += f"Q{i}: {q}\nA{i}: {a}...\n"
     
     prompt = f"""사용자의 부동산 검색 질문을 분석하여 JSON 형식으로 반환하세요.
+
+⚠️ 중요 규칙:
+- 사용자가 **명시적으로 언급한 조건만** 추출하세요.
+- 언급되지 않은 조건은 절대로 추론하거나 추가하지 마세요.
+- 예: "중앙대 원룸 추천"에서 거래유형(월세/전세)은 언급되지 않았으므로 deal_type은 빈 문자열이어야 합니다.
+- 예: "대학교 근처"에서 역세권(subway)은 언급되지 않았으므로 facilities에 subway를 포함하지 마세요.
+
 {history_text}
 현재 질문: "{question}"
 
@@ -246,7 +363,10 @@ def _analyze_with_openai(client, question: str, history: List[Dict] = None) -> D
         "max_rent": 월세 상한 만원 단위 숫자 (없으면 null),
         "max_size": 평수 상한 숫자 (없으면 null),
         "max_distance": 역까지 도보 분 숫자 (없으면 null),
-        "facilities": ["subway", "convenience", "safety", "hospital", "park", "university"] 중 필요한 것들
+        "facilities": ["subway", "convenience", "safety", "hospital", "park", "university"] 중 필요한 것들,
+        "options": ["세탁기", "에어컨", "냉장고", "인덕션", "가스레인지", "전자레인지", "건조기", "TV", "침대", "옷장", "책상", "풀옵션"] 중 사용자가 원하는 것들 (없으면 빈 배열),
+        "excluded_floors": ["1층", "반지하", "저층", "탑층"] 중 기피하는 층수 (없으면 빈 배열),
+        "direction": "남향|동향|서향|북향|남동향 등 (없으면 빈 문자열)"
     }},
     "soft_filters": ["사용자가 원하는 스타일/분위기/선호도 키워드 - 정확한 태그명이 아니어도 됨 (예: 햇살좋은, 밝은, 아늑한, 조용한, 깔끔한, 넓은 등), 없으면 빈 배열"],
     "search_strategy": "neo4j_only|keyword_only|neo4j_keyword|keyword_vector|full",
@@ -303,7 +423,9 @@ def _fallback_analysis(state: RAGState, question: str) -> None:
         "building_type": "",
         "max_deposit": None,
         "max_rent": None,
-        "facilities": []
+        "facilities": [],
+        "excluded_floors": [],
+        "direction": ""
     }
     soft_filters: List[str] = []
     
@@ -324,7 +446,7 @@ def _fallback_analysis(state: RAGState, question: str) -> None:
         hard_filters["deal_type"] = "월세"
     elif "전세" in question:
         hard_filters["deal_type"] = "전세"
-    elif "매매" in question or "매물" in question:
+    elif "매매" in question:
         hard_filters["deal_type"] = "매매"
     
     # 건물 타입
@@ -363,6 +485,20 @@ def _fallback_analysis(state: RAGState, question: str) -> None:
     for facility, keywords in facility_keywords.items():
         if any(kw in question.lower() for kw in keywords):
             hard_filters["facilities"].append(facility)
+            
+    # 기피 층수 추출
+    if "1층" in question and ("싫" in question or "제외" in question or "빼" in question):
+        hard_filters["excluded_floors"].append("1층")
+    if "반지하" in question and ("싫" in question or "제외" in question or "빼" in question):
+        hard_filters["excluded_floors"].append("반지하")
+        
+    # 방향 추출
+    if "남향" in question:
+        hard_filters["direction"] = "남향"
+    elif "동향" in question:
+        hard_filters["direction"] = "동향"
+    elif "서향" in question:
+        hard_filters["direction"] = "서향"
     
     # 소프트 필터 추출
     soft_keywords = ["깨끗", "럭셔리", "가성비", "조용", "채광", "신축", "넓은", "아늑", "예쁜", "모던", "깔끔"]
@@ -375,6 +511,14 @@ def _fallback_analysis(state: RAGState, question: str) -> None:
     has_price_type = bool(hard_filters["deal_type"]) or bool(hard_filters["max_deposit"]) or bool(hard_filters["max_rent"])
     has_soft = bool(soft_filters)
     
+    # 위치 키워드가 행정구역("~동", "~구")인 경우 Neo4j만으로는 부족할 수 있으므로
+    # ES 키워드 검색을 함께 수행하는 전략을 선택해야 함
+    is_admin_region = False
+    if hard_filters["location"]:
+        loc = hard_filters["location"]
+        if loc.endswith("동") or loc.endswith("구") or loc.endswith("시"):
+            is_admin_region = True
+    
     if has_location and has_price_type and has_soft:
         search_strategy = "full"
     elif has_location and has_price_type:
@@ -382,7 +526,11 @@ def _fallback_analysis(state: RAGState, question: str) -> None:
     elif has_price_type and has_soft:
         search_strategy = "keyword_vector"
     elif has_location:
-        search_strategy = "neo4j_only"
+        # ★ 수정: 행정구역이면 neo4j_only 대신 neo4j_keyword(ES포함) 사용
+        if is_admin_region:
+             search_strategy = "neo4j_keyword"
+        else:
+             search_strategy = "neo4j_only"
     elif has_price_type:
         search_strategy = "keyword_only"
     else:
@@ -428,7 +576,8 @@ STYLE_TAGS = [
     "실용적임", "풀옵션", "채광좋음", "조용함", "넓은공간", "수납공간많음", "복층구조", "테라스있음",
     "1인가구추천", "신혼부부추천", "직장인추천", "학생추천", "재택근무추천",
     "신축", "가성비좋음", "반려동물가능", "주차가능", "보안좋음", "엘리베이터있음", "분리형원룸",
-    "에어컨있음", "세탁기있음", "냉장고있음", "인덕션있음", "고층", "저층", "남향"
+    "에어컨있음", "세탁기있음", "냉장고있음", "인덕션있음", "고층", "저층", "남향",
+    "1층제외", "반지하제외", "탑층제외"
 ]
 
 
@@ -609,8 +758,14 @@ def _sync_collected_to_filters(state: RAGState, collected: Dict) -> None:
     # 5. 시설 동기화
     if collected.get("facilities") and not hard_filters.get("facilities"):
         hard_filters["facilities"] = collected["facilities"]
+        
+    # 6. 기피 층수 및 방향 동기화
+    if collected.get("excluded_floors") and not hard_filters.get("excluded_floors"):
+        hard_filters["excluded_floors"] = collected["excluded_floors"]
+    if collected.get("direction") and not hard_filters.get("direction"):
+        hard_filters["direction"] = collected["direction"]
     
-    # 6. 스타일 동기화
+    # 7. 스타일 동기화
     if collected.get("style"):
         collected_styles = collected["style"]
         if isinstance(collected_styles, str):

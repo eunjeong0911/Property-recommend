@@ -140,12 +140,33 @@ async def ready():
 
 graph = create_rag_graph()
 
+from fastapi import FastAPI, BackgroundTasks
+import requests
+
+# ... (imports)
+
+def send_search_log(session_id: str, query: str, filters: dict, search_strategy: str, result_count: int):
+    """Django 백엔드로 검색 로그 전송"""
+    try:
+        url = "http://localhost:8000/api/search/log/"
+        payload = {
+            "session_id": session_id,
+            "query": query,
+            "filters": filters,
+            "search_strategy": search_strategy,
+            "result_count": result_count
+        }
+        # 타임아웃 3초 설정 (로그 전송 실패가 메인 로직에 영향 주지 않도록)
+        requests.post(url, json=payload, timeout=3)
+    except Exception as e:
+        logger.error(f"Failed to send search log: {str(e)}")
+
 class QueryRequest(BaseModel):
     question: str
     session_id: Optional[str] = None
 
 @app.post("/query")
-async def query(request: QueryRequest):
+async def query(request: QueryRequest, background_tasks: BackgroundTasks):
     # session_id 생성 또는 사용
     session_id = request.session_id or str(uuid.uuid4())
     
@@ -192,12 +213,16 @@ async def query(request: QueryRequest):
         # 현재까지 수집된 조건을 한국어로 표시
         filter_info = _format_filter_info(new_collected)
         
+        # ★ 중간 검색 결과도 함께 반환 (실시간 LandList 업데이트용)
+        intermediate_results = result.get("graph_results", [])
+        
         return {
             "answer": pending_question,
             "session_id": session_id,
             "awaiting_input": True,
             "collected_conditions": new_collected,
-            "filter_info": filter_info
+            "filter_info": filter_info,
+            "properties": intermediate_results[:20]  # 실시간 매물 표시용
         }
     
     # 5. 조건 완성 → 검색 실행됨 → 수집된 조건 초기화
@@ -247,12 +272,65 @@ async def query(request: QueryRequest):
     answer = result.get("answer", "")
     save_conversation_turn(session_id, request.question, answer)
     
+    # [LOGGING] 검색 로그 전송 (백그라운드)
+    background_tasks.add_task(
+        send_search_log,
+        session_id=session_id,
+        query=request.question,
+        filters=filter_info.get("details", {}),
+        search_strategy=search_strategy,
+        result_count=len(graph_results)
+    )
+
+    # =====================================================================
+    # Low Result Fallback: 필터 제거 제안
+    # =====================================================================
+    suggest_filter_removal = result.get("suggest_filter_removal", False)
+    low_result_filters = result.get("low_result_filters", [])
+    
+    if suggest_filter_removal and low_result_filters:
+        # 필터 이름 한국어로 변환
+        filter_names_kr = {
+            "direction": "방향",
+            "excluded_floors": "층수 제외",
+            "max_rent": "월세 상한",
+            "max_deposit": "보증금 상한",
+            "style": "스타일",
+            "options": "옵션"
+        }
+        
+        # 첫 번째 제거 가능한 필터로 제안
+        first_filter = low_result_filters[0]
+        filter_key, filter_value = first_filter
+        filter_kr = filter_names_kr.get(filter_key, filter_key)
+        
+        suggestion_msg = f"검색 결과가 {len(graph_results)}개로 적습니다. 😢\n\n" \
+                         f"'{filter_value}' ({filter_kr}) 조건을 제외하고 다시 검색해볼까요?\n\n" \
+                         f"👉 \"응\", \"네\", \"제외해줘\" 라고 답해주세요!"
+        
+        # ★★★ 중요: 현재 필터 상태 스냅샷 저장 (재검색 시 복원용) ★★★
+        collected_conditions = result.get("collected_conditions", {})
+        collected_conditions["pending_filter_removal"] = filter_key
+        collected_conditions["saved_hard_filters"] = hard_filters  # 모든 필터 저장!
+        collected_conditions["saved_soft_filters"] = soft_filters
+        save_collected_conditions(session_id, collected_conditions)
+        
+        return {
+            "answer": suggestion_msg,
+            "session_id": session_id,
+            "awaiting_input": True,
+            "filter_info": filter_info,
+            "result_count": len(graph_results),
+            "properties": graph_results[:20]  # 현재 결과도 함께 반환
+        }
+
     return {
         "answer": answer,
         "session_id": session_id,
         "awaiting_input": False,
         "filter_info": filter_info,
-        "result_count": len(graph_results)
+        "result_count": len(graph_results),
+        "properties": graph_results[:20]
     }
 
 
@@ -329,6 +407,25 @@ def _format_filter_info(collected: dict = None, hard_filters: dict = None,
         if len(details["style"]) > 3:
             style_str += f" 외 {len(details['style'])-3}개"
         summary_parts.append(f"✨ {style_str}")
+    
+    # 제외 조건 (층, 방향 등)
+    excluded_floors = collected.get("excluded_floors") or hard_filters.get("excluded_floors", [])
+    if excluded_floors:
+        details["excluded_floors"] = excluded_floors if isinstance(excluded_floors, list) else [excluded_floors]
+        summary_parts.append(f"🚫 {', '.join(details['excluded_floors'])} 제외")
+    
+    # 선호 방향
+    direction = collected.get("direction") or hard_filters.get("direction")
+    if direction:
+        details["direction"] = direction
+        summary_parts.append(f"☀️ {direction}")
+    
+    # 옵션 (세탁기, 에어컨 등)
+    options = collected.get("options") or hard_filters.get("options", [])
+    if options:
+        details["options"] = options if isinstance(options, list) else [options]
+        summary_parts.append(f"🔧 {', '.join(details['options'][:2])}")
+
     
     # 검색 전략 (개발자용)
     strategy_names = {
