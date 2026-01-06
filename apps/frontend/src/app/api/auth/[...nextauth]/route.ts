@@ -86,8 +86,6 @@ const handler = NextAuth({
                             headers: {
                                 'Content-Type': 'application/json',
                             },
-                            // HTTP 프로토콜 명시적 사용 (HTTPS 자동 업그레이드 방지)
-                            maxRedirects: 0,
                             timeout: 30000,
                         }
                     );
