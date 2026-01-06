@@ -80,7 +80,7 @@ export default function Map({ landId, activeCategories }: MapProps) {
             // 컴포넌트 언마운트 시에도 스크립트는 유지 (재사용을 위해)
             // document.head.removeChild(script);
         };
-    }, [currentLand]);
+    }, [currentLand, locations]);
 
     // 매물 위치 데이터 로드 (상세 페이지에서만)
     useEffect(() => {
@@ -137,9 +137,12 @@ export default function Map({ landId, activeCategories }: MapProps) {
                 console.log('지도 생성 완료');
 
                 // 상세 페이지에서 매물 마커 즉시 생성
-                if (landId && currentLand) {
-                    console.log('📍 매물 마커 생성 시작:', currentLand);
-                    const position = new window.kakao.maps.LatLng(currentLand.latitude, currentLand.longitude);
+                // currentLand 또는 locations 배열이 있으면 생성
+                const propertyData = currentLand || (locations.length > 0 ? locations[0] : null);
+
+                if (landId && propertyData) {
+                    console.log('📍 매물 마커 생성 시작:', propertyData);
+                    const position = new window.kakao.maps.LatLng(propertyData.latitude, propertyData.longitude);
 
                     // 커스텀 마커 이미지 (빨간색 핀)
                     const markerContent = document.createElement('div');
@@ -270,15 +273,22 @@ export default function Map({ landId, activeCategories }: MapProps) {
         console.log('서울시 구별 폴리곤 표시 완료');
     };
 
-    // 매물 마커 표시 (상세 페이지에서만)
-    useEffect(() => {
+    // [DISABLED] 매물 마커는 initializeMap에서 생성하므로 이 useEffect는 불필요
+    /* useEffect(() => {
         console.log('🔍 매물 마커 useEffect 실행:', {
             hasMap: !!mapRef.current,
             hasKakao: !!window.kakao,
             landId,
             locationsLength: locations.length
         });
-        if (!mapRef.current || !window.kakao || !landId || locations.length === 0) return;
+
+        // 상세 페이지에서는 건너뜀 (initializeMap에서 커스텀 마커 생성)
+        if (landId) {
+            console.log('⏭️ 상세 페이지 - 여기서는 마커 생성 안 함');
+            return;
+        }
+
+        if (!mapRef.current || !window.kakao || locations.length === 0) return;
 
         // 기존 매물 마커 제거
         markersRef.current.forEach(item => {
@@ -503,7 +513,7 @@ export default function Map({ landId, activeCategories }: MapProps) {
         });
 
         console.log(`매물 마커 ${locations.length}개 표시 완료`);
-    }, [locations, landId]);
+    }, [locations, landId]); */
 
     // 시설 마커 표시 (activeCategories 변경 시)
     useEffect(() => {
@@ -539,10 +549,10 @@ export default function Map({ landId, activeCategories }: MapProps) {
 
         // 카테고리별 색상 및 이모지 매핑
         const categoryStyles: Record<string, { color: string; bgColor: string; emoji: string; label: string }> = {
-            'transportation': { color: '#2563eb', bgColor: '#dbeafe', emoji: '🚇', label: '교통' },
-            'medical': { color: '#dc2626', bgColor: '#fee2e2', emoji: '🏥', label: '의료' },
-            'convenience': { color: '#16a34a', bgColor: '#dcfce7', emoji: '🏪', label: '편의' },
-            'safety': { color: '#7c3aed', bgColor: '#ede9fe', emoji: '📹', label: '안전' }
+            'transportation': { color: '#F30551', bgColor: '#ffe0ed', emoji: '🚇', label: '교통' },
+            'medical': { color: '#66C132', bgColor: '#e8f5e0', emoji: '🏥', label: '의료' },
+            'convenience': { color: '#4B97F3', bgColor: '#e3f2fd', emoji: '🏪', label: '편의' },
+            'safety': { color: '#FFCC00', bgColor: '#fff9e6', emoji: '📹', label: '안전' }
         };
 
         // 현재 열린 오버레이 추적 (클로저로 관리)
@@ -723,34 +733,36 @@ export default function Map({ landId, activeCategories }: MapProps) {
             />
 
             {/* 매물위치 버튼 (상세 페이지에서만 표시) */}
-            {landId && currentLand && (
-                <button
-                    onClick={moveToPropertyLocation}
-                    className="absolute bottom-4 right-4 z-10 flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-gray-50 text-slate-700 font-semibold text-sm rounded-xl shadow-lg border border-gray-200 transition-all hover:shadow-xl active:scale-95"
-                    title="매물 위치로 이동"
-                >
-                    <svg
-                        className="w-4 h-4 text-purple-600"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
+            {
+                landId && currentLand && (
+                    <button
+                        onClick={moveToPropertyLocation}
+                        className="absolute bottom-4 right-4 z-10 flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-gray-50 text-slate-700 font-semibold text-sm rounded-xl shadow-lg border border-gray-200 transition-all hover:shadow-xl active:scale-95"
+                        title="매물 위치로 이동"
                     >
-                        <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                        />
-                        <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                        />
-                    </svg>
-                    <span>매물위치</span>
-                </button>
-            )}
-        </div>
+                        <svg
+                            className="w-4 h-4 text-purple-600"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                            />
+                            <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                            />
+                        </svg>
+                        <span>매물위치</span>
+                    </button>
+                )
+            }
+        </div >
     );
 }
