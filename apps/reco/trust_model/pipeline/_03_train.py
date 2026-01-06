@@ -15,11 +15,21 @@ import pickle
 import warnings
 warnings.filterwarnings('ignore')
 
-TRAIN_PATH = "data/ML/trust/X_train.csv"
-TEST_PATH = "data/ML/trust/X_test.csv"
-TRAIN_TARGET_PATH = "data/ML/trust/y_train.csv"
-TEST_TARGET_PATH = "data/ML/trust/y_test.csv"
-MODEL_TEMP_PATH = "apps/reco/trust_model/temp_trained_models.pkl"
+# Docker 환경에서는 /data로 마운트됨
+if Path("/data/ML/trust").exists():
+    TRAIN_PATH = "/data/ML/trust/X_train.csv"
+    TEST_PATH = "/data/ML/trust/X_test.csv"
+    TRAIN_TARGET_PATH = "/data/ML/trust/y_train.csv"
+    TEST_TARGET_PATH = "/data/ML/trust/y_test.csv"
+    MODEL_DIR = Path("/app/models/trust_model/model")
+    MODEL_TEMP_PATH = "/app/trust_model/temp_trained_models.pkl"
+else:
+    TRAIN_PATH = "data/ML/trust/X_train.csv"
+    TEST_PATH = "data/ML/trust/X_test.csv"
+    TRAIN_TARGET_PATH = "data/ML/trust/y_train.csv"
+    TEST_TARGET_PATH = "data/ML/trust/y_test.csv"
+    MODEL_DIR = Path("apps/reco/models/trust_model/model")
+    MODEL_TEMP_PATH = "apps/reco/trust_model/temp_trained_models.pkl"
 
 
 def load_processed_data():
@@ -150,7 +160,7 @@ def main():
         print(f"    - CV Mean:        {cv_scores.mean():.4f} (±{cv_scores.std():.4f})")
     
     # 5) 모델 + 스케일러 저장
-    Path("apps/reco/models/trust_model/model").mkdir(parents=True, exist_ok=True)
+    MODEL_DIR.mkdir(parents=True, exist_ok=True)
     with open(MODEL_TEMP_PATH, "wb") as f:
         pickle.dump(
             {

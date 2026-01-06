@@ -225,14 +225,30 @@ async def query(request: QueryRequest, background_tasks: BackgroundTasks):
             "properties": intermediate_results[:20]  # 실시간 매물 표시용
         }
     
-    # 5. 조건 완성 → 검색 실행됨 → 수집된 조건 초기화
-    clear_collected_conditions(session_id)
+    # 5. 조건 완성 → 검색 실행됨
+    # ★★★ 핵심 수정: 필터 제거 제안 상태에서는 collected_conditions 유지 ★★★
+    suggest_filter_removal = result.get("suggest_filter_removal", False)
+    final_collected = result.get("collected_conditions", {})
+    
+    # ★★★ removed_filters 저장 (무한 루프 방지) ★★★
+    removed_filters = result.get("removed_filters", [])
+    if removed_filters:
+        final_collected["removed_filters"] = removed_filters
+    
+    if suggest_filter_removal and final_collected.get("pending_filter_removal"):
+        # 필터 제거 제안 중 → collected_conditions 저장 (초기화하지 않음!)
+        save_collected_conditions(session_id, final_collected)
+        logger.info("Filter removal suggestion active - keeping collected_conditions", extra={
+            "pending_filter": final_collected.get("pending_filter_removal")
+        })
+    else:
+        # 일반 검색 완료 → 수집된 조건 초기화
+        clear_collected_conditions(session_id)
     
     # 필터링 정보 생성 (검색에 사용된 조건들)
     hard_filters = result.get("hard_filters", {})
     soft_filters = result.get("soft_filters", [])
     search_strategy = result.get("search_strategy", "")
-    final_collected = result.get("collected_conditions", {})
     
     filter_info = _format_filter_info(final_collected, hard_filters, soft_filters, search_strategy)
     

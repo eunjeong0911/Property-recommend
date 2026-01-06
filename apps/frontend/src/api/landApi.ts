@@ -32,15 +32,19 @@ export interface ChatbotFilterParams {
     location?: string;          // 위치 (검색어로 사용)
     deal_type?: string;         // 거래 유형
     building_type?: string;     // 건물 유형
+    max_deposit?: number;       // 보증금 상한 (만원)
+    max_rent?: number;          // 월세 상한 (만원)
 }
 
 export async function fetchLandsByFilter(params: ChatbotFilterParams): Promise<Land[]> {
     const queryParams = new URLSearchParams();
 
-    // 위치를 search로 전달 (주소 검색)
-    if (params.location) queryParams.append('search', params.location);
+    // 위치를 address로 전달 (주소 검색)
+    if (params.location) queryParams.append('address', params.location);
     if (params.deal_type) queryParams.append('deal_type', params.deal_type);
     if (params.building_type) queryParams.append('building_type', params.building_type);
+
+    console.log('[fetchLandsByFilter] 🔍 API 호출:', `${API_BASE_URL}/api/listings/lands/?${queryParams.toString()}`);
 
     const response = await fetch(`${API_BASE_URL}/api/listings/lands/?${queryParams.toString()}`);
 
@@ -49,8 +53,28 @@ export async function fetchLandsByFilter(params: ChatbotFilterParams): Promise<L
     }
 
     const data = await response.json();
-    const results = data.results || data;
-    return results.slice(0, 20); // 상위 20개만 반환
+    let results: Land[] = data.results || data;
+    
+    console.log('[fetchLandsByFilter] 📦 API 응답:', results.length, '개');
+
+    // 클라이언트 사이드 가격 필터링 (백엔드에서 지원하지 않는 경우)
+    if (params.max_deposit) {
+        results = results.filter(land => {
+            const deposit = land.deposit || 0;
+            return deposit <= params.max_deposit!;
+        });
+        console.log('[fetchLandsByFilter] 💰 보증금 필터 후:', results.length, '개');
+    }
+
+    if (params.max_rent) {
+        results = results.filter(land => {
+            const rent = land.monthly_rent || 0;
+            return rent <= params.max_rent!;
+        });
+        console.log('[fetchLandsByFilter] 💰 월세 필터 후:', results.length, '개');
+    }
+
+    return results.slice(0, 50); // 상위 50개만 반환
 }
 
 export async function fetchLandById(id: string): Promise<Land> {
@@ -64,18 +88,34 @@ export async function fetchLandById(id: string): Promise<Land> {
 }
 
 // 여러 ID로 Land 데이터 일괄 조회 (챗봇 추천용)
+// RAG에서 반환하는 id는 land_num(매물번호)이므로 search API 사용
 export async function fetchLandsByIds(ids: (string | number)[]): Promise<Land[]> {
     if (!ids || ids.length === 0) return [];
 
-    // 병렬로 개별 요청 (백엔드에 일괄 조회 API가 없으므로)
-    const promises = ids.slice(0, 20).map(id =>
-        fetch(`${API_BASE_URL}/api/listings/lands/${id}/`)
-            .then(res => res.ok ? res.json() : null)
-            .catch(() => null)
-    );
+    console.log('[fetchLandsByIds] 🔍 조회할 ID들:', ids.slice(0, 5), '...');
+
+    // 방법 1: 개별 조회 (land_num으로 검색)
+    const promises = ids.slice(0, 20).map(async (id) => {
+        try {
+            // land_num으로 검색
+            const response = await fetch(`${API_BASE_URL}/api/listings/lands/?search=${id}`);
+            if (!response.ok) return null;
+            const data = await response.json();
+            const results = data.results || data;
+            // 정확히 일치하는 매물 찾기
+            const exactMatch = results.find((land: Land) => 
+                land.land_num === String(id) || land.id === Number(id)
+            );
+            return exactMatch || (results.length > 0 ? results[0] : null);
+        } catch {
+            return null;
+        }
+    });
 
     const results = await Promise.all(promises);
-    return results.filter((land): land is Land => land !== null);
+    const validResults = results.filter((land): land is Land => land !== null);
+    console.log('[fetchLandsByIds] ✅ 조회 완료:', validResults.length, '개');
+    return validResults;
 }
 
 export async function fetchSimilarListings(landId: string): Promise<Land[]> {
@@ -181,4 +221,3 @@ export async function fetchFacilityLocations(
 
     return response.json();
 }
-

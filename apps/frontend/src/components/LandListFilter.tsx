@@ -155,14 +155,10 @@ export default function LandListFilter({ onFilterChange, chatbotFilterInfo, onTo
                     매물 필터
                 </h3>
                 <div className="flex items-center gap-2">
-                    {/* 챗봇 필터 토글 버튼 - 비활성/대기 상태 */}
+                    {/* 챗봇 필터 토글 버튼 - 항상 활성화 */}
                     <button
                         onClick={onToggleChatbotFilter}
-                        disabled={!chatbotFilterInfo}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${chatbotFilterInfo
-                            ? 'text-purple-600 border border-purple-300 hover:bg-purple-50'
-                            : 'text-gray-400 border border-gray-200 cursor-not-allowed opacity-50'
-                            }`}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors text-purple-600 border border-purple-300 hover:bg-purple-50"
                     >
                         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M2 2h12M4 6h8M6 10h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />

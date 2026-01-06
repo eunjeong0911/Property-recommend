@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from data_loader import DataLoader
-from preprocessor import PriceDataPreprocessor
-from trainer import ModelTrainer
+from .data_loader import DataLoader
+from .preprocessor import PriceDataPreprocessor
+from .trainer import ModelTrainer
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 

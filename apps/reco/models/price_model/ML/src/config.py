@@ -9,9 +9,14 @@ from dotenv import load_dotenv
 # .env 파일 로드
 load_dotenv()
 
-# 프로젝트 루트 경로
-PROJECT_ROOT = Path(__file__).resolve().parents[6]
-DATA_ROOT = PROJECT_ROOT / "data"
+# 프로젝트 루트 경로 - Docker 환경 감지
+if Path("/data").exists():
+    # Docker 환경: /data로 마운트됨
+    DATA_ROOT = Path("/data")
+else:
+    # 로컬 환경
+    PROJECT_ROOT = Path(__file__).resolve().parents[6]
+    DATA_ROOT = PROJECT_ROOT / "data"
 
 # 데이터베이스 설정
 DB_CONFIG = {

@@ -1,9 +1,15 @@
 import pandas as pd
 from pathlib import Path
+import os
 
-# 이 파일 위치 기준으로 프로젝트 루트 찾기
-REPO_ROOT = Path(__file__).resolve().parents[4]
-BASE_DIR = REPO_ROOT / "data" / "actual_transaction_price"
+# Docker 환경에서는 /data가 마운트됨, 로컬에서는 프로젝트 루트/data
+if Path("/data/actual_transaction_price").exists():
+    # Docker 환경: ./data:/data:ro 로 마운트됨
+    BASE_DIR = Path("/data/actual_transaction_price")
+else:
+    # 로컬 환경: apps/reco/models/price_model/prepare_wolse_dataset.py
+    REPO_ROOT = Path(__file__).resolve().parents[4]
+    BASE_DIR = REPO_ROOT / "data" / "actual_transaction_price"
 
 
 # -------------------------------

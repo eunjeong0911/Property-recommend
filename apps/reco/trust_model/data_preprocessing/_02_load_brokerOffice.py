@@ -55,21 +55,32 @@ def fetch_broker_offices(key, domain, ld_code=None, status_code="1", format_type
                 data = json.loads(response_body.decode('utf-8'))
                 
                 # 응답 구조 확인 및 데이터 추출
-                # 실제 API 응답 구조: {"EDOffices": {"field": [...]}}
-                if 'EDOffices' in data and 'field' in data['EDOffices']:
-                    items = data['EDOffices']['field']
-                    total_count = len(items) if items else 0
+                # 실제 API 응답 구조: {"EDOffices": {"field": [...], "totalCount": "123"}}
+                if 'EDOffices' in data:
+                    ed_offices = data['EDOffices']
+                    items = ed_offices.get('field', [])
+                    
+                    # API에서 전체 건수 가져오기 (없으면 None)
+                    total_count = ed_offices.get('totalCount')
+                    if total_count:
+                        total_count = int(total_count)
                     
                     if not items:
                         print(f"페이지 {page_no}: 더 이상 데이터가 없습니다.")
                         break
                     
                     all_data.extend(items)
-                    print(f"페이지 {page_no}: {len(items)}건 조회 완료 (총 {len(all_data)}건 / 전체 {total_count}건)")
                     
-                    # 마지막 페이지 확인
-                    if len(items) < num_of_rows:
-                        break
+                    if total_count:
+                        print(f"페이지 {page_no}: {len(items)}건 조회 완료 (총 {len(all_data)}건 / 전체 {total_count}건)")
+                        # 전체 건수에 도달하면 종료
+                        if len(all_data) >= total_count:
+                            break
+                    else:
+                        print(f"페이지 {page_no}: {len(items)}건 조회 완료 (총 {len(all_data)}건)")
+                        # 마지막 페이지 확인 (가져온 건수가 요청 건수보다 적으면 종료)
+                        if len(items) < num_of_rows:
+                            break
                     
                     page_no += 1
                     time.sleep(0.1)  # API 호출 간격 조절
@@ -156,7 +167,12 @@ def main():
     
     # 결과를 CSV 파일로 저장
     if broker_offices:
-        csv_filename = 'data/brokerInfo/broker_offices.csv'
+        # Docker 환경에서는 /data로 마운트됨
+        from pathlib import Path
+        if Path("/data/brokerInfo").exists():
+            csv_filename = '/data/brokerInfo/broker_offices.csv'
+        else:
+            csv_filename = 'data/brokerInfo/broker_offices.csv'
         
         # CSV 헤더 추출 (첫 번째 항목의 키 사용)
         if len(broker_offices) > 0:

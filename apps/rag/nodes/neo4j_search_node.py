@@ -904,10 +904,13 @@ def rule_based_search(state: RAGState) -> Dict:
         
         # location_type 추정
         if location:
-            if any(uni in location for uni in ["대학", "대"]):
-                location_type = "university"
-            elif "역" in location or location in ["홍대", "강남", "신촌", "역삼", "선릉"]:
+            # ★ 수정: "역"이 포함되면 먼저 subway로 판단 (홍대역 등)
+            if "역" in location:
                 location_type = "subway"
+            elif any(uni in location for uni in ["대학교", "대학"]):
+                location_type = "university"
+            elif location in ["홍대", "강남", "신촌", "역삼", "선릉", "합정", "망원", "연남", "이태원"]:
+                location_type = "subway"  # 역 없이도 지하철역 근처로 인식
             else:
                 location_type = "region"
         

@@ -332,7 +332,11 @@ class BrokerMerger:
             output_filepath: 출력 파일 경로 (기본값: data/brokerInfo/merged_brokers.csv)
         """
         if output_filepath is None:
-            output_filepath = Path("data/brokerInfo") / "merged_brokers.csv"
+            # Docker 환경에서는 /data로 마운트됨
+            if Path("/data/brokerInfo").exists():
+                output_filepath = Path("/data/brokerInfo") / "merged_brokers.csv"
+            else:
+                output_filepath = Path("data/brokerInfo") / "merged_brokers.csv"
         else:
             output_filepath = Path(output_filepath)
         
@@ -371,8 +375,11 @@ def main():
     try:
         merger = BrokerMerger()
         
-        # 데이터 디렉토리
-        data_dir = Path("data/brokerInfo")
+        # Docker 환경에서는 /data로 마운트됨
+        if Path("/data/brokerInfo").exists():
+            data_dir = Path("/data/brokerInfo")
+        else:
+            data_dir = Path("data/brokerInfo")
         
         # 파일 경로 설정
         land_file = data_dir / "land_brokers.csv"

@@ -9,11 +9,11 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
-from json_data_parser import JSONDataParser
-from db_manager import DatabaseManager
-from preprocessor import PriceDataPreprocessor
-from data_loader import DataLoader
-from config import (
+from .json_data_parser import JSONDataParser
+from .db_manager import DatabaseManager
+from .preprocessor import PriceDataPreprocessor
+from .data_loader import DataLoader
+from .config import (
     JSON_DATA_DIR, 
     MODEL_PATH, 
     INTEREST_RATE_PATH,
@@ -89,7 +89,7 @@ class PriceClassifier:
         
         return rate_dict, latest_month
     
-    from config import INTEREST_RATE_PATH  # 이미 있으면 재사용
+    from .config import INTEREST_RATE_PATH  # 이미 있으면 재사용
 
     def prepare_data(self, df: pd.DataFrame) -> pd.DataFrame:
         print("\n[Step] 데이터 전처리 시작")

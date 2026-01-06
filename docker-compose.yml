@@ -226,7 +226,7 @@ services:
     volumes:
       - ./apps/reco:/app
       - ./libs:/libs:ro
-      - ./data:/data:ro
+      - ./data:/data
     ports:
       - "8002:8002"
     env_file:

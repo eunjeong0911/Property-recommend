@@ -4,10 +4,10 @@
 import argparse
 from pathlib import Path
 
-from data_loader import DataLoader
-from preprocessor import PriceDataPreprocessor
-from model import get_models
-from trainer import ModelTrainer
+from .data_loader import DataLoader
+from .preprocessor import PriceDataPreprocessor
+from .model import get_models
+from .trainer import ModelTrainer
 
 ML_ROOT = Path(__file__).resolve().parent.parent  # .../ML
 REPO_ROOT = ML_ROOT.parent.parent.parent.parent.parent  # SKN18-FINAL-1TEAM

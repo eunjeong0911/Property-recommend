@@ -99,16 +99,16 @@ def build_hybrid_query(
             "terms": {"style_tags": style_tags}
         })
         
-    # [NEW] 건물 유형 필터
+    # [NEW] 건물 유형 필터 (text 필드이므로 match 사용)
     if building_type:
         query["bool"]["filter"].append({
-            "term": {"building_type": building_type}
+            "match": {"building_type": building_type}
         })
         
-    # [NEW] 거래 유형 필터
+    # [NEW] 거래 유형 필터 (text 필드이므로 match 사용)
     if deal_type:
         query["bool"]["filter"].append({
-            "term": {"deal_type": deal_type}
+            "match": {"deal_type": deal_type}
         })
     
     # 보증금 범위 필터

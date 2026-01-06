@@ -23,9 +23,9 @@ import { useSession } from 'next-auth/react';
 
 interface LandListProps {
     filterParams?: LandFilterParams;
-    recommendedLandIds?: number[];
     chatbotProperties?: any[];  // 챗봇이 추천한 매물 데이터 (전체 정보)
     showChatbotFilter?: boolean;  // 챗봇 필터 활성화 여부
+    isLoading?: boolean;  // 외부에서 전달받는 로딩 상태
 }
 
 const ITEMS_PER_PAGE = 5; // 페이지당 5개 표시 (화면에 맞춤)
@@ -41,7 +41,7 @@ const loadPageStateFromStorage = () => {
     }
 };
 
-export default function LandList({ filterParams, recommendedLandIds, chatbotProperties, showChatbotFilter }: LandListProps) {
+export default function LandList({ filterParams, chatbotProperties, showChatbotFilter, isLoading: externalLoading }: LandListProps) {
     const router = useRouter();
     const { data: session } = useSession();
     const [lands, setLands] = useState<Land[]>([]);
@@ -66,25 +66,38 @@ export default function LandList({ filterParams, recommendedLandIds, chatbotProp
 
     useEffect(() => {
         const loadLands = async () => {
-            // 챗봇 필터 모드가 활성화되어 있고 추천 매물이 있으면 사용
-            if (showChatbotFilter && chatbotProperties && chatbotProperties.length > 0) {
-                setLands(chatbotProperties);
+            // ★★★ 챗봇 필터 모드일 때 ★★★
+            if (showChatbotFilter) {
+                // 외부 로딩 상태가 있으면 그것을 사용
+                if (externalLoading) {
+                    setLoading(true);
+                    return;
+                }
+                
+                // 챗봇 매물이 있으면 사용
+                if (chatbotProperties && chatbotProperties.length > 0) {
+                    console.log('[LandList] 🤖 챗봇 매물 표시:', chatbotProperties.length, '개');
+                    setLands(chatbotProperties);
+                    setLoading(false);
+                    setCurrentPage(1);
+                    setCurrentPageGroup(0);
+                    return;
+                }
+                
+                // 챗봇 매물이 없으면 빈 상태 (로딩 중이 아닐 때)
+                console.log('[LandList] ⚠️ 챗봇 매물 없음');
+                setLands([]);
                 setLoading(false);
                 return;
             }
 
+            // ★★★ 일반 필터 모드일 때 ★★★
             try {
                 setLoading(true);
+                console.log('[LandList] 📋 일반 필터 모드 - API 호출:', filterParams);
                 const data = await fetchLands(filterParams);
-
-                // AI 추천 매물 ID가 있으면 필터링 (챗봇 필터 모드가 아닐 때만)
-                if (!showChatbotFilter && recommendedLandIds && recommendedLandIds.length > 0) {
-                    const filtered = data.filter(land => recommendedLandIds.includes(land.id));
-                    setLands(filtered);
-                } else {
-                    setLands(data);
-                }
-
+                console.log('[LandList] ✅ API 응답:', data.length, '개');
+                setLands(data);
                 setError(null);
             } catch (err) {
                 console.error('Failed to fetch lands:', err);
@@ -95,7 +108,7 @@ export default function LandList({ filterParams, recommendedLandIds, chatbotProp
         };
 
         loadLands();
-    }, [filterParams, recommendedLandIds, chatbotProperties, showChatbotFilter]);
+    }, [filterParams, chatbotProperties, showChatbotFilter, externalLoading]);
 
     // 필터가 변경되면 페이지를 1로 리셋 (첫 마운트 제외)
     useEffect(() => {
