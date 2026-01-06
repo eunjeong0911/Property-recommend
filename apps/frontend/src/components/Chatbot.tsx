@@ -692,6 +692,19 @@ export default function Chatbot({ onRecommendLands, onChatbotRecommend }: Chatbo
                                   <div className="prose prose-sm max-w-none text-gray-900">
                                     <ReactMarkdown
                                       components={{
+                                        p: ({ children }) => (
+                                          <p className="mb-2 last:mb-0 leading-relaxed whitespace-pre-wrap text-[15px]">
+                                            {children}
+                                          </p>
+                                        ),
+                                        ul: ({ children }) => (
+                                          <ul className="mb-3 space-y-1 list-none pl-1">
+                                            {children}
+                                          </ul>
+                                        ),
+                                        li: ({ children }) => (
+                                          <li className="mb-1">{children}</li>
+                                        ),
                                         a: ({ href, children }) => {
                                           const text = String(children);
                                           if (text.includes('상세보기')) {
