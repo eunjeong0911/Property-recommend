@@ -483,7 +483,18 @@ async def run_zone_batch(zone_name):
                 current_processing_filename = cat['out']
                 
                 try:
-                    await page.goto(cat['base'], timeout=60000)
+                    # 카테고리 페이지 로딩 (재시도 로직 추가)
+                    max_retries = 3
+                    for retry in range(max_retries):
+                        try:
+                            await page.goto(cat['base'], timeout=120000, wait_until='domcontentloaded')
+                            break
+                        except Exception as e:
+                            if retry == max_retries - 1:
+                                raise
+                            print(f"  ⚠️ 페이지 로딩 재시도 ({retry + 1}/{max_retries})...")
+                            await page.wait_for_timeout(3000)
+                    
                     try:
                         popup = page.get_by_role("button", name="오늘 하루 보지 않기")
                         if await popup.is_visible(): await popup.click()
@@ -499,13 +510,20 @@ async def run_zone_batch(zone_name):
                         
                         print(f"({i+1}/{len(coordinates)}) 이동...")
                         try:
-                            await page.goto(target_url, timeout=30000)
-                            await page.wait_for_load_state('networkidle'); await page.wait_for_timeout(500)
-                            if await page.locator(ITEM_SELECTOR).count() == 0: continue
+                            # 좌표 이동 (타임아웃 증가 + domcontentloaded 사용)
+                            await page.goto(target_url, timeout=90000, wait_until='domcontentloaded')
+                            await page.wait_for_timeout(1000)
+                            
+                            if await page.locator(ITEM_SELECTOR).count() == 0: 
+                                print(f"  → 매물 없음, 다음 좌표로...")
+                                continue
                             
                             await scroll_to_bottom(page, ITEM_SELECTOR)
                             await extract_data_from_list(page, ITEM_SELECTOR, current_processing_data, master_id_set, current_session_new_ids)
-                        except: pass
+                        except Exception as e:
+                            print(f"  ⚠️ 좌표 처리 오류: {str(e)[:100]}")
+                            await page.wait_for_timeout(2000)  # 에러 후 잠시 대기
+                            pass
 
                 except Exception as e:
                     print(f"Error in category loop: {e}")

@@ -103,15 +103,15 @@ analytics/
 **/*.csv
 **/*.xlsx
 **/*.xls
-**/*.pickle
+# **/*.pickle
 **/*.parquet
 
 # Exclude .pkl files EXCEPT in apps/reco/models/
 # (Using specific paths instead of wildcards)
-data/**/*.pkl
-scripts/**/*.pkl
-notebooks/**/*.pkl
-analytics/**/*.pkl
+# data/**/*.pkl
+# scripts/**/*.pkl
+# notebooks/**/*.pkl
+# analytics/**/*.pkl
 # apps/reco/models/ is NOT excluded - models will be included!
 
 # JSON (필수 설정 파일 제외)
