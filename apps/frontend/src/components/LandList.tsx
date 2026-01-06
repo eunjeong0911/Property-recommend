@@ -24,6 +24,8 @@ import { useSession } from 'next-auth/react';
 interface LandListProps {
     filterParams?: LandFilterParams;
     recommendedLandIds?: number[];
+    chatbotProperties?: any[];  // 챗봇이 추천한 매물 데이터 (전체 정보)
+    showChatbotFilter?: boolean;  // 챗봇 필터 활성화 여부
 }
 
 const ITEMS_PER_PAGE = 5; // 페이지당 5개 표시 (화면에 맞춤)
@@ -39,7 +41,7 @@ const loadPageStateFromStorage = () => {
     }
 };
 
-export default function LandList({ filterParams, recommendedLandIds }: LandListProps) {
+export default function LandList({ filterParams, recommendedLandIds, chatbotProperties, showChatbotFilter }: LandListProps) {
     const router = useRouter();
     const { data: session } = useSession();
     const [lands, setLands] = useState<Land[]>([]);
@@ -64,12 +66,19 @@ export default function LandList({ filterParams, recommendedLandIds }: LandListP
 
     useEffect(() => {
         const loadLands = async () => {
+            // 챗봇 필터 모드가 활성화되어 있고 추천 매물이 있으면 사용
+            if (showChatbotFilter && chatbotProperties && chatbotProperties.length > 0) {
+                setLands(chatbotProperties);
+                setLoading(false);
+                return;
+            }
+
             try {
                 setLoading(true);
                 const data = await fetchLands(filterParams);
 
-                // AI 추천 매물 ID가 있으면 필터링
-                if (recommendedLandIds && recommendedLandIds.length > 0) {
+                // AI 추천 매물 ID가 있으면 필터링 (챗봇 필터 모드가 아닐 때만)
+                if (!showChatbotFilter && recommendedLandIds && recommendedLandIds.length > 0) {
                     const filtered = data.filter(land => recommendedLandIds.includes(land.id));
                     setLands(filtered);
                 } else {
@@ -86,7 +95,7 @@ export default function LandList({ filterParams, recommendedLandIds }: LandListP
         };
 
         loadLands();
-    }, [filterParams, recommendedLandIds]);
+    }, [filterParams, recommendedLandIds, chatbotProperties, showChatbotFilter]);
 
     // 필터가 변경되면 페이지를 1로 리셋 (첫 마운트 제외)
     useEffect(() => {
@@ -256,7 +265,9 @@ export default function LandList({ filterParams, recommendedLandIds }: LandListP
             {/* 매물 리스트 헤더 */}
             <div className="bg-white border border-[var(--color-border-light)] rounded-xl p-6 shadow-[var(--shadow-md)]">
                 <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-semibold text-[var(--color-primary)]">추천 매물</h3>
+                    <h3 className="text-lg font-semibold text-[var(--color-primary)]">
+                        {chatbotProperties && chatbotProperties.length > 0 ? '🤖 AI 추천 매물' : '추천 매물'}
+                    </h3>
                     <span className="text-sm text-[var(--color-text-tertiary)]">
                         총 {lands.length}개
                     </span>
@@ -273,6 +284,12 @@ export default function LandList({ filterParams, recommendedLandIds }: LandListP
                         >
                             {/* 썸네일 이미지 */}
                             <div className="relative w-40 h-32 flex-shrink-0 bg-[var(--color-bg-secondary)] rounded-lg overflow-hidden">
+                                {/* 순위 배지 (chatbotProperties가 있을 때만) */}
+                                {chatbotProperties && chatbotProperties.length > 0 && (
+                                    <div className="absolute top-2 left-2 z-10 w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
+                                        <span className="text-white font-bold text-sm">{startIndex + index + 1}</span>
+                                    </div>
+                                )}
                                 {land.image ? (
                                     <Image
                                         src={land.image}
