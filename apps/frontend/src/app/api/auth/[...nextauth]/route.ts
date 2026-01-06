@@ -156,7 +156,11 @@ const handler = NextAuth({
     },
     pages: {
         signIn: '/login',
-    }
+    },
+    // ALB/Proxy 환경 설정
+    // @ts-ignore - NextAuth v4 supports trustHost
+    trustHost: true,
+    useSecureCookies: process.env.NEXTAUTH_URL?.startsWith('https://'),
 });
 
 export { handler as GET, handler as POST };
