@@ -55,6 +55,6 @@ COPY apps /app/apps
 
 ENV PYTHONPATH=/app:/libs:/data
 
-CMD ["python", "-u"]
+CMD ["python", "-u", "scripts/run_all.py"]
 
 
