@@ -311,7 +311,7 @@ services:
       context: .
       dockerfile: infra/docker/scripts.Dockerfile
     container_name: realestate-scripts
-    command: python run_all.py
+    command: python scripts/run_all.py
     volumes:
       - ./scripts:/app/scripts
       - ./libs:/libs:ro
