@@ -54,21 +54,34 @@ def main():
     # Step 1: 크롤링 (환경 변수로 건너뛰기 가능)
     if os.getenv('ENABLE_CRAWLING', 'false').lower() == 'true':
         print("\n" + "=" * 80)
-        print(" " * 20 + "🕷️ [Step 1/5] 크롤링 시작")
+        print(" " * 20 + "🕷️ [Step 1/6] 크롤링 시작")
         print("=" * 80)
-    crawl_script = base_dir / "01_crawling" / "peterpan" / "crawl_seoul.py"
-    if crawl_script.exists():
-        print(f"📍 스크립트: {crawl_script}")
-        if not run_script(crawl_script):
-            print("⚠️ 크롤링 실패, 계속 진행합니다...")
-    else:
-        print(f"⚠️ 크롤링 스크립트 없음: {crawl_script}")
-        print("   기존 데이터로 계속 진행합니다...")
+        crawl_script = base_dir / "01_crawling" / "peterpan" / "crawl_seoul.py"
+        if crawl_script.exists():
+            print(f"📍 스크립트: {crawl_script}")
+            if not run_script(crawl_script):
+                print("⚠️ 크롤링 실패, 계속 진행합니다...")
+        else:
+            print(f"⚠️ 크롤링 스크립트 없음: {crawl_script}")
+            print("   기존 데이터로 계속 진행합니다...")
+        
+        # Step 1-2: Geocoding (크롤링 직후 실행)
+        print("\n" + "=" * 80)
+        print(" " * 20 + "🌍 [Step 1-2/6] 주소 좌표 변환 (Geocoding)")
+        print("=" * 80)
+        geocode_script = base_dir / "01_crawling" / "peterpan" / "geocode_addresses.py"
+        if geocode_script.exists():
+            print(f"📍 스크립트: {geocode_script}")
+            if not run_script(geocode_script):
+                print("⚠️ Geocoding 실패, 계속 진행합니다...")
+        else:
+            print(f"⚠️ Geocoding 스크립트 없음: {geocode_script}")
+            print("   좌표 없이 계속 진행합니다...")
 
     # Step 2: 전처리
     if os.getenv('ENABLE_PREPROCESSING', 'false').lower() == 'true':
         print("\n" + "=" * 80)
-        print(" " * 20 + "🔧 [Step 2/5] 전처리 시작")
+        print(" " * 20 + "🔧 [Step 2/6] 전처리 시작")
         print("=" * 80)
     preprocess_script = base_dir / "02_preprocessing" / "generate_search_text_parallel.py"
     if preprocess_script.exists():
