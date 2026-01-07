@@ -41,6 +41,9 @@ RUN npm run build
 # -----------------------------------------------------------------------------
 # Stage 3: Runner - Production image
 # -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# Stage 3: Runner - Production image
+# -----------------------------------------------------------------------------
 FROM node:20-alpine AS runner
 WORKDIR /app
 
@@ -51,21 +54,13 @@ ENV NODE_ENV=production \
 RUN addgroup --system --gid 1001 nodejs \
     && adduser --system --uid 1001 nextjs
 
-# Copy public assets
+# Copy essential files
 COPY --from=builder /app/public ./public
+COPY --from=builder /app/package.json ./package.json
 
-# Set up .next directory with correct permissions
-RUN mkdir .next \
-    && chown nextjs:nodejs .next
-
-# Copy standalone build output
-# Automatically leverage output traces to reduce image size
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
-# Ensure server.js is executable
-RUN chown nextjs:nodejs /app/server.js \
-    && chmod +x /app/server.js
+# Copy built artifacts (Standard Build)
+COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
+COPY --from=builder /app/node_modules ./node_modules
 
 # Install curl for health checks
 RUN apk add --no-cache curl
@@ -81,4 +76,5 @@ ENV PORT=3000 \
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:3000/api/health || exit 1
 
-CMD ["node", "server.js"]
+# Use standard Next.js start command
+CMD ["npm", "run", "start"]
