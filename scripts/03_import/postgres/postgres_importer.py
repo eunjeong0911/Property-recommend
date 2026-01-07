@@ -189,10 +189,10 @@ class PostgresImporter:
             print("  (강제 업데이트를 원하면 skip_if_exists=False 사용)")
             return
         
-        # Docker 환경에서는 /data/RDB/land, 로컬에서는 data/RDB/land
-        if os.path.exists("/data/RDB/land"):
-            data_dir = "/data/RDB/land"
-            print("Docker 환경 감지: /data/RDB/land 사용")
+        # Docker 환경에서는 /app/data/RDB/land, 로컬에서는 data/RDB/land
+        if os.path.exists("/app/data/RDB/land"):
+            data_dir = "/app/data/RDB/land"
+            print("Docker 환경 감지: /app/data/RDB/land 사용")
         else:
             data_dir = os.path.join(Config.BASE_DIR, "data", "RDB", "land")
             print(f"로컬 환경 감지: {data_dir} 사용")
@@ -325,6 +325,64 @@ class PostgresImporter:
         
         return eok * 10000 + man
 
+    def _parse_deal_string(self, deal_str):
+        """
+        거래방식 문자열에서 가격 정보 파싱
+        
+        Examples:
+            "월세   5,000만원/80만원" → {"deposit": 5000, "monthly_rent": 80}
+            "전세   1억2,000만원" → {"jeonse_price": 12000}
+            "매매   3억5,000만원" → {"sale_price": 35000}
+            "단기임대   150만원/100만원" → {"deposit": 150, "monthly_rent": 100}
+        
+        Returns:
+            dict: {deposit, monthly_rent, jeonse_price, sale_price} (만원 단위)
+        """
+        result = {
+            "deposit": 0,
+            "monthly_rent": 0,
+            "jeonse_price": 0,
+            "sale_price": 0
+        }
+        
+        if not deal_str or deal_str == '-':
+            return result
+        
+        # 거래 유형 추출
+        deal_type = None
+        if "월세" in deal_str:
+            deal_type = "월세"
+        elif "전세" in deal_str:
+            deal_type = "전세"
+        elif "매매" in deal_str:
+            deal_type = "매매"
+        elif "단기임대" in deal_str:
+            deal_type = "단기임대"
+        
+        if not deal_type:
+            return result
+        
+        # 거래 유형 이후의 가격 부분 추출
+        price_part = deal_str.split(deal_type)[-1].strip()
+        
+        # 슬래시로 구분된 경우 (월세, 단기임대)
+        if "/" in price_part:
+            parts = price_part.split("/")
+            if len(parts) == 2:
+                deposit_str = parts[0].strip()
+                monthly_str = parts[1].strip()
+                result["deposit"] = self._parse_price_to_int(deposit_str)
+                result["monthly_rent"] = self._parse_price_to_int(monthly_str)
+        else:
+            # 단일 가격 (전세, 매매)
+            price = self._parse_price_to_int(price_part)
+            if deal_type == "전세":
+                result["jeonse_price"] = price
+            elif deal_type == "매매":
+                result["sale_price"] = price
+        
+        return result
+
     def _insert_land(self, item, building_type):
         """Land 테이블에 매물 데이터 삽입"""
         land_num = item.get("매물번호")
@@ -335,14 +393,13 @@ class PostgresImporter:
         trade_info_raw = item.get("거래_정보", {})
         deal_type = self._extract_deal_type(trade_info_raw)
         
-        deposit = self._parse_price_to_int(trade_info_raw.get("보증금"))
-        monthly_rent = self._parse_price_to_int(trade_info_raw.get("월세"))
-        jeonse_price = self._parse_price_to_int(trade_info_raw.get("보증금")) if deal_type == "전세" else 0
-        sale_price = self._parse_price_to_int(trade_info_raw.get("매매가"))
-        
-        if deal_type == "전세":
-            jeonse_price = deposit
-            deposit = 0
+        # 거래방식 문자열에서 가격 정보 파싱
+        deal_str = trade_info_raw.get("거래방식", "")
+        prices = self._parse_deal_string(deal_str)
+        deposit = prices["deposit"]
+        monthly_rent = prices["monthly_rent"]
+        jeonse_price = prices["jeonse_price"]
+        sale_price = prices["sale_price"]
         
         images_list = item.get("매물_이미지", [])
         url = item.get("매물_URL")
@@ -361,6 +418,9 @@ class PostgresImporter:
             style_tags = []
         
         search_text = item.get("search_text") or item.get("검색텍스트")
+        
+        # 중개사 정보 추출
+        agent_info = Json(item.get("중개사_정보", {}))
 
         query = """
             INSERT INTO land (
@@ -368,13 +428,13 @@ class PostgresImporter:
                 deposit, monthly_rent, jeonse_price, sale_price,
                 url, trade_info, listing_info,
                 additional_options, description,
-                style_tags, search_text
+                style_tags, search_text, agent_info
             ) VALUES (
                 %s, %s, %s, %s,
                 %s, %s, %s, %s,
                 %s, %s, %s,
                 %s, %s,
-                %s, %s
+                %s, %s, %s
             )
             ON CONFLICT (land_num) DO UPDATE SET
                 building_type = EXCLUDED.building_type,
@@ -391,6 +451,7 @@ class PostgresImporter:
                 description = EXCLUDED.description,
                 style_tags = EXCLUDED.style_tags,
                 search_text = EXCLUDED.search_text,
+                agent_info = EXCLUDED.agent_info,
                 updated_at = CURRENT_TIMESTAMP
             RETURNING land_id, (xmax = 0) AS inserted;
         """
@@ -400,7 +461,7 @@ class PostgresImporter:
             deposit, monthly_rent, jeonse_price, sale_price,
             url, trade_info, listing_info,
             additional_options, description,
-            style_tags, search_text
+            style_tags, search_text, agent_info
         ))
         
         result = self.cur.fetchone()

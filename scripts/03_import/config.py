@@ -63,9 +63,6 @@ class Config:
     if os.path.exists("/app/data/GraphDB_data"):
         DATA_DIR = "/app/data/GraphDB_data"
         print("Docker 환경 감지: /app/data/GraphDB_data 사용")
-    elif os.path.exists("/data/GraphDB_data"):
-        DATA_DIR = "/data/GraphDB_data"
-        print("Docker 환경 감지: /data/GraphDB_data 사용")
     else:
         DATA_DIR = os.path.join(BASE_DIR, "data", "GraphDB_data")
         print(f"로컬 환경 감지: {DATA_DIR} 사용")

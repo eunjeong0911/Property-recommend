@@ -14,20 +14,6 @@ import boto3
 from pathlib import Path
 from datetime import datetime
 
-# 설정
-S3_BUCKET = os.getenv('S3_BUCKET', 'realestate-data-046685909225')
-S3_PREFIX = os.getenv('S3_PREFIX', 'data/')
-AWS_REGION = os.getenv('AWS_REGION', 'ap-northeast-2')
-
-# 데이터 디렉토리 결정
-if os.path.exists('/data'):
-    LOCAL_DATA_DIR = Path('/data')
-else:
-    # 스크립트 위치 기준으로 data 폴더 찾기
-    script_dir = Path(__file__).parent
-    project_root = script_dir.parent
-    LOCAL_DATA_DIR = project_root / 'data'
-
 def upload_to_s3():
     """로컬 데이터를 S3에 업로드"""
     print("\n" + "=" * 70)

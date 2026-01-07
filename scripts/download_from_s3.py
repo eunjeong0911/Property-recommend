@@ -17,7 +17,7 @@ from datetime import datetime
 S3_BUCKET = os.getenv('S3_BUCKET', 'realestate-data-046685909225')
 S3_PREFIX = os.getenv('S3_PREFIX', 'data/')
 AWS_REGION = os.getenv('AWS_REGION', 'ap-northeast-2')
-LOCAL_DATA_DIR = Path('/data')
+LOCAL_DATA_DIR = Path('/app/data')
 
 def download_from_s3():
     """S3에서 데이터 다운로드"""

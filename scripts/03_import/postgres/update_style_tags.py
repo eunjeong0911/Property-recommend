@@ -65,8 +65,8 @@ def update_style_tags():
     print("✓ 컬럼 확인 완료\n")
     
     # JSON 파일 경로
-    if os.path.exists("/data/RDB/land"):
-        data_dir = "/data/RDB/land"
+    if os.path.exists("/app/data/RDB/land"):
+        data_dir = "/app/data/RDB/land"
     else:
         data_dir = os.path.join(Config.BASE_DIR, "data", "RDB", "land")
     

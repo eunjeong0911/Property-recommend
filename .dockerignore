@@ -103,17 +103,9 @@ analytics/
 **/*.csv
 **/*.xlsx
 **/*.xls
-# **/*.pickle
+# **/*.pkl
+**/*.pickle
 **/*.parquet
-
-# Exclude .pkl files EXCEPT in apps/reco/models/ and scripts/03_import/trust/
-# (Using specific paths instead of wildcards)
-data/**/*.pkl
-# scripts/**/*.pkl  # Commented - trust model needs to be included
-# notebooks/**/*.pkl
-# analytics/**/*.pkl
-# apps/reco/models/ is NOT excluded - models will be included!
-# scripts/03_import/trust/ is NOT excluded - trust model will be included!
 
 # JSON (필수 설정 파일 제외)
 *.json

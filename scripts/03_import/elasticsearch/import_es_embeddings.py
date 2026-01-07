@@ -6,7 +6,7 @@ ES 인덱스의 문서에 벡터 임베딩을 생성하여 추가합니다.
 asyncio를 사용하여 병렬로 임베딩을 생성합니다.
 
 Usage:
-    docker compose --profile scripts run --rm scripts python data_import/import_es_embeddings.py
+    docker compose --profile scripts run --rm scripts python scripts/03_import/elasticsearch/import_es_embeddings.py
 """
 import os
 import sys
