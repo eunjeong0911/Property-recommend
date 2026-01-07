@@ -530,24 +530,29 @@ def _generate_followup_question(missing_type: str, current_conditions: Dict) -> 
     deal_type = current_conditions.get("deal_type", "")
     
     if missing_type == "location":
-        return (
-            "어떤 지역에서 집을 찾고 계신가요? 🏠\n\n"
-            "**지하철역** 홍대역, 강남역, 신촌역\n"
-            "**행정구역** 마포구, 강남구, 서초구\n"
-            "**동 단위** 합정동, 역삼동\n"
-            "**주변 시설** 편의점 많은 곳, 공원 가까운 곳\n\n"
-            "💡 원하는 지역을 자유롭게 말씀해주세요!"
-        )
+        return f"""원하시는 **지역**을 알려주세요.
+
+지하철역, 동네 이름, 혹은 주변 시설을 말씀해 주시면 해당 지역의 매물을 검색해 드립니다.
+
+**입력 예시**
+• "강남역 근처로 찾아줘"
+• "마포구 서교동 쪽"
+• "공원 가까운 곳"
+"""
     
     elif missing_type == "deal_type":
         location_str = f"**{location}**에서 " if location else ""
-        return (
-            f"{location_str}어떤 거래 유형을 원하시나요? 📝\n\n"
-            "**전세** 목돈을 맡기고 월세 없이 거주\n"
-            "**월세** 보증금 + 매달 월세 지불\n"
-            "**매매** 집을 직접 구매\n"
-            "**단기임대** 몇 개월 단위 임시 거주"
-        )
+        return f"""{location_str}어떤 **거래 유형**을 원하시나요?
+
+계획하신 예산이나 보증금/월세 범위를 함께 말씀해 주셔도 좋습니다.
+
+**선택 가능한 유형**
+• 전세
+• 월세
+• 매매
+• 단기임대
+• "보증금 1000에 월세 50 정도"
+"""
     
     elif missing_type == "style":
         context_parts = []
@@ -557,17 +562,16 @@ def _generate_followup_question(missing_type: str, current_conditions: Dict) -> 
             context_parts.append(f"**{deal_type}**")
         context_str = " ".join(context_parts) + " 조건으로 " if context_parts else ""
         
-        return (
-            f"{context_str}어떤 스타일의 집을 원하시나요? ✨\n\n"
-            "🎨 **자유롭게 원하는 분위기나 조건을 말씀해주세요!**\n\n"
-            "예시)\n"
-            "• 햇살 잘 들어오는 집\n"
-            "• 깔끔하고 모던한 인테리어\n"
-            "• 에어컨, 세탁기 있는 풀옵션\n"
-            "• 조용하고 보안 좋은 곳\n"
-            "• 직장인한테 추천할만한 곳\n\n"
-            "💡 위 예시 외에도 원하는 조건을 자유롭게 입력하세요!"
-        )
+        return f"""{context_str}원하시는 **스타일**이나 **상세 조건**이 있으신가요?
+
+선호하는 인테리어, 필요한 옵션, 혹은 주변 환경에 대해 자유롭게 말씀해 주세요. AI가 분석하여 최적의 매물을 추천해 드립니다.
+
+**입력 예시**
+• "채광이 좋고 밝은 남향 집"
+• "조용하고 보안이 좋은 안전한 곳"
+• "풀옵션에 수납공간이 넉넉한 집"
+• "주차가 편리한 신축 오피스텔"
+"""
     
     # 기본 폴백
     return "추가 조건을 알려주세요!"
