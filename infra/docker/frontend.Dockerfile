@@ -60,7 +60,7 @@ COPY --from=builder /app/package.json ./package.json
 
 # Copy built artifacts (Standard Build)
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
-COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 
 # Install curl for health checks
 RUN apk add --no-cache curl
