@@ -313,11 +313,10 @@ services:
     container_name: realestate-scripts
     command: python run_all.py
     volumes:
-      - ./scripts:/app
+      - ./scripts:/app/scripts
       - ./libs:/libs:ro
-      - ./data:/data
+      - ./data:/app/data
       - ./apps/reco:/app/apps/reco:ro
-      - ./apps/reco/trust_model:/data/trust_model:ro
     env_file:
       - .env
     environment:
