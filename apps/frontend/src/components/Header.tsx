@@ -57,15 +57,7 @@ export default function Header() {
           >
             커뮤니티
           </Link>
-          <Link
-            href="/temperature"
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${pathname === '/temperature'
-              ? 'bg-[var(--color-primary)] text-white'
-              : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-primary)]'
-              }`}
-          >
-            온도 상세보기
-          </Link>
+
 
           {/* 마이페이지 / 로그인 버튼 */}
           {session?.user ? (

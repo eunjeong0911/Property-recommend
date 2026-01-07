@@ -142,7 +142,7 @@ export default function MyPage() {
 
   if (status === 'loading' || isLoading) {
     return (
-      <div className="max-w-5xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto px-4 py-8">
         <SideTab />
         <LoadingSpinner message="마이페이지 정보를 불러오고 있습니다..." />
       </div>
@@ -154,7 +154,7 @@ export default function MyPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
+    <div className="max-w-4xl mx-auto px-4 py-8">
       {/* 가로 탭 */}
       <SideTab />
 

@@ -3,7 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import Land, PriceClassificationResult
-from .serializers import LandSerializer
+from .serializers import LandSerializer, LandListSerializer
 from .utils.price_utils import get_price_display
 from .neo4j_client import Neo4jClient
 import logging
@@ -12,13 +12,20 @@ logger = logging.getLogger(__name__)
 
 class LandViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Land.objects.all()
-    serializer_class = LandSerializer
+    # serializers.py의 LandListSerializer와 LandSerializer를 동적으로 선택
+
+    def get_serializer_class(self):
+        if self.action == 'list': # 목록 조회 API
+            return LandListSerializer # 목록 조회 시리얼라이저
+        return LandSerializer # 개별 조회 시리얼라이저
     filter_backends = [filters.SearchFilter]
     search_fields = ['land_num', 'address']
 
     def get_queryset(self):
         # with_images() + select_related로 N+1 쿼리 방지
-        queryset = Land.objects.with_images().select_related('landbroker')
+        # price_predictions도 미리 로딩 (N+1 방지)
+        # N+1 쿼리 방지: 이미지, 중개업소, 가격 정보를 한 번에 조회
+        queryset = Land.objects.with_images().select_related('landbroker').prefetch_related('price_predictions')
         
         # 지역 필터 (부분 일치)
         address = self.request.query_params.get('address', None)
@@ -45,21 +52,7 @@ class LandViewSet(viewsets.ReadOnlyModelViewSet):
             queryset = queryset.filter(building_type=building_type)
         
         return queryset
-    
-    def get_serializer_context(self):
-        """Serializer context에 price_predictions 캐시 추가 (N+1 쿼리 방지)"""
-        context = super().get_serializer_context()
-        
-        # 모든 price_classification을 한 번에 조회하여 캐싱
-        # 테이블이 없을 수 있으므로 예외 처리
-        try:
-            price_predictions = PriceClassificationResult.objects.all()
-            context['price_predictions'] = {p.land_num: p for p in price_predictions}
-        except Exception:
-            # 테이블이 없거나 오류 시 빈 딕셔너리
-            context['price_predictions'] = {}
-        
-        return context
+
     
     @action(detail=False, methods=['get'])
     def locations(self, request):
@@ -220,28 +213,19 @@ class LandViewSet(viewsets.ReadOnlyModelViewSet):
         
         try:
             with driver.session() as session:
-                # 매물 주변 시설 개수 조회 쿼리
-                # 실제 Neo4j 스키마에 맞게 수정:
-                # - 관계: NEAR_SUBWAY, NEAR_BUS, NEAR_HOSPITAL 등
-                # - 노드: SubwayStation, BusStation, Hospital, Convenience 등
+                # 최적화: 이미 생성된 관계 개수를 직접 집계
                 query = """
                 MATCH (p:Property {id: $land_num})
-                OPTIONAL MATCH (p)-[:NEAR_SUBWAY]->(subway:SubwayStation)
-                OPTIONAL MATCH (p)-[:NEAR_BUS]->(bus:BusStation)
-                OPTIONAL MATCH (p)-[:NEAR_HOSPITAL]->(hospital:Hospital)
-                OPTIONAL MATCH (p)-[:NEAR_PHARMACY]->(pharmacy:Pharmacy)
-                OPTIONAL MATCH (p)-[:NEAR_CCTV]->(cctv:CCTV)
-                OPTIONAL MATCH (p)-[:NEAR_POLICE]->(police:PoliceStation)
-                OPTIONAL MATCH (p)-[:NEAR_FIRE]->(fire:FireStation)
-                OPTIONAL MATCH (p)-[:NEAR_BELL]->(bell:EmergencyBell)
-                OPTIONAL MATCH (p)-[:NEAR_CONVENIENCE]->(conv:Store:Convenience)
+                OPTIONAL MATCH (p)-[r]->()
+                WHERE type(r) STARTS WITH 'NEAR_'
+                WITH p, type(r) as rel_type, count(r) as rel_count
                 RETURN 
-                    count(DISTINCT subway) + count(DISTINCT bus) as transport_count,
-                    count(DISTINCT hospital) + count(DISTINCT pharmacy) as medical_count,
-                    count(DISTINCT cctv) + count(DISTINCT police) + count(DISTINCT fire) + count(DISTINCT bell) as safety_count,
-                    count(DISTINCT conv) as convenience_count,
                     p.latitude as latitude,
-                    p.longitude as longitude
+                    p.longitude as longitude,
+                    sum(CASE WHEN rel_type IN ['NEAR_SUBWAY', 'NEAR_BUS'] THEN rel_count ELSE 0 END) as transport_count,
+                    sum(CASE WHEN rel_type IN ['NEAR_HOSPITAL', 'NEAR_PHARMACY'] THEN rel_count ELSE 0 END) as medical_count,
+                    sum(CASE WHEN rel_type IN ['NEAR_CCTV', 'NEAR_POLICE', 'NEAR_FIRE', 'NEAR_BELL'] THEN rel_count ELSE 0 END) as safety_count,
+                    sum(CASE WHEN rel_type = 'NEAR_CONVENIENCE' THEN rel_count ELSE 0 END) as convenience_count
                 """
                 
                 logger.info(f"Neo4j 쿼리 실행: land_id={land_id_for_neo4j}")
@@ -419,7 +403,7 @@ class LandViewSet(viewsets.ReadOnlyModelViewSet):
             return Response({'error': f'매물 ID {pk}를 찾을 수 없습니다.'}, status=404)
         
         # 현재 매물의 온도 데이터 가져오기
-        from .utils.temperature_utils import get_land_temperatures
+        from .utils.temperature_utils import get_land_temperatures, get_bulk_land_temperatures
         current_temps = get_land_temperatures(current_land.land_num)
         
         # 온도 벡터 생성 (5차원)
@@ -441,77 +425,104 @@ class LandViewSet(viewsets.ReadOnlyModelViewSet):
             if match:
                 current_dong = match.group(1)
         
-        # 후보 매물 필터링: 같은 행정동 + A등급 중개사만 (자기 자신 제외)
-        candidate_queryset = Land.objects.exclude(land_id=current_land.land_id).select_related('landbroker')
+        # 후보 매물을 신뢰도 등급별로 수집 (A → B → C 순서로 fallback)
+        trust_grades = ['A', 'B', 'C']
+        candidates = []
         
-        if current_dong:
-            candidate_queryset = candidate_queryset.filter(address__icontains=current_dong)
-        
-        # A등급 중개사 매물만 추천
-        candidate_queryset = candidate_queryset.filter(landbroker__trust_score='A')
-        
-        # 거래유형 필터링 (같은 거래유형만)
-        if current_land.deal_type:
-            candidate_queryset = candidate_queryset.filter(deal_type=current_land.deal_type)
-        
-        # 가격 범위 필터링 (±30% 범위)
-        # 거래유형에 따라 적절한 가격 컬럼 사용
-        if current_land.deal_type:
-            deal_type = current_land.deal_type.lower()
-            price_margin = 0.3  # ±30%
+        for grade in trust_grades:
+            # 기본 필터링: 같은 행정동 + 특정 등급 중개사 (자기 자신 제외)
+            candidate_queryset = Land.objects.exclude(land_id=current_land.land_id).select_related('landbroker')
             
-            if '월세' in deal_type or '단기임대' in deal_type:
-                # 월세/단기임대: 보증금 + 월세*100 기준
+            if current_dong:
+                candidate_queryset = candidate_queryset.filter(address__icontains=current_dong)
+            
+            # 현재 등급 중개사 매물 필터링
+            candidate_queryset = candidate_queryset.filter(landbroker__trust_score=grade)
+            
+            # 거래유형 필터링 (같은 거래유형만)
+            if current_land.deal_type:
+                candidate_queryset = candidate_queryset.filter(deal_type=current_land.deal_type)
+            
+            # 가격 범위 필터링 (±30% 범위)
+            # 거래유형에 따라 적절한 가격 컬럼 사용
+            if current_land.deal_type:
+                deal_type = current_land.deal_type.lower()
+                price_margin = 0.3  # ±30%
+                
+                if '월세' in deal_type or '단기임대' in deal_type:
+                    # 월세/단기임대: 보증금 + 월세*100 기준
+                    current_price = (current_land.deposit or 0) + (current_land.monthly_rent or 0) * 100
+                    if current_price > 0:
+                        min_price = current_price * (1 - price_margin)
+                        max_price = current_price * (1 + price_margin)
+                        # 후보 매물의 환산 가격 계산 후 필터링 (Django ORM으로는 복잡하므로 나중에 Python에서 필터링)
+                elif '전세' in deal_type:
+                    # 전세: 전세가 기준
+                    current_price = current_land.jeonse_price or 0
+                    if current_price > 0:
+                        min_price = current_price * (1 - price_margin)
+                        max_price = current_price * (1 + price_margin)
+                        candidate_queryset = candidate_queryset.filter(
+                            jeonse_price__gte=min_price,
+                            jeonse_price__lte=max_price
+                        )
+                elif '매매' in deal_type:
+                    # 매매: 매매가 기준
+                    current_price = current_land.sale_price or 0
+                    if current_price > 0:
+                        min_price = current_price * (1 - price_margin)
+                        max_price = current_price * (1 + price_margin)
+                        candidate_queryset = candidate_queryset.filter(
+                            sale_price__gte=min_price,
+                            sale_price__lte=max_price
+                        )
+            
+            # 최대 100개로 제한 (성능 최적화)
+            grade_candidates = list(candidate_queryset[:100])
+            
+            # 월세/단기임대의 경우 Python에서 추가 필터링
+            if current_land.deal_type and ('월세' in current_land.deal_type.lower() or '단기임대' in current_land.deal_type.lower()):
                 current_price = (current_land.deposit or 0) + (current_land.monthly_rent or 0) * 100
                 if current_price > 0:
-                    min_price = current_price * (1 - price_margin)
-                    max_price = current_price * (1 + price_margin)
-                    # 후보 매물의 환산 가격 계산 후 필터링 (Django ORM으로는 복잡하므로 나중에 Python에서 필터링)
-            elif '전세' in deal_type:
-                # 전세: 전세가 기준
-                current_price = current_land.jeonse_price or 0
-                if current_price > 0:
-                    min_price = current_price * (1 - price_margin)
-                    max_price = current_price * (1 + price_margin)
-                    candidate_queryset = candidate_queryset.filter(
-                        jeonse_price__gte=min_price,
-                        jeonse_price__lte=max_price
-                    )
-            elif '매매' in deal_type:
-                # 매매: 매매가 기준
-                current_price = current_land.sale_price or 0
-                if current_price > 0:
-                    min_price = current_price * (1 - price_margin)
-                    max_price = current_price * (1 + price_margin)
-                    candidate_queryset = candidate_queryset.filter(
-                        sale_price__gte=min_price,
-                        sale_price__lte=max_price
-                    )
-        
-        # 최대 100개로 제한 (성능 최적화)
-        candidates = list(candidate_queryset[:100])
-        
-        # 월세/단기임대의 경우 Python에서 추가 필터링
-        if current_land.deal_type and ('월세' in current_land.deal_type.lower() or '단기임대' in current_land.deal_type.lower()):
-            current_price = (current_land.deposit or 0) + (current_land.monthly_rent or 0) * 100
-            if current_price > 0:
-                min_price = current_price * (1 - 0.3)
-                max_price = current_price * (1 + 0.3)
-                candidates = [
-                    c for c in candidates
-                    if min_price <= ((c.deposit or 0) + (c.monthly_rent or 0) * 100) <= max_price
-                ]
+                    min_price = current_price * (1 - 0.3)
+                    max_price = current_price * (1 + 0.3)
+                    grade_candidates = [
+                        c for c in grade_candidates
+                        if min_price <= ((c.deposit or 0) + (c.monthly_rent or 0) * 100) <= max_price
+                    ]
+            
+            # 현재 등급에서 찾은 후보를 전체 후보 리스트에 추가
+            candidates.extend(grade_candidates)
+            
+            # TOP 3 이상 확보되면 더 이상 낮은 등급 검색 안 함
+            if len(candidates) >= 3:
+                logger.info(f"매물 {pk}에 대해 {grade}등급 중개사 매물에서 {len(grade_candidates)}개 발견 (총 {len(candidates)}개)")
+                break
+            elif grade_candidates:
+                logger.info(f"매물 {pk}에 대해 {grade}등급 중개사 매물에서 {len(grade_candidates)}개 발견, 다음 등급 검색 중...")
         
         if not candidates:
             logger.info(f"매물 {pk}에 대한 유사 매물 후보가 없습니다.")
             return Response({'results': []})
         
+        # --- 최적화: 후보 매물들의 온도 데이터를 한 번에 조회 (Bulk Fetch) ---
+        candidate_land_nums = [c.land_num for c in candidates]
+        try:
+            bulk_temps = get_bulk_land_temperatures(candidate_land_nums)
+        except Exception as e:
+            logger.error(f"Bulk temperature fetch failed: {e}")
+            bulk_temps = {}
+
         # 각 후보 매물과의 유사도 계산
         import numpy as np
         similarities = []
         
         for candidate in candidates:
-            candidate_temps = get_land_temperatures(candidate.land_num)
+            # Bulk Data에서 조회
+            candidate_temps = bulk_temps.get(candidate.land_num)
+            if not candidate_temps:
+                candidate_temps = get_land_temperatures(candidate.land_num) # Fallback
+
             candidate_vector = [
                 candidate_temps.get('safety', 36.5),
                 candidate_temps.get('convenience', 36.5),
@@ -541,5 +552,3 @@ class LandViewSet(viewsets.ReadOnlyModelViewSet):
         logger.info(f"매물 {pk}에 대한 유사 매물 {len(similar_lands)}개 반환")
         
         return Response({'results': serializer.data})
-
-

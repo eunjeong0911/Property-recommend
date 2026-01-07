@@ -51,7 +51,7 @@ services:
   frontend:
     image: 046685909225.dkr.ecr.ap-northeast-2.amazonaws.com/realestate-frontend:latest
     container_name: realestate-frontend
-    command: node server.js
+    command: npm run start
     # ports:
     #   - "3000:3000"  # Nginx를 통해서만 접근하도록 주석 처리
     env_file:

@@ -310,3 +310,63 @@ def clear_location_cache(location: str = None, facility_type: str = None):
             print(f"[LocationCache] ✓ Cleared all location caches ({len(keys)} keys)")
     except Exception as e:
         print(f"[LocationCache] ✗ Clear failed: {e}")
+
+
+# =============================================================================
+# 멀티턴 대화 조건 수집 캐시
+# =============================================================================
+# 세션별로 수집 중인 조건 (위치, 거래유형, 스타일)을 저장
+
+def save_collected_conditions(session_id: str, conditions: dict, ttl: int = 3600):
+    """
+    수집된 조건 저장 (1시간 유지)
+    
+    Args:
+        session_id: 세션 ID
+        conditions: {
+            "location": "홍대역",
+            "deal_type": "월세",
+            "style": ["풀옵션", "채광좋음"],
+            "price_info": {"max_deposit": 1000, "max_rent": 50}
+        }
+        ttl: 캐시 유지 시간 (기본 1시간)
+    """
+    try:
+        r = get_redis_client()
+        key = f"conditions:{session_id}"
+        r.setex(key, ttl, json.dumps(conditions, ensure_ascii=False))
+        print(f"[ConditionsCache] ✓ Saved conditions: {list(conditions.keys())}")
+    except Exception as e:
+        print(f"[ConditionsCache] ✗ Save failed: {e}")
+
+
+def get_collected_conditions(session_id: str) -> dict:
+    """
+    수집된 조건 조회
+    
+    Returns:
+        저장된 조건 dict (없으면 빈 dict)
+    """
+    try:
+        r = get_redis_client()
+        key = f"conditions:{session_id}"
+        data = r.get(key)
+        if data:
+            conditions = json.loads(data)
+            print(f"[ConditionsCache] ✓ Loaded conditions: {list(conditions.keys())}")
+            return conditions
+        print(f"[ConditionsCache] No conditions for session")
+        return {}
+    except Exception as e:
+        print(f"[ConditionsCache] ✗ Load failed: {e}")
+        return {}
+
+
+def clear_collected_conditions(session_id: str):
+    """조건 초기화 (검색 완료 후)"""
+    try:
+        r = get_redis_client()
+        r.delete(f"conditions:{session_id}")
+        print(f"[ConditionsCache] ✓ Cleared conditions")
+    except Exception as e:
+        print(f"[ConditionsCache] ✗ Clear failed: {e}")

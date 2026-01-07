@@ -81,6 +81,12 @@ const handler = NextAuth({
                             name: user.name,
                             image: user.image,
                             googleId: account.providerAccountId,
+                        },
+                        {
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            timeout: 30000,
                         }
                     );
 
@@ -150,7 +156,7 @@ const handler = NextAuth({
     },
     pages: {
         signIn: '/login',
-    }
+    },
 });
 
 export { handler as GET, handler as POST };

@@ -6,17 +6,25 @@
 2) Train 기준 Z-score 계산 및 Feature 생성 (_02)
 3) 모델 학습 (_03)
 4) 모델 평가 (_04)
-5) 모델 저장 (_05)
+5) 최종 모델 저장 (_05)
 """
 
 from pathlib import Path
 import sys
 import os
 
-# 프로젝트 루트로 작업 디렉토리 변경 (data/ 폴더 접근을 위해)
-project_root = Path(__file__).parent.parent.parent.parent.parent
+# Docker 환경 감지 및 작업 디렉토리 설정
+if Path("/app").exists() and Path("/data").exists():
+    # Docker 환경
+    project_root = Path("/")
+    print("🐳 Docker 환경 감지")
+else:
+    # 로컬 환경: 프로젝트 루트로 이동
+    project_root = Path(__file__).parent.parent.parent.parent.parent
+    print("💻 로컬 환경")
+
 os.chdir(project_root)
-print(f"📁 작업 디렉토리 변경: {project_root}")
+print(f"📁 작업 디렉토리: {project_root}")
 
 # pipeline 폴더 경로 추가 (run_all.py가 이미 pipeline 폴더 안에 있음)
 pipeline_dir = Path(__file__).parent
@@ -81,6 +89,7 @@ def main():
 
         print("\n====================================")
         print("🎉 전체 파이프라인 실행 완료!")
+        print("📦 최종 모델: scripts/03_import/trust/final_trust_model.pkl")
         print("====================================\n")
 
     except Exception as e:
