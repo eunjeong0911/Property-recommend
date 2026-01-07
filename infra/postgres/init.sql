@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS land (
     listing_info JSONB,                          -- 상세정보 (방개수, 층수 등)
     additional_options TEXT[],                   -- 추가옵션
     description TEXT,                            -- 상세설명
+    style_tags TEXT[],
+    search_test TEXT,
     -- agent_info 제거 - landbroker_id FK로 대체 (데이터 정규화)
     
     -- 타임스탬프

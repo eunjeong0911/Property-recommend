@@ -30,6 +30,40 @@ def update_style_tags():
     )
     cur = conn.cursor()
     
+    # 컬럼 존재 여부 확인 및 추가
+    print("컬럼 확인 중...")
+    
+    # style_tags 컬럼 확인
+    cur.execute("""
+        SELECT EXISTS (
+            SELECT FROM information_schema.columns 
+            WHERE table_name = 'land' AND column_name = 'style_tags'
+        );
+    """)
+    has_style_tags = cur.fetchone()[0]
+    
+    if not has_style_tags:
+        print("  → style_tags 컬럼 추가 중...")
+        cur.execute("ALTER TABLE land ADD COLUMN style_tags TEXT[];")
+        print("  ✓ style_tags 컬럼 추가 완료")
+    
+    # search_text 컬럼 확인
+    cur.execute("""
+        SELECT EXISTS (
+            SELECT FROM information_schema.columns 
+            WHERE table_name = 'land' AND column_name = 'search_text'
+        );
+    """)
+    has_search_text = cur.fetchone()[0]
+    
+    if not has_search_text:
+        print("  → search_text 컬럼 추가 중...")
+        cur.execute("ALTER TABLE land ADD COLUMN search_text TEXT;")
+        print("  ✓ search_text 컬럼 추가 완료")
+    
+    conn.commit()
+    print("✓ 컬럼 확인 완료\n")
+    
     # JSON 파일 경로
     if os.path.exists("/data/RDB/land"):
         data_dir = "/data/RDB/land"

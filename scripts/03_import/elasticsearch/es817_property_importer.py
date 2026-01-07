@@ -248,8 +248,45 @@ class ES817PropertyImporter:
         json_files = [f for f in os.listdir(data_dir) if f.endswith('.json') and f in self.FILE_TYPE_MAPPING]
         print(f"[ES 8.17] Found {len(json_files)} JSON files to import.")
 
+        # 기존 매물 ID 조회 (삭제 감지용)
+        try:
+            # Scroll API로 모든 문서 ID 조회
+            existing_ids = set()
+            query = {"query": {"match_all": {}}, "_source": False}
+            
+            # 인덱스가 존재하고 문서가 있는 경우에만 조회
+            if self.es.indices.exists(index=self.INDEX_NAME):
+                result = self.es.search(
+                    index=self.INDEX_NAME,
+                    body=query,
+                    scroll='2m',
+                    size=1000
+                )
+                
+                scroll_id = result.get('_scroll_id')
+                hits = result['hits']['hits']
+                
+                while hits:
+                    for hit in hits:
+                        existing_ids.add(hit['_id'])
+                    
+                    # 다음 배치 가져오기
+                    result = self.es.scroll(scroll_id=scroll_id, scroll='2m')
+                    scroll_id = result.get('_scroll_id')
+                    hits = result['hits']['hits']
+                
+                # Scroll 정리
+                if scroll_id:
+                    self.es.clear_scroll(scroll_id=scroll_id)
+                
+                print(f"[ES 8.17] 기존 매물: {len(existing_ids)}개")
+        except Exception as e:
+            print(f"[ES 8.17] 기존 매물 조회 실패 (새 인덱스일 수 있음): {e}")
+            existing_ids = set()
+
         total_success = 0
         total_failed = 0
+        active_ids = set()  # 현재 활성 매물 ID 추적
 
         for json_file in json_files:
             file_path = os.path.join(data_dir, json_file)
@@ -265,6 +302,7 @@ class ES817PropertyImporter:
                     doc = self._transform_doc(item, building_type)
                     if doc:
                         actions.append(doc)
+                        active_ids.add(doc['_id'])  # 활성 매물로 기록
                 
                 if actions:
                     success, failed = helpers.bulk(self.es, actions, stats_only=True, raise_on_error=False)
@@ -277,10 +315,48 @@ class ES817PropertyImporter:
             except Exception as e:
                 print(f"  ❌ Error processing file: {e}")
 
+        # 판매 완료된 매물 삭제
+        sold_ids = existing_ids - active_ids
+        total_deleted = 0
+        
+        if sold_ids:
+            print(f"\n[ES 8.17] 판매 완료된 매물 {len(sold_ids)}개 삭제 중...")
+            try:
+                # 배치 삭제 (1000개씩)
+                sold_list = list(sold_ids)
+                batch_size = 1000
+                
+                for i in range(0, len(sold_list), batch_size):
+                    batch = sold_list[i:i+batch_size]
+                    delete_actions = [
+                        {
+                            "_op_type": "delete",
+                            "_index": self.INDEX_NAME,
+                            "_id": doc_id
+                        }
+                        for doc_id in batch
+                    ]
+                    
+                    success, failed = helpers.bulk(
+                        self.es, 
+                        delete_actions, 
+                        stats_only=True, 
+                        raise_on_error=False
+                    )
+                    total_deleted += success
+                    print(f"  배치 {i//batch_size + 1}: {success}건 삭제")
+                
+                print(f"[ES 8.17] ✅ 총 {total_deleted}건 삭제 완료")
+            except Exception as e:
+                print(f"[ES 8.17] ❌ 삭제 오류: {e}")
+        else:
+            print("\n[ES 8.17] 판매 완료된 매물 없음")
+
         print("\n" + "="*50)
         print("Elasticsearch 8.17 Import Completed")
         print(f"Total Indexed: {total_success}")
         print(f"Total Failed:  {total_failed}")
+        print(f"Total Deleted: {total_deleted}")
         print("="*50)
         
         # Refresh index to make documents visible immediately

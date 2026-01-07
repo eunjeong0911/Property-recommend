@@ -68,6 +68,8 @@ class PostgresImporter:
                 listing_info JSONB,
                 additional_options TEXT[],
                 description TEXT,
+                style_tags TEXT[],
+                search_text TEXT,
                 agent_info JSONB,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -75,6 +77,39 @@ class PostgresImporter:
             """
             self.cur.execute(create_table_query)
             print("✓ Land 테이블 생성 완료")
+        else:
+            # 테이블이 존재하면 style_tags와 search_text 컬럼 확인 및 추가
+            print("✓ Land 테이블 확인 완료")
+            
+            # style_tags 컬럼 확인
+            check_style_tags = """
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns 
+                WHERE table_name = 'land' AND column_name = 'style_tags'
+            );
+            """
+            self.cur.execute(check_style_tags)
+            has_style_tags = self.cur.fetchone()[0]
+            
+            if not has_style_tags:
+                print("  → style_tags 컬럼 추가 중...")
+                self.cur.execute("ALTER TABLE land ADD COLUMN style_tags TEXT[];")
+                print("  ✓ style_tags 컬럼 추가 완료")
+            
+            # search_text 컬럼 확인
+            check_search_text = """
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns 
+                WHERE table_name = 'land' AND column_name = 'search_text'
+            );
+            """
+            self.cur.execute(check_search_text)
+            has_search_text = self.cur.fetchone()[0]
+            
+            if not has_search_text:
+                print("  → search_text 컬럼 추가 중...")
+                self.cur.execute("ALTER TABLE land ADD COLUMN search_text TEXT;")
+                print("  ✓ search_text 컬럼 추가 완료")
         
         # land_image 테이블 확인 및 생성
         check_image_query = """
@@ -134,8 +169,6 @@ class PostgresImporter:
             print("✓ LandBroker 테이블 생성 완료")
         
         self.conn.commit()
-        if exists:
-            print("✓ Land 테이블 확인 완료")
         if image_exists:
             print("✓ Land Image 테이블 확인 완료")
     
@@ -172,8 +205,14 @@ class PostgresImporter:
         json_files = [f for f in os.listdir(data_dir) if f.endswith('.json') and f in self.FILE_TYPE_MAPPING]
         print(f"처리할 JSON 파일: {len(json_files)}개")
         
+        # 기존 매물 ID 조회 (삭제 감지용)
+        self.cur.execute("SELECT land_num FROM land")
+        existing_land_nums = {row[0] for row in self.cur.fetchall()}
+        print(f"기존 매물: {len(existing_land_nums)}개")
+        
         total_inserted = 0
         total_updated = 0
+        active_land_nums = set()  # 현재 활성 매물 ID 추적
         
         for file_idx, json_file in enumerate(json_files, 1):
             file_path = os.path.join(data_dir, json_file)
@@ -191,6 +230,10 @@ class PostgresImporter:
                 batch_size = 100  # For progress display
                 
                 for idx, item in enumerate(data):
+                    land_num = item.get("매물번호")
+                    if land_num:
+                        active_land_nums.add(land_num)  # 활성 매물로 기록
+                    
                     result = self._insert_land(item, building_type)
                     if result == "inserted":
                         inserted += 1
@@ -214,7 +257,35 @@ class PostgresImporter:
                 import traceback
                 traceback.print_exc()
         
-        print(f"\n총 결과: {total_inserted}건 삽입, {total_updated}건 업데이트")
+        # 판매 완료된 매물 삭제
+        sold_land_nums = existing_land_nums - active_land_nums
+        total_deleted = 0
+        
+        if sold_land_nums:
+            print(f"\n판매 완료된 매물 {len(sold_land_nums)}개 삭제 중...")
+            try:
+                # 배치 삭제 (1000개씩)
+                sold_list = list(sold_land_nums)
+                batch_size = 1000
+                
+                for i in range(0, len(sold_list), batch_size):
+                    batch = sold_list[i:i+batch_size]
+                    placeholders = ','.join(['%s'] * len(batch))
+                    delete_query = f"DELETE FROM land WHERE land_num IN ({placeholders})"
+                    self.cur.execute(delete_query, batch)
+                    deleted_count = self.cur.rowcount
+                    total_deleted += deleted_count
+                    print(f"  배치 {i//batch_size + 1}: {deleted_count}건 삭제")
+                
+                self.conn.commit()
+                print(f"✅ 총 {total_deleted}건 삭제 완료")
+            except Exception as e:
+                self.conn.rollback()
+                print(f"❌ 삭제 오류: {e}")
+        else:
+            print("\n판매 완료된 매물 없음")
+        
+        print(f"\n총 결과: {total_inserted}건 삽입, {total_updated}건 업데이트, {total_deleted}건 삭제")
 
     def _extract_deal_type(self, trade_info):
         """거래유형 추출"""

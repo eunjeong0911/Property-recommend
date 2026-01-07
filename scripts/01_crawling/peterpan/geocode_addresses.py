@@ -3,16 +3,17 @@
 Geocoding Script - 매물 주소를 좌표로 변환
 
 통합 JSON 파일에서 매물 주소를 읽어 geocoding하고,
-매물 ID와 좌표만 추출하여 별도 JSON 파일로 저장합니다.
+전체 매물 데이터에 좌표를 추가하여 저장합니다.
+위/경도가 null인 매물은 자동으로 제거됩니다.
 
 사용법:
     python geocode_addresses.py
 
 출력:
-    data/coordinates_아파트.json
-    data/coordinates_원투룸.json
-    data/coordinates_빌라주택.json
-    data/coordinates_오피스텔.json
+    data/preprocessing/00_통합_아파트.json
+    data/preprocessing/00_통합_원투룸.json
+    data/preprocessing/00_통합_빌라주택.json
+    data/preprocessing/00_통합_오피스텔.json
 """
 
 import json
@@ -58,6 +59,12 @@ API_DELAY = 0.1
 
 # 재시도 횟수
 MAX_RETRIES = 3
+
+# 실패한 항목 재시도 횟수
+MAX_RETRY_ATTEMPTS = 2
+
+# 재시도 대기 시간 (초)
+RETRY_DELAY = 2
 
 
 
@@ -167,32 +174,37 @@ def process_category(input_dir: str, output_dir: str, filename: str) -> Dict:
     
     if not os.path.exists(input_path):
         print(f"  ⚠️ 파일 없음: {filename}")
-        return {"total": 0, "success": 0, "failed": 0, "skipped": 0}
+        return {"total": 0, "success": 0, "failed": 0, "skipped": 0, "removed": 0}
     
-    # 기존 좌표 데이터 로드 (이어서 처리하기 위해)
-    existing_coords = {}
+    # 기존 처리된 데이터 로드 (이어서 처리하기 위해)
+    existing_listings = {}
     if os.path.exists(output_path):
         try:
             with open(output_path, 'r', encoding='utf-8') as f:
                 existing_data = json.load(f)
-                existing_coords = {item["매물번호"]: item for item in existing_data}
-            print(f"  📂 기존 좌표 데이터 {len(existing_coords)}개 로드됨")
-        except:
-            pass
+                # 기존 데이터를 매물번호로 인덱싱
+                for item in existing_data:
+                    listing_id = item.get("매물번호")
+                    if listing_id:
+                        existing_listings[listing_id] = item
+            print(f"  📂 기존 데이터 {len(existing_listings)}개 로드됨")
+        except Exception as e:
+            print(f"  ⚠️ 기존 데이터 로드 실패: {e}")
     
     # 매물 데이터 로드
     with open(input_path, 'r', encoding='utf-8') as f:
         listings = json.load(f)
     
     if not isinstance(listings, list):
-        print(f"  ❌ 잘못된 파일 형식: {input_filename}")
-        return {"total": 0, "success": 0, "failed": 0, "skipped": 0}
+        print(f"  ❌ 잘못된 파일 형식: {filename}")
+        return {"total": 0, "success": 0, "failed": 0, "skipped": 0, "removed": 0}
     
     print(f"  📊 총 {len(listings)}개 매물 처리 시작...")
     
-    # 결과 저장용 리스트 (Neo4j용 경량 파일)
+    # 결과 저장용 리스트
     results = []
-    stats = {"total": len(listings), "success": 0, "failed": 0, "skipped": 0}
+    failed_items = []  # 실패한 항목 추적
+    stats = {"total": len(listings), "success": 0, "failed": 0, "skipped": 0, "removed": 0}
     
     for i, listing in enumerate(listings):
         listing_id = listing.get("매물번호")
@@ -200,11 +212,17 @@ def process_category(input_dir: str, output_dir: str, filename: str) -> Dict:
             stats["failed"] += 1
             continue
         
-        # 1. 기존 좌표 확인 (재사용)
-        if listing_id in existing_coords:
-            results.append(existing_coords[listing_id])
-            stats["skipped"] += 1
-            continue
+        # 1. 기존에 처리된 데이터가 있고 좌표가 유효한 경우 재사용
+        if listing_id in existing_listings:
+            existing_item = existing_listings[listing_id]
+            coords_info = existing_item.get("좌표_정보", {})
+            
+            # 좌표가 유효한 경우에만 재사용
+            if coords_info and coords_info.get("위도") and coords_info.get("경도"):
+                results.append(existing_item)
+                stats["skipped"] += 1
+                continue
+            # 좌표가 없으면 다시 시도
         
         # 2. 좌표가 없다면 Geocoding 수행
         address_info = listing.get("주소_정보", {})
@@ -212,6 +230,7 @@ def process_category(input_dir: str, output_dir: str, filename: str) -> Dict:
         
         if not address:
             stats["failed"] += 1
+            failed_items.append({"listing": listing, "address": address})
             continue
         
         # API 호출
@@ -220,42 +239,82 @@ def process_category(input_dir: str, output_dir: str, filename: str) -> Dict:
         if coords:
             lat, lng = coords
             
-            # Neo4j용 결과에 추가
-            results.append({
-                "매물번호": listing_id,
-                "좌표_정보": {
-                    "위도": lat,
-                    "경도": lng
-                }
-            })
+            # 전체 매물 데이터에 좌표 추가
+            listing_with_coords = listing.copy()
+            listing_with_coords["좌표_정보"] = {
+                "위도": lat,
+                "경도": lng
+            }
+            results.append(listing_with_coords)
             stats["success"] += 1
         else:
-            # 실패 시에도 기록 (좌표 없이)
-            results.append({
-                "매물번호": listing_id,
-                "좌표_정보": {
-                    "위도": None,
-                    "경도": None
-                }
-            })
+            # 실패한 항목 기록
             stats["failed"] += 1
+            failed_items.append({"listing": listing, "address": address})
         
         # 진행 상황 출력
         if (i + 1) % 100 == 0:
             print(f"    진행: {i + 1}/{len(listings)} ({stats['success']} 성공, {stats['failed']} 실패)")
         
         # API Rate Limit
-        if coords: # API 호출했을 때만 딜레이
-             time.sleep(API_DELAY)
+        if coords:  # API 호출했을 때만 딜레이
+            time.sleep(API_DELAY)
     
-    # Neo4j용 파일 저장 (GraphDB_data/land)
-    # 디렉토리 존재 확인
+    # 3. 실패한 항목 재시도
+    if failed_items:
+        print(f"\n  🔄 실패한 {len(failed_items)}개 항목 재시도 중...")
+        retry_success = 0
+        
+        for attempt in range(MAX_RETRY_ATTEMPTS):
+            if not failed_items:
+                break
+                
+            print(f"    재시도 {attempt + 1}/{MAX_RETRY_ATTEMPTS}회차...")
+            time.sleep(RETRY_DELAY)  # 재시도 전 대기
+            
+            still_failed = []
+            
+            for item_data in failed_items:
+                listing = item_data["listing"]
+                address = item_data["address"]
+                
+                if not address:
+                    still_failed.append(item_data)
+                    continue
+                
+                coords = geocode_address(address)
+                
+                if coords:
+                    lat, lng = coords
+                    listing_with_coords = listing.copy()
+                    listing_with_coords["좌표_정보"] = {
+                        "위도": lat,
+                        "경도": lng
+                    }
+                    results.append(listing_with_coords)
+                    retry_success += 1
+                    stats["success"] += 1
+                    stats["failed"] -= 1
+                    time.sleep(API_DELAY)
+                else:
+                    still_failed.append(item_data)
+            
+            failed_items = still_failed
+            
+            if retry_success > 0:
+                print(f"    재시도 성공: {retry_success}개")
+        
+        if failed_items:
+            print(f"    최종 실패: {len(failed_items)}개 (좌표 없이 제거됨)")
+            stats["removed"] = len(failed_items)
+    
+    # 4. 결과 저장 (좌표가 있는 매물만)
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(results, f, ensure_ascii=False, indent=2)
     
     print(f"  ✅ 저장 완료: {filename}")
-    print(f"     성공: {stats['success']}, 실패: {stats['failed']}, 스킵: {stats['skipped']}")
+    print(f"     성공: {stats['success']}, 실패(제거): {stats['removed']}, 스킵: {stats['skipped']}")
     
     return stats
 
@@ -266,19 +325,19 @@ def main():
     print("🌍 매물 주소 Geocoding 시작")
     print("=" * 60)
     
-    # 입력 경로: dataCrawling/피터팬 매물 데이터/data
-    input_dir = Path(__file__).parent / "data"
+    # 입력 경로: /data/crawling
+    input_dir = project_root / "data" / "crawling"
     
-    # 출력 경로: 프로젝트 루트의 data/GraphDB_data/land
-    output_dir = project_root / "data" / "GraphDB_data" / "land"
+    # 출력 경로: data/preprocessing
+    output_dir = project_root / "data" / "preprocessing"
     
     if not input_dir.exists():
         print(f"❌ 오류: 입력 폴더를 찾을 수 없습니다: {input_dir}")
         return
     
-    if not output_dir.exists():
-        print(f"❌ 오류: 출력 폴더를 찾을 수 없습니다: {output_dir}")
-        return
+    # 출력 폴더가 없으면 생성
+    output_dir.mkdir(parents=True, exist_ok=True)
+    print(f"📁 출력 폴더 준비 완료: {output_dir}")
     
     print(f"📂 입력: {input_dir}")
     print(f"📂 출력: {output_dir}")
@@ -295,12 +354,12 @@ def main():
     
     category_map = {
         "아파트": "00_통합_아파트.json",
-        "원투룸": "00_통합_원투룸.json",
-        "빌라주택": "00_통합_빌라주택.json",
-        "오피스텔": "00_통합_오피스텔.json"
+        # "원투룸": "00_통합_원투룸.json",
+        # "빌라주택": "00_통합_빌라주택.json",
+        # "오피스텔": "00_통합_오피스텔.json"
     }
     
-    total_stats = {"total": 0, "success": 0, "failed": 0, "skipped": 0}
+    total_stats = {"total": 0, "success": 0, "failed": 0, "skipped": 0, "removed": 0}
     
     for category, filename in category_map.items():
         print(f"\n>> 카테고리: {category}")
@@ -314,9 +373,10 @@ def main():
     print("=" * 60)
     print(f"📊 전체 통계:")
     print(f"   총 매물: {total_stats['total']}개")
-    print(f"   성공: {total_stats['success']}개")
-    print(f"   실패: {total_stats['failed']}개")
+    print(f"   성공 (좌표 추가): {total_stats['success']}개")
+    print(f"   제거 (좌표 없음): {total_stats['removed']}개")
     print(f"   스킵 (기존): {total_stats['skipped']}개")
+    print(f"\n💡 최종 저장된 매물: {total_stats['success'] + total_stats['skipped']}개")
 
 
 if __name__ == "__main__":
