@@ -96,10 +96,13 @@ def update_style_tags():
             if not land_num:
                 continue
             
-            # style_tags 추출
+            # style_tags 추출 (PostgreSQL 배열로 저장)
             style_tags = item.get("style_tags") or item.get("스타일태그")
-            if isinstance(style_tags, list):
-                style_tags = ", ".join(style_tags)
+            if isinstance(style_tags, str):
+                # 문자열인 경우 쉼표로 분리하여 리스트로 변환
+                style_tags = [tag.strip() for tag in style_tags.split(",")]
+            elif not isinstance(style_tags, list):
+                style_tags = None
             
             # search_text 추출
             search_text = item.get("search_text") or item.get("검색텍스트")

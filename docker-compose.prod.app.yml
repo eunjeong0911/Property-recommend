@@ -102,7 +102,7 @@ services:
     container_name: realestate-scripts
     volumes:
       # Scripts and models are baked into image, only mount data
-      - ./data:/data
+      - ./data:/app/data 
     env_file:
       - .env.production
     environment:
