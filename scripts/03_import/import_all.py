@@ -151,15 +151,11 @@ def main():
         if not args.skip_health_check:
             print("\n[사전 검증] DB 연결 확인 중...")
             
-            # Neo4j 연결 확인 (선택적 - 실패 시 건너뛰기)
+            # Neo4j 연결 확인 (필수)
             if args.only is None or args.only == "neo4j":
-                try:
-                    DatabaseHealthCheck.wait_for_neo4j(
-                        Config.NEO4J_URI, Config.NEO4J_USER, Config.NEO4J_PASSWORD
-                    )
-                except Exception as e:
-                    print(f"⚠️ Neo4j 연결 실패: {e}")
-                    print("  Neo4j Import를 건너뛰고 계속 진행합니다.")
+                DatabaseHealthCheck.wait_for_neo4j(
+                    Config.NEO4J_URI, Config.NEO4J_USER, Config.NEO4J_PASSWORD
+                )
             
             # PostgreSQL 연결 확인 (필수)
             if args.only is None or args.only == "postgres":
@@ -168,16 +164,13 @@ def main():
                     Config.POSTGRES_DB, Config.POSTGRES_USER, Config.POSTGRES_PASSWORD
                 )
             
-            # Elasticsearch 연결 확인 (선택적)
+            
+            # Elasticsearch 연결 확인 (필수)
             if args.only is None or args.only in ["es", "elasticsearch"]:
-                try:
-                    DatabaseHealthCheck.wait_for_elasticsearch(
-                        os.getenv("ELASTICSEARCH_HOST", "elasticsearch"),
-                        int(os.getenv("ELASTICSEARCH_PORT", "9200"))
-                    )
-                except Exception as e:
-                    print(f"⚠️ Elasticsearch 연결 실패: {e}")
-                    print("  Elasticsearch Import를 건너뜁니다.")
+                DatabaseHealthCheck.wait_for_elasticsearch(
+                    os.getenv("ELASTICSEARCH_HOST", "elasticsearch"),
+                    int(os.getenv("ELASTICSEARCH_PORT", "9200"))
+                )
             
             print("✓ DB 연결 확인 완료")
         
@@ -194,21 +187,9 @@ def main():
             import_price_classification()
         else:
             # 전체 Import (순서: Neo4j → PostgreSQL → Elasticsearch)
-            # Neo4j는 선택적 (연결 실패 시 건너뜀)
-            try:
-                import_neo4j()
-            except Exception as e:
-                print(f"\n⚠️ Neo4j Import 실패: {e}")
-                print("  Neo4j Import를 건너뛰고 PostgreSQL Import를 계속 진행합니다.")
-            
+            import_neo4j()
             import_postgres()
-            
-            # Elasticsearch는 선택적 (실패 시 건너뜀)
-            try:
-                import_elasticsearch()
-            except Exception as e:
-                print(f"\n⚠️ Elasticsearch Import 실패: {e}")
-                print("  Elasticsearch Import를 건너뛰고 계속 진행합니다.")
+            import_elasticsearch()
         
         elapsed = time.time() - start_time
         print("\n" + "=" * 70)

@@ -15,7 +15,7 @@ from pathlib import Path
 from datetime import datetime
 
 # 설정
-S3_BUCKET = os.getenv('S3_BUCKET', 'realestate-etl-data')
+S3_BUCKET = os.getenv('S3_BUCKET', 'realestate-data-046685909225')
 S3_PREFIX = os.getenv('S3_PREFIX', 'data/')
 AWS_REGION = os.getenv('AWS_REGION', 'ap-northeast-2')
 
@@ -25,7 +25,7 @@ if os.path.exists('/data'):
 else:
     # 스크립트 위치 기준으로 data 폴더 찾기
     script_dir = Path(__file__).parent
-    project_root = script_dir.parent.parent
+    project_root = script_dir.parent
     LOCAL_DATA_DIR = project_root / 'data'
 
 def upload_to_s3():
@@ -45,17 +45,39 @@ def upload_to_s3():
         # S3 클라이언트 생성
         s3 = boto3.client('s3', region_name=AWS_REGION)
         
+        # 업로드할 폴더 목록 (화이트리스트)
+        ALLOWED_FOLDERS = [
+            'actual_transaction_price',
+            'brokerInfo',
+            'GraphDB_data',
+            'RDB/land'  # RDB 폴더 내의 land만
+        ]
+        
         # 업로드할 파일 목록 수집
         files_to_upload = []
         for file_path in LOCAL_DATA_DIR.rglob('*'):
             if file_path.is_file():
-                files_to_upload.append(file_path)
+                # 상대 경로 계산
+                relative_path = file_path.relative_to(LOCAL_DATA_DIR)
+                relative_path_str = str(relative_path).replace('\\', '/')
+                
+                # 허용된 폴더에 속하는지 확인
+                is_allowed = False
+                for allowed_folder in ALLOWED_FOLDERS:
+                    if relative_path_str.startswith(allowed_folder):
+                        is_allowed = True
+                        break
+                
+                if is_allowed:
+                    files_to_upload.append(file_path)
         
         if not files_to_upload:
             print("\n⚠️ 업로드할 파일이 없습니다.")
             return True
         
         print(f"\n📋 업로드할 파일 목록 ({len(files_to_upload)}개):")
+        print(f"   허용된 폴더: {', '.join(ALLOWED_FOLDERS)}")
+        print()
         total_size = 0
         for file_path in files_to_upload:
             size = file_path.stat().st_size
