@@ -814,6 +814,15 @@ GROUP_ZONES = {
     '4': ['마포구', '서대문구', '은평구', '영등포구', '구로구'],
     '5': ['금천구', '관악구', '동작구', '양천구', '강서구']
 }
+
+# GROUPS 변수 정의 (run_group 함수에서 사용)
+GROUPS = {
+    1: GROUP_ZONES['1'],
+    2: GROUP_ZONES['2'],
+    3: GROUP_ZONES['3'],
+    4: GROUP_ZONES['4'],
+    5: GROUP_ZONES['5']
+}
 # 크롤링할 구역 필터링
 if CRAWL_DISTRICTS and CRAWL_DISTRICTS[0]:
     # 환경 변수로 직접 지정된 경우
