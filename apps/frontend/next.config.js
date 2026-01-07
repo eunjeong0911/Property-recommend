@@ -3,7 +3,7 @@ require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
+  // output: 'standalone',
   reactStrictMode: true,
   eslint: {
     // 빌드 시 ESLint 경고를 무시 (프로덕션 배포용)
