@@ -164,7 +164,7 @@ def filter_by_regional_samples(df: pd.DataFrame) -> pd.DataFrame:
     return df_filtered
 
 
-def save_preprocessed(df: pd.DataFrame, filepath: str = "data/ML/preprocessed_office_data.csv"):
+def save_preprocessed(df: pd.DataFrame, filepath: str = "data/brokerInfo/ML/preprocessed_office_data.csv"):
     """
     전처리된 df 저장
 
