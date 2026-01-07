@@ -213,28 +213,19 @@ class LandViewSet(viewsets.ReadOnlyModelViewSet):
         
         try:
             with driver.session() as session:
-                # 매물 주변 시설 개수 조회 쿼리
-                # 실제 Neo4j 스키마에 맞게 수정:
-                # - 관계: NEAR_SUBWAY, NEAR_BUS, NEAR_HOSPITAL 등
-                # - 노드: SubwayStation, BusStation, Hospital, Convenience 등
+                # 최적화: 이미 생성된 관계 개수를 직접 집계
                 query = """
                 MATCH (p:Property {id: $land_num})
-                OPTIONAL MATCH (p)-[:NEAR_SUBWAY]->(subway:SubwayStation)
-                OPTIONAL MATCH (p)-[:NEAR_BUS]->(bus:BusStation)
-                OPTIONAL MATCH (p)-[:NEAR_HOSPITAL]->(hospital:Hospital)
-                OPTIONAL MATCH (p)-[:NEAR_PHARMACY]->(pharmacy:Pharmacy)
-                OPTIONAL MATCH (p)-[:NEAR_CCTV]->(cctv:CCTV)
-                OPTIONAL MATCH (p)-[:NEAR_POLICE]->(police:PoliceStation)
-                OPTIONAL MATCH (p)-[:NEAR_FIRE]->(fire:FireStation)
-                OPTIONAL MATCH (p)-[:NEAR_BELL]->(bell:EmergencyBell)
-                OPTIONAL MATCH (p)-[:NEAR_CONVENIENCE]->(conv:Store:Convenience)
+                OPTIONAL MATCH (p)-[r]->()
+                WHERE type(r) STARTS WITH 'NEAR_'
+                WITH p, type(r) as rel_type, count(r) as rel_count
                 RETURN 
-                    count(DISTINCT subway) + count(DISTINCT bus) as transport_count,
-                    count(DISTINCT hospital) + count(DISTINCT pharmacy) as medical_count,
-                    count(DISTINCT cctv) + count(DISTINCT police) + count(DISTINCT fire) + count(DISTINCT bell) as safety_count,
-                    count(DISTINCT conv) as convenience_count,
                     p.latitude as latitude,
-                    p.longitude as longitude
+                    p.longitude as longitude,
+                    sum(CASE WHEN rel_type IN ['NEAR_SUBWAY', 'NEAR_BUS'] THEN rel_count ELSE 0 END) as transport_count,
+                    sum(CASE WHEN rel_type IN ['NEAR_HOSPITAL', 'NEAR_PHARMACY'] THEN rel_count ELSE 0 END) as medical_count,
+                    sum(CASE WHEN rel_type IN ['NEAR_CCTV', 'NEAR_POLICE', 'NEAR_FIRE', 'NEAR_BELL'] THEN rel_count ELSE 0 END) as safety_count,
+                    sum(CASE WHEN rel_type = 'NEAR_CONVENIENCE' THEN rel_count ELSE 0 END) as convenience_count
                 """
                 
                 logger.info(f"Neo4j 쿼리 실행: land_id={land_id_for_neo4j}")
