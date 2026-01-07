@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
-def load_target_data(train_path="data/ML/trust/train_target.csv", test_path="data/ML/trust/test_target.csv"):
+def load_target_data(train_path="data/brokerInfo/ML/train_target.csv", test_path="data/brokerInfo/ML/test_target.csv"):
     """01단계에서 생성된 데이터 로드"""
     print(f"📂 [1단계] 데이터 로드")
     if not Path(train_path).exists() or not Path(test_path).exists():
@@ -232,7 +232,7 @@ def main():
     y_test = test_processed["Target"]
     
     # 4. 저장
-    save_dir = Path("data/ML/trust")
+    save_dir = Path("data/brokerInfo/ML")
     save_dir.mkdir(parents=True, exist_ok=True)
     
     X_train.to_csv(save_dir / "X_train.csv", index=False, encoding="utf-8-sig")

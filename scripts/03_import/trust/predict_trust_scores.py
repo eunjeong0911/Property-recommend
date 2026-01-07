@@ -25,10 +25,24 @@ def get_db_connection():
 
 def load_model():
     """모델 로드"""
-    # scripts 컨테이너에서는 /data/trust_model/ 경로 사용
-    model_path = '/data/trust_model/final_trust_model.pkl'
-    if not os.path.exists(model_path):
-        model_path = 'apps/reco/trust_model/final_trust_model.pkl'
+    # 여러 경로 시도
+    possible_paths = [
+        '/scripts/03_import/trust/final_trust_model.pkl',  # Docker 마운트 경로
+        '/app/scripts/03_import/trust/final_trust_model.pkl',  # Docker 내부 경로
+        'scripts/03_import/trust/final_trust_model.pkl',  # 로컬 상대 경로
+        '03_import/trust/final_trust_model.pkl',  # 현재 디렉토리 기준
+    ]
+    
+    model_path = None
+    for path in possible_paths:
+        if os.path.exists(path):
+            model_path = path
+            break
+    
+    if not model_path:
+        raise FileNotFoundError(f"모델 파일을 찾을 수 없습니다. 시도한 경로: {possible_paths}")
+    
+    print(f"  ✓ 모델 경로: {model_path}")
     
     with open(model_path, 'rb') as f:
         model_data = pickle.load(f)
