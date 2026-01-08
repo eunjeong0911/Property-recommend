@@ -19,6 +19,7 @@ import dynamic from 'next/dynamic';
 import LandListFilter from '@/components/LandListFilter';
 import ChatbotFilter from '@/components/ChatbotFilter';
 import LandList from '@/components/LandList';
+import ChatbotList from '@/components/ChatbotList';
 import useBackendUserGuard from '@/hooks/useBackendUserGuard';
 import { LandFilterParams, Land } from '@/types/land';
 import { fetchLandsByIds, fetchLandsByFilter } from '@/api/landApi';
@@ -207,11 +208,10 @@ export default function MainPage() {
         console.log('[handleChatbotRecommend] ⚠️ RAG 결과 없음 → useEffect에서 API 호출 예정');
     }, []);
 
-    // 챗봇 대화 시작 시 - 더 이상 자동으로 필터 모드 전환하지 않음
-    // 사용자가 직접 토글하거나, 챗봇이 추천 결과를 줄 때만 전환
+    // 챗봇 대화 시작 시 - 자동으로 챗봇 모드로 전환
     const handleChatStart = useCallback(() => {
-        // 아무것도 하지 않음 - 사용자가 직접 토글하도록
-        console.log('[handleChatStart] 챗봇 대화 시작 (필터 모드 유지)');
+        console.log('[handleChatStart] 챗봇 대화 시작 - 챗봇 모드로 전환');
+        setShowChatbotFilter(true);
     }, []);
 
     // 챗봇 필터 토글
@@ -234,11 +234,11 @@ export default function MainPage() {
                                 onToggle={handleToggleChatbotFilter}
                             />
                             
-                            {/* 챗봇 추천 매물 리스트 (별도 데이터 소스) */}
-                            <LandList
+                            {/* 챗봇 추천 매물 리스트 (ChatbotList 컴포넌트 사용) */}
+                            <ChatbotList
                                 chatbotProperties={chatbotProperties}
-                                showChatbotFilter={true}
                                 isLoading={isLoadingChatbotLands}
+                                onToggle={handleToggleChatbotFilter}
                             />
                         </>
                     ) : (
@@ -254,7 +254,6 @@ export default function MainPage() {
                             {/* 일반 매물 리스트 (API 필터링) */}
                             <LandList
                                 filterParams={filterParams}
-                                showChatbotFilter={false}
                             />
                         </>
                     )}
