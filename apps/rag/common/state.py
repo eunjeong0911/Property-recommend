@@ -51,3 +51,18 @@ class RAGState(TypedDict):
     collected_conditions: Optional[Dict[str, Any]]  # 지금까지 수집된 조건
     conversation_complete: Optional[bool]  # 모든 조건 수집 완료 여부
 
+    # =====================================================================
+    # 저결과 필터 제거 제안 (Low Result Fallback)
+    # =====================================================================
+    suggest_filter_removal: Optional[bool]  # 필터 제거 제안 여부
+    low_result_filters: Optional[List[str]]  # 제거 가능한 필터 목록 ["direction", "excluded_floors"]
+    removed_filters: Optional[List[str]]  # 이미 제거된 필터 목록 (재검색 시)
+    filter_removal_message: Optional[str]  # 필터 제거 제안 메시지 (Requirements 7.2)
+    
+    # =====================================================================
+    # 스타일 필터 자동 폴백 (Requirements 1.3)
+    # =====================================================================
+    style_filter_removed: Optional[bool]  # 스타일 필터 자동 제거 여부
+    original_soft_filters: Optional[List[str]]  # 원본 소프트 필터 (폴백 전)
+    original_unmapped_styles: Optional[List[str]]  # 원본 매핑되지 않은 스타일 (폴백 전)
+    unmapped_styles: Optional[List[str]]  # 매핑되지 않은 스타일 키워드 (Requirements 8.4)

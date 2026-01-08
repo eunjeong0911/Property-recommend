@@ -13,12 +13,19 @@ from datetime import datetime
 class LandBrokerExtractor:
     """크롤링된 매물 데이터에서 중개사 정보를 추출하는 클래스"""
     
-    def __init__(self, data_dir: str = "data/RDB/land"):
+    def __init__(self, data_dir: str = None):
         """
         Args:
             data_dir: JSON 파일들이 있는 디렉토리 경로
         """
-        self.data_dir = Path(data_dir)
+        # Docker 환경에서는 /data로 마운트됨
+        if data_dir:
+            self.data_dir = Path(data_dir)
+        elif Path("/data/RDB/land").exists():
+            self.data_dir = Path("/data/RDB/land")
+        else:
+            self.data_dir = Path("data/RDB/land")
+        
         self.brokers = []
         self.broker_ids = set()  # 중복 제거용
     
@@ -210,8 +217,11 @@ def main():
         # 중복 제거
         unique_brokers = extractor.remove_duplicates(all_brokers)
         
-        # 파일 저장
-        csv_filepath = "data/brokerInfo/land_brokers.csv"
+        # 파일 저장 - Docker 환경에서는 /data로 마운트됨
+        if Path("/data").exists():
+            csv_filepath = "/data/brokerInfo/land_brokers.csv"
+        else:
+            csv_filepath = "data/brokerInfo/land_brokers.csv"
         extractor.save_to_csv(unique_brokers, csv_filepath)
         
         # 통계 출력

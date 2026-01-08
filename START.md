@@ -11,6 +11,24 @@ docker compose build scripts
 docker compose up -d
 ### 환경 변수 설정
 
+# 백엔드 변경사항 적용방법
+
+1단계: 마이그레이션 파일 생성 (Make Migrations)
+도커의 backend 컨테이너에 접속해서 마이그레이션 파일을 만듭니다.
+
+bash
+docker compose exec backend python manage.py makemigrations search
+2단계: 데이터베이스에 반영 (Migrate)
+만들어진 변경 사항을 실제 DB에 적용합니다.
+
+bash
+docker compose exec backend python manage.py migrate search
+3단계: 서버 재시작 (Restart)
+변경 사항을 확실하게 적용하기 위해 백엔드와 RAG 컨테이너를 재시작합니다.
+
+bash
+docker compose restart backend rag
+
 ```bash
 # 1. 환경 변수 파일 생성
 cp .env.example .env

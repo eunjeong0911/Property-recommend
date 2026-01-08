@@ -6,3 +6,4 @@ from . import generate_node
 from . import neo4j_search_node
 from . import query_analyzer_node
 from . import soft_filter_rerank_node
+from . import style_mapping

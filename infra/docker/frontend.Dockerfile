@@ -30,10 +30,12 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 # Build arguments for PUBLIC environment variables only (safe to bake into build)
 ARG NEXT_PUBLIC_API_URL=https://goziphouse.com
-ARG NEXT_PUBLIC_KAKAO_MAP_KEY
+ARG NEXT_PUBLIC_RAG_URL=https://goziphouse.com/rag
+ARG NEXT_PUBLIC_KAKAO_MAP_KEY=29d460d952fdd2737e2be0432924660c
 
 # Set PUBLIC environment variables for build
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
+    NEXT_PUBLIC_RAG_URL=$NEXT_PUBLIC_RAG_URL \
     NEXT_PUBLIC_KAKAO_MAP_KEY=$NEXT_PUBLIC_KAKAO_MAP_KEY
 
 RUN npm run build

@@ -62,6 +62,9 @@ def build_hybrid_query(
     style_tags: Optional[List[str]] = None,
     min_deposit: Optional[int] = None,
     max_deposit: Optional[int] = None,
+    building_type: Optional[str] = None,
+    deal_type: Optional[str] = None,
+    max_rent: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
     하이브리드 검색을 위한 ES bool 쿼리 빌드
@@ -95,6 +98,18 @@ def build_hybrid_query(
         query["bool"]["filter"].append({
             "terms": {"style_tags": style_tags}
         })
+        
+    # [NEW] 건물 유형 필터 (text 필드이므로 match 사용)
+    if building_type:
+        query["bool"]["filter"].append({
+            "match": {"building_type": building_type}
+        })
+        
+    # [NEW] 거래 유형 필터 (text 필드이므로 match 사용)
+    if deal_type:
+        query["bool"]["filter"].append({
+            "match": {"deal_type": deal_type}
+        })
     
     # 보증금 범위 필터
     if min_deposit is not None or max_deposit is not None:
@@ -104,6 +119,11 @@ def build_hybrid_query(
         if max_deposit is not None:
             deposit_range["range"]["deposit"]["lte"] = max_deposit
         query["bool"]["filter"].append(deposit_range)
+        
+    # [NEW] 월세 상한 필터
+    if max_rent is not None:
+        rent_range: Dict[str, Any] = {"range": {"monthly_rent": {"lte": max_rent}}}
+        query["bool"]["filter"].append(rent_range)
     
     return query
 
@@ -114,6 +134,9 @@ def search_with_es(
     style_tags: Optional[List[str]] = None,
     min_deposit: Optional[int] = None,
     max_deposit: Optional[int] = None,
+    building_type: Optional[str] = None,
+    deal_type: Optional[str] = None,
+    max_rent: Optional[int] = None,
     size: int = 300
 ) -> Dict[str, Any]:
     """
@@ -133,14 +156,17 @@ def search_with_es(
             candidate_ids=candidate_ids,
             style_tags=style_tags,
             min_deposit=min_deposit,
-            max_deposit=max_deposit
+            max_deposit=max_deposit,
+            building_type=building_type,
+            deal_type=deal_type,
+            max_rent=max_rent
         )
         
         response = es.search(
             index=ES_INDEX_NAME,
             query=query,
             size=size,
-            _source=["land_num", "address", "search_text", "deposit", "monthly_rent", "style_tags"]
+            _source=["land_num", "address", "search_text", "deposit", "monthly_rent", "style_tags", "building_type", "deal_type"]
         )
         
         ids: List[str] = []
