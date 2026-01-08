@@ -10,9 +10,13 @@ import json
 def group_by_office():
     """사무소별로 중개사 정보 집계"""
     
-    # CSV 파일 읽기
-    input_file = "data/brokerInfo/cleaned_brokers.csv"
-    output_file = "data/brokerInfo/grouped_offices.csv"
+    # Docker 환경에서는 /data로 마운트됨
+    if Path("/data/brokerInfo").exists():
+        input_file = "/data/brokerInfo/cleaned_brokers.csv"
+        output_file = "/data/brokerInfo/grouped_offices.csv"
+    else:
+        input_file = "data/brokerInfo/cleaned_brokers.csv"
+        output_file = "data/brokerInfo/grouped_offices.csv"
     
     print(f"=== {input_file} 파일 로드 중 ===")
     df = pd.read_csv(input_file)

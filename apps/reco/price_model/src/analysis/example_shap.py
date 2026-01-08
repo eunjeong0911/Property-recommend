@@ -1,8 +1,14 @@
 from pathlib import Path
 
+<<<<<<< HEAD:apps/reco/models/price_model/ML/src/example_shap.py
+from .data_loader import DataLoader
+from .preprocessor import PriceDataPreprocessor
+from .trainer import ModelTrainer
+=======
 from loaders.data_loader import DataLoader
 from preprocessing.preprocessor import PriceDataPreprocessor
 from training.trainer import ModelTrainer
+>>>>>>> ebd2c7930b7a1f006d5e9868a05e7c6a4588b468:apps/reco/price_model/src/analysis/example_shap.py
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 

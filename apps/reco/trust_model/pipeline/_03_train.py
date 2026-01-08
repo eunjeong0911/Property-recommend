@@ -15,10 +15,28 @@ import pickle
 import warnings
 warnings.filterwarnings('ignore')
 
+<<<<<<< HEAD
+# Docker 환경에서는 /data로 마운트됨
+if Path("/data/ML/trust").exists():
+    TRAIN_PATH = "/data/ML/trust/X_train.csv"
+    TEST_PATH = "/data/ML/trust/X_test.csv"
+    TRAIN_TARGET_PATH = "/data/ML/trust/y_train.csv"
+    TEST_TARGET_PATH = "/data/ML/trust/y_test.csv"
+    MODEL_DIR = Path("/app/models/trust_model/model")
+    MODEL_TEMP_PATH = "/app/trust_model/temp_trained_models.pkl"
+else:
+    TRAIN_PATH = "data/ML/trust/X_train.csv"
+    TEST_PATH = "data/ML/trust/X_test.csv"
+    TRAIN_TARGET_PATH = "data/ML/trust/y_train.csv"
+    TEST_TARGET_PATH = "data/ML/trust/y_test.csv"
+    MODEL_DIR = Path("apps/reco/models/trust_model/model")
+    MODEL_TEMP_PATH = "apps/reco/trust_model/temp_trained_models.pkl"
+=======
 TRAIN_PATH = "data/brokerInfo/ML/X_train.csv"
 TEST_PATH = "data/brokerInfo/ML/X_test.csv"
 TRAIN_TARGET_PATH = "data/brokerInfo/ML/y_train.csv"
 TEST_TARGET_PATH = "data/brokerInfo/ML/y_test.csv"
+>>>>>>> ebd2c7930b7a1f006d5e9868a05e7c6a4588b468
 
 
 def load_processed_data():
@@ -148,12 +166,18 @@ def main():
         print(f"    - 과적합 정도:     {train_acc - test_acc:.4f}")
         print(f"    - CV Mean:        {cv_scores.mean():.4f} (±{cv_scores.std():.4f})")
     
+<<<<<<< HEAD
+    # 5) 모델 + 스케일러 저장
+    MODEL_DIR.mkdir(parents=True, exist_ok=True)
+    with open(MODEL_TEMP_PATH, "wb") as f:
+=======
     
     # 5) Temp 모델 저장 (_04_eval, _05_save_model용)
     temp_model_path = "apps/reco/trust_model/temp_trained_models.pkl"
     Path(temp_model_path).parent.mkdir(parents=True, exist_ok=True)
     
     with open(temp_model_path, "wb") as f:
+>>>>>>> ebd2c7930b7a1f006d5e9868a05e7c6a4588b468
         pickle.dump(
             {
                 "models": models,

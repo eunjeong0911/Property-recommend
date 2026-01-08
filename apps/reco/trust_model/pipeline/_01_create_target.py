@@ -13,8 +13,19 @@ import numpy as np
 from pathlib import Path
 from sklearn.model_selection import train_test_split
 
+<<<<<<< HEAD
+def load_data(filepath: str = None) -> pd.DataFrame:
+=======
 def load_data(filepath: str = "data/brokerInfo/ML/preprocessed_office_data.csv") -> pd.DataFrame:
+>>>>>>> ebd2c7930b7a1f006d5e9868a05e7c6a4588b468
     """데이터 로드"""
+    # Docker 환경에서는 /data로 마운트됨
+    if filepath is None:
+        if Path("/data/ML").exists():
+            filepath = "/data/ML/preprocessed_office_data.csv"
+        else:
+            filepath = "data/ML/preprocessed_office_data.csv"
+    
     print(f"📂 [1단계] 데이터 로드: {filepath}")
     return pd.read_csv(filepath, encoding="utf-8-sig")
 
@@ -160,10 +171,23 @@ def assign_grade(train_df: pd.DataFrame, test_df: pd.DataFrame):
 
 def save_data(train_df, test_df):
     """결과 저장"""
+<<<<<<< HEAD
+    # Docker 환경에서는 /data로 마운트됨
+    if Path("/data/ML").exists():
+        save_dir = Path("/data/ML/trust")
+    else:
+        save_dir = Path("data/ML/trust")
+    
+    save_dir.mkdir(parents=True, exist_ok=True)
+    
+    train_path = save_dir / "train_target.csv"
+    test_path = save_dir / "test_target.csv"
+=======
     Path("data/brokerInfo/ML").mkdir(parents=True, exist_ok=True)
     
     train_path = "data/brokerInfo/ML/train_target.csv"
     test_path = "data/brokerInfo/ML/test_target.csv"
+>>>>>>> ebd2c7930b7a1f006d5e9868a05e7c6a4588b468
     
     # 필요한 컬럼만 저장하거나 전체 저장
     # 여기서는 전체 저장

@@ -151,7 +151,7 @@ class LandImage(models.Model):
 
 
 class PriceClassificationResult(models.Model):
-    """가격 분류 결과 모델 (간소화 + 영어 컬럼명 + 외래키)"""
+    """가격 분류 결과 모델 (영어 컬럼명 + 외래키)"""
     id = models.AutoField(primary_key=True)
     
     # Land 테이블과 외래키 연결
