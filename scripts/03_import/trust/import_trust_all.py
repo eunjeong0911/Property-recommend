@@ -1,14 +1,14 @@
 """
 중개사 데이터 Import + 통계 업데이트 + Trust Score 예측 통합 스크립트
 
-사용법:
-    # 전체 실행 (Import → 통계 → 예측)
-    docker compose --profile scripts run --rm scripts python 03_import/trust/import_trust_all.py
-
-    # 개별 실행
-    docker compose --profile scripts run --rm scripts python 03_import/trust/import_trust_all.py --import-only
-    docker compose --profile scripts run --rm scripts python 03_import/trust/import_trust_all.py --stats-only
-    docker compose --profile scripts run --rm scripts python 03_import/trust/import_trust_all.py --predict-only
+사용법Usage:
+    // 전체 실행 (중개사 import + 통계 업데이트 + 신뢰도 예측)
+    docker compose --profile scripts run --rm scripts python scripts/03_import/trust/import_trust_all.py
+    
+    // 단계별 실행
+    docker compose --profile scripts run --rm scripts python scripts/03_import/trust/import_trust_all.py --import-only
+    docker compose --profile scripts run --rm scripts python scripts/03_import/trust/import_trust_all.py --stats-only
+    docker compose --profile scripts run --rm scripts python scripts/03_import/trust/import_trust_all.py --predict-only
 """
 import sys
 import os

@@ -6,14 +6,14 @@ Neo4j, PostgreSQL, Elasticsearch에 데이터를 일괄 적재합니다.
 
 Usage:
     // 전체 Import
-    docker compose --profile scripts run --rm scripts python 03_import/import_all.py
+    docker compose --profile scripts run --rm scripts python scripts/03_import/import_all.py
 
     // 특정 DB만 Import
-    docker compose --profile scripts run --rm scripts python 03_import/import_all.py --only neo4j
-    docker compose --profile scripts run --rm scripts python 03_import/import_all.py --only postgres
-    docker compose --profile scripts run --rm scripts python 03_import/import_all.py --only es
-    docker compose --profile scripts run --rm scripts python 03_import/import_all.py --only trust
-    docker compose --profile scripts run --rm scripts python 03_import/import_all.py --only price
+    docker compose --profile scripts run --rm scripts python scripts/03_import/import_all.py --only neo4j
+    docker compose --profile scripts run --rm scripts python scripts/03_import/import_all.py --only postgres
+    docker compose --profile scripts run --rm scripts python scripts/03_import/import_all.py --only es
+    docker compose --profile scripts run --rm scripts python scripts/03_import/import_all.py --only trust
+    docker compose --profile scripts run --rm scripts python scripts/03_import/import_all.py --only price
 """
 import sys
 import os

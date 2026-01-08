@@ -236,8 +236,8 @@ class ES817PropertyImporter:
         self.create_index()
         
         # 2. 데이터 경로 설정
-        if os.path.exists("/data/RDB/land"):
-            data_dir = "/data/RDB/land"
+        if os.path.exists("/app/data/RDB/land"):
+            data_dir = "/app/data/RDB/land"
         else:
             data_dir = os.path.join(Config.BASE_DIR, "data", "RDB", "land")
             

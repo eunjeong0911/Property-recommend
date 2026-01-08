@@ -58,6 +58,7 @@ services:
       - .env.production
     environment:
       - NEXT_PUBLIC_API_URL=https://goziphouse.com
+      - NEXT_PUBLIC_KAKAO_API_KEY=${KAKAO_API_KEY}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - NEXTAUTH_URL=https://goziphouse.com

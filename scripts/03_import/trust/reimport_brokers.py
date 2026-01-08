@@ -26,8 +26,8 @@ def import_brokers_from_json():
     print("=" * 70 + "\n")
     
     # 1. JSON 파일 경로
-    if os.path.exists("/data/RDB/land"):
-        data_dir = "/data/RDB/land"
+    if os.path.exists("/app/data/RDB/land"):
+        data_dir = "/app/data/RDB/land"
     else:
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         data_dir = os.path.join(base_dir, "data", "RDB", "land")

@@ -6,7 +6,7 @@
 - S3_BUCKET: S3 버킷 이름 (기본값: realestate-etl-data)
 - S3_PREFIX: S3 프리픽스 (기본값: data/)
 - AWS_REGION: AWS 리전 (기본값: ap-northeast-2)
-- DATA_DIR: 로컬 데이터 디렉토리 (기본값: /data 또는 ./data)
+- DATA_DIR: 로컬 데이터 디렉토리 (기본값: /app/data 또는 ./data)
 """
 import os
 import sys
@@ -20,8 +20,8 @@ S3_PREFIX = os.getenv('S3_PREFIX', 'data/')
 AWS_REGION = os.getenv('AWS_REGION', 'ap-northeast-2')
 
 # 데이터 디렉토리 결정
-if os.path.exists('/data'):
-    LOCAL_DATA_DIR = Path('/data')
+if os.path.exists('/app/data'):
+    LOCAL_DATA_DIR = Path('/app/data')
 else:
     # 스크립트 위치 기준으로 data 폴더 찾기
     script_dir = Path(__file__).parent

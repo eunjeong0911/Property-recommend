@@ -5,8 +5,8 @@ Elasticsearch 인덱싱 스크립트 (ES 8.17)
 매물 데이터를 JSON 파일에서 읽어 Elasticsearch에 일괄 색인합니다.
 
 Usage:
-    docker compose --profile scripts run --rm scripts python data_import/import_es_index.py
-    docker compose --profile scripts run --rm scripts python data_import/import_es_index.py --recreate
+    docker compose --profile scripts run --rm scripts python scripts/03_import/elasticsearch/import_es_index.py
+    docker compose --profile scripts run --rm scripts python scripts/03_import/elasticsearch/import_es_index.py --recreate
 """
 import json
 import os
@@ -237,9 +237,9 @@ def main():
     print("=" * 60)
     
     # 데이터 디렉토리 자동 감지
-    if os.path.exists("/data/RDB/land"):
-        data_dir = "/data/RDB/land"
-        print("Docker 환경: /data/RDB/land")
+    if os.path.exists("/app/data/RDB/land"):
+        data_dir = "/app/data/RDB/land"
+        print("Docker 환경: /app/data/RDB/land")
     else:
         data_dir = str(Path(__file__).parent.parent.parent / "data" / "RDB" / "land")
         print(f"로컬 환경: {data_dir}")
