@@ -2,7 +2,7 @@
 'use client';
 
 import { useRef, useState, useEffect } from 'react';
-import { LandFilterParams } from '@/api/landApi';
+import { LandFilterParams } from '@/types/land';
 // import { SEOUL_DISTRICTS, DONG_MAP } from '@/common/data/Region'; // 모듈 없음으로 인해 로컬 정의로 대체
 
 const SEOUL_DISTRICTS = [
@@ -42,10 +42,10 @@ const DONG_MAP: { [key: string]: string[] } = {
 };
 
 const INITIAL_FILTER: LandFilterParams = {
-    selectedRegion: '',
-    selectedDong: '',
-    selectedTransaction: '',
-    selectedBuilding: ''
+    district: '',
+    dong: '',
+    transaction_type: '',
+    building_type: ''
 };
 
 const TRANSACTION_OPTIONS = ['매매', '전세', '월세', '단기임대'];
@@ -84,10 +84,10 @@ const loadFilterFromStorage = () => {
 
 export default function LandListFilter({ onFilterChange, chatbotFilterInfo, onToggleChatbotFilter }: LandListFilterProps) {
     // SSR과 클라이언트 일치를 위해 초기값은 고정값 사용
-    const [selectedRegion, setSelectedRegion] = useState<string>(INITIAL_FILTER.selectedRegion);
-    const [selectedDong, setSelectedDong] = useState<string>(INITIAL_FILTER.selectedDong);
-    const [selectedTransaction, setSelectedTransaction] = useState<string>(INITIAL_FILTER.selectedTransaction);
-    const [selectedBuilding, setSelectedBuilding] = useState<string>(INITIAL_FILTER.selectedBuilding);
+    const [selectedRegion, setSelectedRegion] = useState<string>(INITIAL_FILTER.district || '');
+    const [selectedDong, setSelectedDong] = useState<string>(INITIAL_FILTER.dong || '');
+    const [selectedTransaction, setSelectedTransaction] = useState<string>(INITIAL_FILTER.transaction_type || '');
+    const [selectedBuilding, setSelectedBuilding] = useState<string>(INITIAL_FILTER.building_type || '');
     const [isMounted, setIsMounted] = useState(false);
 
     // 이전 자치구 값을 추적
@@ -97,11 +97,11 @@ export default function LandListFilter({ onFilterChange, chatbotFilterInfo, onTo
     useEffect(() => {
         const savedFilter = loadFilterFromStorage();
         if (savedFilter) {
-            setSelectedRegion(savedFilter.selectedRegion || '');
-            setSelectedDong(savedFilter.selectedDong || '');
-            setSelectedTransaction(savedFilter.selectedTransaction || '');
-            setSelectedBuilding(savedFilter.selectedBuilding || '');
-            prevRegionRef.current = savedFilter.selectedRegion || '';
+            setSelectedRegion(savedFilter.district || savedFilter.selectedRegion || '');
+            setSelectedDong(savedFilter.dong || savedFilter.selectedDong || '');
+            setSelectedTransaction(savedFilter.transaction_type || savedFilter.selectedTransaction || '');
+            setSelectedBuilding(savedFilter.building_type || savedFilter.selectedBuilding || '');
+            prevRegionRef.current = savedFilter.district || savedFilter.selectedRegion || '';
         }
         setIsMounted(true);
     }, []);
@@ -119,10 +119,10 @@ export default function LandListFilter({ onFilterChange, chatbotFilterInfo, onTo
         if (!isMounted) return;
 
         const params: LandFilterParams = {
-            selectedRegion,
-            selectedDong,
-            selectedTransaction,
-            selectedBuilding
+            district: selectedRegion,
+            dong: selectedDong,
+            transaction_type: selectedTransaction,
+            building_type: selectedBuilding
         };
 
         // sessionStorage에 저장

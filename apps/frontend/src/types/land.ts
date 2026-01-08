@@ -81,7 +81,7 @@ export interface Land {
 }
 
 export interface LandFilterParams {
-    region?: string;
+    district?: string;
     dong?: string;
     transaction_type?: string;
     building_type?: string;

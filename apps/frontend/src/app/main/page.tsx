@@ -58,10 +58,10 @@ const loadFilterFromStorage = (): LandFilterParams => {
         if (!saved) return {};
         const parsed = JSON.parse(saved);
         return {
-            region: parsed.selectedRegion || undefined,
-            dong: parsed.selectedDong || undefined,
-            transaction_type: parsed.selectedTransaction || undefined,
-            building_type: parsed.selectedBuilding || undefined,
+            district: parsed.district || parsed.selectedRegion || undefined,
+            dong: parsed.dong || parsed.selectedDong || undefined,
+            transaction_type: parsed.transaction_type || parsed.selectedTransaction || undefined,
+            building_type: parsed.building_type || parsed.selectedBuilding || undefined,
         };
     } catch {
         return {};
@@ -77,16 +77,16 @@ const parsePrice = (priceStr?: string): number | undefined => {
 
 export default function MainPage() {
     useBackendUserGuard();
-    
+
     // ★★★ 일반 필터용 상태 (사용자 직접 필터링) ★★★
     const [filterParams, setFilterParams] = useState<LandFilterParams>({});
-    
+
     // ★★★ 챗봇 필터용 상태 (AI 추천) ★★★
     const [chatbotFilterInfo, setChatbotFilterInfo] = useState<FilterInfo | null>(null);
     const [chatbotProperties, setChatbotProperties] = useState<Land[]>([]);
     const [showChatbotFilter, setShowChatbotFilter] = useState(false);
     const [isLoadingChatbotLands, setIsLoadingChatbotLands] = useState(false);
-    
+
     // 이전 필터 정보를 추적하여 불필요한 API 호출 방지
     const prevFilterRef = useRef<string>('');
 
@@ -102,7 +102,7 @@ export default function MainPage() {
     useEffect(() => {
         // 챗봇 필터 모드가 아니면 스킵
         if (!showChatbotFilter) return;
-        
+
         // 필터 정보가 없으면 스킵
         if (!chatbotFilterInfo?.details) {
             console.log('[page.tsx] ⚠️ 필터 정보 없음 - 스킵');
@@ -110,7 +110,7 @@ export default function MainPage() {
         }
 
         const details = chatbotFilterInfo.details;
-        
+
         // 필터 조건이 하나도 없으면 스킵
         if (!details.location && !details.deal_type && !details.building_type) {
             console.log('[page.tsx] ⚠️ 필터 조건 없음 - 스킵');
@@ -129,7 +129,7 @@ export default function MainPage() {
 
         const fetchFilteredLands = async () => {
             setIsLoadingChatbotLands(true);
-            
+
             try {
                 // 가격 문자열을 숫자로 변환
                 const maxDeposit = parsePrice(details.max_deposit);
@@ -167,10 +167,10 @@ export default function MainPage() {
             filterInfo: data.filterInfo?.summary,
             properties: data.properties?.length
         });
-        
+
         // ★★★ 필터 정보 업데이트 → useEffect가 자동으로 매물 조회 ★★★
         setChatbotFilterInfo(data.filterInfo);
-        
+
         // 챗봇 필터 모드 자동 활성화
         setShowChatbotFilter(true);
 
@@ -189,7 +189,7 @@ export default function MainPage() {
                     // 백엔드 API로 완전한 Land 데이터 조회
                     const fullLandData = await fetchLandsByIds(propertyIds);
                     console.log('[handleChatbotRecommend] ✅ 완전한 Land 데이터:', fullLandData.length, '개');
-                    
+
                     if (fullLandData.length > 0) {
                         setChatbotProperties(fullLandData);
                         // 이미 데이터가 있으므로 prevFilterRef 업데이트하여 중복 호출 방지
@@ -203,7 +203,7 @@ export default function MainPage() {
                 }
             }
         }
-        
+
         // RAG 결과가 없으면 useEffect에서 자동으로 API 호출됨
         console.log('[handleChatbotRecommend] ⚠️ RAG 결과 없음 → useEffect에서 API 호출 예정');
     }, []);
@@ -233,7 +233,7 @@ export default function MainPage() {
                                 filterInfo={chatbotFilterInfo}
                                 onToggle={handleToggleChatbotFilter}
                             />
-                            
+
                             {/* 챗봇 추천 매물 리스트 (ChatbotList 컴포넌트 사용) */}
                             <ChatbotList
                                 chatbotProperties={chatbotProperties}
@@ -250,7 +250,7 @@ export default function MainPage() {
                                 chatbotFilterInfo={chatbotFilterInfo}
                                 onToggleChatbotFilter={handleToggleChatbotFilter}
                             />
-                            
+
                             {/* 일반 매물 리스트 (API 필터링) */}
                             <LandList
                                 filterParams={filterParams}
