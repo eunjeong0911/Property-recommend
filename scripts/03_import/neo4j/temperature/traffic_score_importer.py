@@ -11,12 +11,14 @@ from database import Database
 class TrafficScoreImporter:
     def __init__(self):
         self.driver = Database.get_driver()
-        # Use relative path for Docker/Cross-platform compatibility
-        # Assuming script is run from project root or handling path relative to this file
-        base_path = os.path.dirname(os.path.abspath(__file__))
-        # Path from this file to data: ../../../../../data/...
-        # scripts/data_import/importers/neo4j_importers/temperature/ -> data/GraphDB_data...
-        self.csv_path = os.path.join(base_path, "../../../../../data/GraphDB_data/subway_station/서울시 지하철 호선별 역별 시간대별 승하차 인원 정보.csv")
+        # Docker 환경 감지: /app/data가 존재하면 Docker 환경
+        if os.path.exists('/app/data'):
+            # Docker 환경
+            self.csv_path = "/app/data/GraphDB_data/subway_station/서울시 지하철 호선별 역별 시간대별 승하차 인원 정보.csv"
+        else:
+            # 로컬 환경: 프로젝트 루트 기준 상대 경로
+            base_path = os.path.dirname(os.path.abspath(__file__))
+            self.csv_path = os.path.join(base_path, "../../../../../data/GraphDB_data/subway_station/서울시 지하철 호선별 역별 시간대별 승하차 인원 정보.csv")
         self.work_hubs = [
             "가산디지털단지", "서울역", "여의도", "선릉", "시청", 
             "강남", "역삼", "잠실(송파구청)", "삼성(무역센터)", "을지로입구"

@@ -291,9 +291,13 @@ class LandSerializer(serializers.ModelSerializer):
         return get_land_temperatures(obj.land_num)
     
     def get_style_tags(self, obj):
-        """스타일 태그 반환 (쉼표 구분 문자열 → 리스트)"""
         if obj.style_tags:
-            return [tag.strip() for tag in obj.style_tags.split(',') if tag.strip()]
+            # PostgreSQL 배열로 저장된 경우 (list)
+            if isinstance(obj.style_tags, list):
+                return [tag.strip() for tag in obj.style_tags if tag and tag.strip()]
+            # 문자열로 저장된 경우 (하위 호환성)
+            elif isinstance(obj.style_tags, str):
+                return [tag.strip() for tag in obj.style_tags.split(',') if tag.strip()]
         return []
 
 
@@ -392,7 +396,13 @@ class LandListSerializer(serializers.ModelSerializer):
             return None
         
     def get_style_tags(self, obj):
+        """스타일 태그 반환 (PostgreSQL 배열 또는 쉼표 구분 문자열)"""
         if obj.style_tags:
-            return [tag.strip() for tag in obj.style_tags.split(',') if tag.strip()]
+            # PostgreSQL 배열로 저장된 경우 (list)
+            if isinstance(obj.style_tags, list):
+                return [tag.strip() for tag in obj.style_tags if tag and tag.strip()]
+            # 문자열로 저장된 경우 (하위 호환성)
+            elif isinstance(obj.style_tags, str):
+                return [tag.strip() for tag in obj.style_tags.split(',') if tag.strip()]
         return []
 

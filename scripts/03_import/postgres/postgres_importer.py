@@ -70,7 +70,6 @@ class PostgresImporter:
                 description TEXT,
                 style_tags TEXT[],
                 search_text TEXT,
-                agent_info JSONB,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
@@ -419,24 +418,26 @@ class PostgresImporter:
         
         search_text = item.get("search_text") or item.get("검색텍스트")
         
-        # 중개사 정보 추출
-        agent_info = Json(item.get("중개사_정보", {}))
+        # 중개사 정보는 Trust 모델에서 별도로 수집 및 연결
+        # PostgreSQL Import 단계에서는 NULL로 설정
+        landbroker_id = None
 
         query = """
             INSERT INTO land (
-                land_num, building_type, address, deal_type,
+                land_num, landbroker_id, building_type, address, deal_type,
                 deposit, monthly_rent, jeonse_price, sale_price,
                 url, trade_info, listing_info,
                 additional_options, description,
-                style_tags, search_text, agent_info
+                style_tags, search_text
             ) VALUES (
-                %s, %s, %s, %s,
+                %s, %s, %s, %s, %s,
                 %s, %s, %s, %s,
                 %s, %s, %s,
                 %s, %s,
-                %s, %s, %s
+                %s, %s
             )
             ON CONFLICT (land_num) DO UPDATE SET
+                landbroker_id = EXCLUDED.landbroker_id,
                 building_type = EXCLUDED.building_type,
                 address = EXCLUDED.address,
                 deal_type = EXCLUDED.deal_type,
@@ -451,17 +452,16 @@ class PostgresImporter:
                 description = EXCLUDED.description,
                 style_tags = EXCLUDED.style_tags,
                 search_text = EXCLUDED.search_text,
-                agent_info = EXCLUDED.agent_info,
                 updated_at = CURRENT_TIMESTAMP
             RETURNING land_id, (xmax = 0) AS inserted;
         """
 
         self.cur.execute(query, (
-            land_num, building_type, address, deal_type,
+            land_num, landbroker_id, building_type, address, deal_type,
             deposit, monthly_rent, jeonse_price, sale_price,
             url, trade_info, listing_info,
             additional_options, description,
-            style_tags, search_text, agent_info
+            style_tags, search_text
         ))
         
         result = self.cur.fetchone()
