@@ -25,27 +25,43 @@ def import_brokers_from_json():
     print(" " * 15 + "중개사 정보 Import (JSON 기반)")
     print("=" * 70 + "\n")
     
-    # 1. JSON 파일 경로
+    # 1. 데이터 소스 및 파일 수집
+    data_sources = []
+    
+    # (1) RDB/land
     if os.path.exists("/app/data/RDB/land"):
-        data_dir = "/app/data/RDB/land"
+        data_sources.append("/app/data/RDB/land")
     else:
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        data_dir = os.path.join(base_dir, "data", "RDB", "land")
+        local_land = os.path.join(base_dir, "data", "RDB", "land")
+        if os.path.exists(local_land):
+            data_sources.append(local_land)
+
+    # (2) zigbangland (직방)
+    if os.path.exists("/app/data/zigbangland"):
+         data_sources.append("/app/data/zigbangland")
+         print("Docker 환경 감지: zigbangland 추가")
+    else:
+         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+         local_zigbang = os.path.join(base_dir, "data", "zigbangland")
+         if os.path.exists(local_zigbang):
+             data_sources.append(local_zigbang)
+             print(f"로컬 환경 감지: {local_zigbang} 추가")
     
-    json_files = [
-        "00_통합_빌라주택.json",
-        "00_통합_아파트.json",
-        "00_통합_오피스텔.json",
-        "00_통합_원투룸.json"
-    ]
+    # 모든 JSON 파일 수집
+    json_files = []
+    for d_dir in data_sources:
+        if os.path.exists(d_dir):
+            found = [os.path.join(d_dir, f) for f in os.listdir(d_dir) if f.endswith('.json')]
+            json_files.extend(found)
     
-    print(f"1. JSON 파일 읽기 중... (경로: {data_dir})\n")
+    print(f"1. JSON 파일 읽기 중... (총 {len(json_files)}개 파일)\n")
     
     # 2. 중개사 정보 수집 (등록번호 기준 중복 제거)
     brokers_dict = {}  # {registration_number: {info, land_nums}}
     
-    for json_file in json_files:
-        file_path = os.path.join(data_dir, json_file)
+    for file_path in json_files:
+        json_file = os.path.basename(file_path)
         if not os.path.exists(file_path):
             print(f"  ⚠ 파일 없음: {json_file}")
             continue

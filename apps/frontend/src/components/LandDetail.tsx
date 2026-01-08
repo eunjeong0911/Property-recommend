@@ -528,7 +528,7 @@ export default function LandDetail({ landId }: LandDetailProps) {
                     key={idx}
                     className="px-3 py-1.5 bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 rounded-full text-sm font-medium border border-indigo-100 hover:from-indigo-100 hover:to-purple-100 transition-all cursor-default"
                   >
-                    #{tag}
+                    #{tag.replace(/[{}]/g, '')}
                   </span>
                 ))}
                 <div className="relative inline-flex items-center">

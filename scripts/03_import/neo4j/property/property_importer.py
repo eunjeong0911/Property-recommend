@@ -20,14 +20,27 @@ class PropertyImporter:
 
     def import_properties(self):
         """매물 데이터를 Neo4j에 import"""
-        # data/GraphDB_data/land 디렉토리에서 JSON 파일 읽기
+        # 1. data/GraphDB_data/land 디렉토리에서 JSON 파일 읽기 (기존)
         land_dir = Path(Config.DATA_DIR) / "land"
         
-        if not land_dir.exists():
-            print(f"Land data directory not found: {land_dir}")
-            return
+        # JSON 파일 목록 수집
+        json_files = []
+        
+        if land_dir.exists():
+            json_files.extend(list(land_dir.glob("*.json")))
+        
+        # 2. data/zigbangland 디렉토리 추가 (직방)
+        # Docker: /app/data/zigbangland, Local: ../data/zigbangland (Config 기준)
+        if os.path.exists("/app/data/zigbangland"):
+            zigbang_dir = Path("/app/data/zigbangland")
+            print("Docker 환경 감지: zigbangland")
+        else:
+            zigbang_dir = Path(Config.BASE_DIR) / "data" / "zigbangland"
+            print(f"로컬 환경 감지: {zigbang_dir}")
+        
+        if zigbang_dir.exists():
+            json_files.extend(list(zigbang_dir.glob("*.json")))
 
-        json_files = list(land_dir.glob("*.json"))
         print(f"Found {len(json_files)} JSON files with coordinates to process.")
 
         with self.driver.session() as session:

@@ -89,13 +89,6 @@ class AmenityImporter:
     def link_hospital(self):
         print("Linking Hospitals...")
         with self.driver.session() as session:
-            # Check General Hospital links
-            existing_gen = self._get_link_count(session, "NEAR_GENERAL_HOSPITAL")
-            existing_hosp = self._get_link_count(session, "NEAR_HOSPITAL")
-            if existing_gen > 0 and existing_hosp > 0:
-                print(f"  ⏭ Hospital links already exist (General: {existing_gen}, Other: {existing_hosp}). Skipping.")
-                return
-            
             total = self._get_property_count(session)
             if total == 0:
                 print("  ⚠ No properties found. Skipping.")
@@ -105,46 +98,44 @@ class AmenityImporter:
             batch_size = 500
             
             # General Hospital (1km)
-            if existing_gen == 0:
-                print("  Linking General Hospitals (1km)...")
-                offset = 0
-                linked_count = 0
-                while offset < total:
-                    result = session.run("""
-                        MATCH (p:Property)
-                        WITH p SKIP $offset LIMIT $limit
-                        MATCH (h:GeneralHospital)
-                        WHERE point.distance(p.location, h.location) < 1000
-                        MERGE (p)-[r:NEAR_GENERAL_HOSPITAL]->(h)
-                        SET r.distance = toInteger(round(point.distance(p.location, h.location))),
-                            r.walking_time = toInteger(round((point.distance(p.location, h.location) * 1.3) / 80))
-                        RETURN count(r) as cnt
-                    """, offset=offset, limit=batch_size)
-                    linked_count += result.single()["cnt"]
-                    offset += batch_size
-                    progress = min(offset, total)
-                    print(f"    General Hospital: {progress}/{total} ({progress*100//total}%) - {linked_count} links")
+            print("  Linking General Hospitals (1km)...")
+            offset = 0
+            linked_count = 0
+            while offset < total:
+                result = session.run("""
+                    MATCH (p:Property)
+                    WITH p SKIP $offset LIMIT $limit
+                    MATCH (h:GeneralHospital)
+                    WHERE point.distance(p.location, h.location) < 1000
+                    MERGE (p)-[r:NEAR_GENERAL_HOSPITAL]->(h)
+                    SET r.distance = toInteger(round(point.distance(p.location, h.location))),
+                        r.walking_time = toInteger(round((point.distance(p.location, h.location) * 1.3) / 80))
+                    RETURN count(r) as cnt
+                """, offset=offset, limit=batch_size)
+                linked_count += result.single()["cnt"]
+                offset += batch_size
+                progress = min(offset, total)
+                print(f"    General Hospital: {progress}/{total} ({progress*100//total}%) - {linked_count} links")
             
             # Other Hospital (300m)
-            if existing_hosp == 0:
-                print("  Linking Other Hospitals (300m)...")
-                offset = 0
-                linked_count = 0
-                while offset < total:
-                    result = session.run("""
-                        MATCH (p:Property)
-                        WITH p SKIP $offset LIMIT $limit
-                        MATCH (h:Hospital)
-                        WHERE h.category <> '종합병원' AND point.distance(p.location, h.location) < 300
-                        MERGE (p)-[r:NEAR_HOSPITAL]->(h)
-                        SET r.distance = toInteger(round(point.distance(p.location, h.location))),
-                            r.walking_time = toInteger(round((point.distance(p.location, h.location) * 1.3) / 80))
-                        RETURN count(r) as cnt
-                    """, offset=offset, limit=batch_size)
-                    linked_count += result.single()["cnt"]
-                    offset += batch_size
-                    progress = min(offset, total)
-                    print(f"    Other Hospital: {progress}/{total} ({progress*100//total}%) - {linked_count} links")
+            print("  Linking Other Hospitals (300m)...")
+            offset = 0
+            linked_count = 0
+            while offset < total:
+                result = session.run("""
+                    MATCH (p:Property)
+                    WITH p SKIP $offset LIMIT $limit
+                    MATCH (h:Hospital)
+                    WHERE h.category <> '종합병원' AND point.distance(p.location, h.location) < 300
+                    MERGE (p)-[r:NEAR_HOSPITAL]->(h)
+                    SET r.distance = toInteger(round(point.distance(p.location, h.location))),
+                        r.walking_time = toInteger(round((point.distance(p.location, h.location) * 1.3) / 80))
+                    RETURN count(r) as cnt
+                """, offset=offset, limit=batch_size)
+                linked_count += result.single()["cnt"]
+                offset += batch_size
+                progress = min(offset, total)
+                print(f"    Other Hospital: {progress}/{total} ({progress*100//total}%) - {linked_count} links")
 
     def _import_pharmacy(self, file_path):
         with self.driver.session() as session:
@@ -200,11 +191,6 @@ class AmenityImporter:
     def link_pharmacy(self):
         print("Linking Pharmacies (200m)...")
         with self.driver.session() as session:
-            existing = self._get_link_count(session, "NEAR_PHARMACY")
-            if existing > 0:
-                print(f"  ⏭ Pharmacy links already exist ({existing}). Skipping.")
-                return
-            
             total = self._get_property_count(session)
             if total == 0:
                 print("  ⚠ No properties found. Skipping.")
@@ -292,11 +278,6 @@ class AmenityImporter:
     def link_college(self):
         print("Linking Colleges (2km)...")
         with self.driver.session() as session:
-            existing = self._get_link_count(session, "NEAR_COLLEGE")
-            if existing > 0:
-                print(f"  ⏭ College links already exist ({existing}). Skipping.")
-                return
-            
             total = self._get_property_count(session)
             if total == 0:
                 print("  ⚠ No properties found. Skipping.")
@@ -382,11 +363,6 @@ class AmenityImporter:
     def link_large_mart(self):
         print("Linking Large Marts (500m)...")
         with self.driver.session() as session:
-            existing = self._get_link_count(session, "NEAR_LARGEMART")
-            if existing > 0:
-                print(f"  ⏭ Large Mart links already exist ({existing}). Skipping.")
-                return
-            
             total = self._get_property_count(session)
             if total == 0:
                 print("  ⚠ No properties found. Skipping.")
@@ -498,11 +474,6 @@ class AmenityImporter:
     def link_convenience(self):
         print("Linking Convenience Stores (200m)...")
         with self.driver.session() as session:
-            existing = self._get_link_count(session, "NEAR_CONVENIENCE")
-            if existing > 0:
-                print(f"  ⏭ Convenience links already exist ({existing}). Skipping.")
-                return
-            
             total = self._get_property_count(session)
             if total == 0:
                 print("  ⚠ No properties found. Skipping.")
@@ -532,11 +503,6 @@ class AmenityImporter:
     def link_laundry(self):
         print("Linking Laundries (200m)...")
         with self.driver.session() as session:
-            existing = self._get_link_count(session, "NEAR_LAUNDRY")
-            if existing > 0:
-                print(f"  ⏭ Laundry links already exist ({existing}). Skipping.")
-                return
-            
             total = self._get_property_count(session)
             if total == 0:
                 print("  ⚠ No properties found. Skipping.")

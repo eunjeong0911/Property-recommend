@@ -155,11 +155,6 @@ class CultureImporter:
         print("Linking Culture facilities (500m)...")
         
         with self.driver.session() as session:
-            existing = self._get_link_count(session, "NEAR_CULTURE")
-            if existing > 0:
-                print(f"  ⏭ NEAR_CULTURE links already exist ({existing}). Skipping.")
-                return
-            
             total = self._get_property_count(session)
             if total == 0:
                 print("  ⚠ No properties found. Skipping.")
@@ -265,11 +260,6 @@ class CultureImporter:
         print("Linking Parks (500m)...")
         
         with self.driver.session() as session:
-            existing = self._get_link_count(session, "NEAR_PARK")
-            if existing > 0:
-                print(f"  ⏭ NEAR_PARK links already exist ({existing}). Skipping.")
-                return
-            
             total = self._get_property_count(session)
             if total == 0:
                 print("  ⚠ No properties found. Skipping.")

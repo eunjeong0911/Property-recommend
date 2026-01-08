@@ -260,14 +260,15 @@ class PostgresImporter:
         for file_idx, json_file in enumerate(json_files, 1):
             file_path = os.path.join(data_dir, json_file)
             
-            # 매핑이 있으면 사용, 없으면 파일명이나 기본값 사용
+            # 매핑이 있으면 사용 (피터팬 데이터)
             if file_mapping:
                 building_type = file_mapping.get(json_file, "기타")
             else:
-                # 직방 폴더의 경우 무조건 "원투룸"
-                building_type = "원투룸"
+                # 직방 데이터: JSON에서 건물형태 읽어서 매핑
+                # 일단 기본값 설정 (나중에 JSON에서 읽어서 변경)
+                building_type = None  # JSON에서 읽을 예정
             
-            print(f"\n[{file_idx}/{len(json_files)}] [{building_type}] {json_file} 처리 중...")
+            print(f"\n[{file_idx}/{len(json_files)}] {json_file} 처리 중...")
             
             try:
                 with open(file_path, "r", encoding="utf-8") as f:
@@ -458,37 +459,67 @@ class PostgresImporter:
         if not land_num:
             return None
 
+        # 직방 데이터인 경우 (building_type이 None), JSON에서 건물형태 읽어서 매핑
+        if building_type is None:
+            listing_info = item.get("매물_정보", {})
+            zigbang_building_type = listing_info.get("건물형태", "")
+            
+            # "원룸" -> "원투룸", 나머지 -> "기타"
+            if zigbang_building_type == "원룸":
+                building_type = "원투룸"
+            elif zigbang_building_type == "오피스텔":
+                building_type = "오피스텔"
+            else:
+                building_type = "기타"
+
         address = item.get("주소_정보", {}).get("전체주소", "") if item.get("주소_정보") else None
         trade_info_raw = item.get("거래_정보", {})
         deal_type = self._extract_deal_type(trade_info_raw)
         
-        # 거래방식 문자열에서 가격 정보 파싱
+        # 거래방식 문자열에서 가격 정보 파싱 시도 (기존 방식)
         deal_str = trade_info_raw.get("거래방식", "")
         prices = self._parse_deal_string(deal_str)
+        
         deposit = prices["deposit"]
         monthly_rent = prices["monthly_rent"]
         jeonse_price = prices["jeonse_price"]
         sale_price = prices["sale_price"]
         
+        # 가격 정보가 없는 경우 (직방 데이터 등), trade_info의 개별 키에서 직접 파싱
+        if deposit == 0 and monthly_rent == 0 and jeonse_price == 0 and sale_price == 0:
+            # 보증금 or 전세금
+            raw_deposit = trade_info_raw.get("보증금", "") or trade_info_raw.get("전세", "")
+            # 월세
+            raw_monthly = trade_info_raw.get("월세", "")
+            # 매매가
+            raw_sale = trade_info_raw.get("매매가", "")
+            
+            deposit = self._parse_price_to_int(raw_deposit)
+            monthly_rent = self._parse_price_to_int(raw_monthly)
+            sale_price = self._parse_price_to_int(raw_sale)
+            
+            # 전세인 경우 deposit을 jeonse_price에도 매핑 (or deal_type check)
+            if "전세" in str(deal_type) and deposit > 0:
+                jeonse_price = deposit
+                # 전세는 보증금 칸에도 값을 남겨두는 경우가 많으므로 유지
+        
         images_list = item.get("매물_이미지", [])
+        # images는 land_image 테이블에만 저장 (JSONB 컬럼 사용 안 함)
+        
         url = item.get("매물_URL")
         trade_info = Json(trade_info_raw)
         listing_info = Json(item.get("매물_정보", {}))
         additional_options = item.get("추가_옵션", [])
         description = item.get("상세_설명")
         
-        # 스타일태그 및 검색텍스트 추출 (OpenAI로 생성된 값만 사용)
+        # ... (스타일 태그 등 생략)
         style_tags = item.get("style_tags") or item.get("스타일태그")
-        # PostgreSQL 배열로 저장하기 위해 리스트 유지
         if isinstance(style_tags, str):
-            # 문자열인 경우 쉼표로 분리하여 리스트로 변환
             style_tags = [tag.strip() for tag in style_tags.split(",")]
         elif not isinstance(style_tags, list):
             style_tags = []
         
         search_text = item.get("search_text") or item.get("검색텍스트")
-        
-        # 중개사 정보 추출
         agent_info = Json(item.get("중개사_정보", {}))
 
         query = """

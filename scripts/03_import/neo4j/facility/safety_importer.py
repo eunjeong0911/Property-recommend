@@ -86,11 +86,6 @@ class SafetyImporter:
     def link_cctv(self):
         print("Linking CCTV (200m)...")
         with self.driver.session() as session:
-            existing = self._get_link_count(session, "NEAR_CCTV")
-            if existing > 0:
-                print(f"  ⏭ CCTV links already exist ({existing}). Skipping.")
-                return
-            
             total = self._get_property_count(session)
             if total == 0:
                 print("  ⚠ No properties found. Skipping.")
@@ -184,11 +179,6 @@ class SafetyImporter:
     def link_bell(self):
         print("Linking Emergency Bells (200m)...")
         with self.driver.session() as session:
-            existing = self._get_link_count(session, "NEAR_BELL")
-            if existing > 0:
-                print(f"  ⏭ Bell links already exist ({existing}). Skipping.")
-                return
-            
             total = self._get_property_count(session)
             if total == 0:
                 print("  ⚠ No properties found. Skipping.")
@@ -288,11 +278,6 @@ class SafetyImporter:
     def link_police(self):
         print("Linking Police Stations (1km)...")
         with self.driver.session() as session:
-            existing = self._get_link_count(session, "NEAR_POLICE")
-            if existing > 0:
-                print(f"  ⏭ Police links already exist ({existing}). Skipping.")
-                return
-            
             total = self._get_property_count(session)
             if total == 0:
                 print("  ⚠ No properties found. Skipping.")
@@ -392,11 +377,6 @@ class SafetyImporter:
     def link_fire(self):
         print("Linking Fire Stations (2.5km)...")
         with self.driver.session() as session:
-            existing = self._get_link_count(session, "NEAR_FIRE")
-            if existing > 0:
-                print(f"  ⏭ Fire links already exist ({existing}). Skipping.")
-                return
-            
             total = self._get_property_count(session)
             if total == 0:
                 print("  ⚠ No properties found. Skipping.")

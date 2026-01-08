@@ -235,18 +235,35 @@ class ES817PropertyImporter:
         # 1. 인덱스 준비
         self.create_index()
         
-        # 2. 데이터 경로 설정
+        # 2. 데이터 경로 설정 및 파일 수집
+        data_sources = []
+        
+        # (1) RDB/land (기존)
         if os.path.exists("/app/data/RDB/land"):
-            data_dir = "/app/data/RDB/land"
+            data_sources.append("/app/data/RDB/land")
         else:
-            data_dir = os.path.join(Config.BASE_DIR, "data", "RDB", "land")
-            
-        if not os.path.exists(data_dir):
-            print(f"[ES 8.17] ❌ Data directory not found: {data_dir}")
-            return
+            local_land = os.path.join(Config.BASE_DIR, "data", "RDB", "land")
+            if os.path.exists(local_land):
+                data_sources.append(local_land)
+        
+        # (2) zigbangland (직방)
+        if os.path.exists("/app/data/zigbangland"):
+            data_sources.append("/app/data/zigbangland")
+            print("[ES 8.17] Docker 환경 감지: zigbangland 추가")
+        else:
+            local_zigbang = os.path.join(Config.BASE_DIR, "data", "zigbangland")
+            if os.path.exists(local_zigbang):
+                # 로컬 환경에서 테스트할 때 필요
+                data_sources.append(local_zigbang)
+                print(f"[ES 8.17] 로컬 환경 감지: {local_zigbang} 추가")
 
-        json_files = [f for f in os.listdir(data_dir) if f.endswith('.json') and f in self.FILE_TYPE_MAPPING]
-        print(f"[ES 8.17] Found {len(json_files)} JSON files to import.")
+        json_files = []
+        for d_dir in data_sources:
+             if os.path.exists(d_dir):
+                 found = [os.path.join(d_dir, f) for f in os.listdir(d_dir) if f.endswith('.json')]
+                 json_files.extend(found)
+
+        print(f"[ES 8.17] Found {len(json_files)} JSON files to import (Total).")
 
         # 기존 매물 ID 조회 (삭제 감지용)
         try:
@@ -288,9 +305,12 @@ class ES817PropertyImporter:
         total_failed = 0
         active_ids = set()  # 현재 활성 매물 ID 추적
 
-        for json_file in json_files:
-            file_path = os.path.join(data_dir, json_file)
-            building_type = self.FILE_TYPE_MAPPING.get(json_file, "기타")
+        for full_path in json_files:
+            json_file = os.path.basename(full_path) # Extract filename
+            file_path = full_path
+            
+            # 매핑이 있으면 사용, 없으면(직방 등) "원투룸"으로 처리
+            building_type = self.FILE_TYPE_MAPPING.get(json_file, "원투룸")
             print(f"\nProcessing {json_file} ({building_type})...")
             
             actions = []
