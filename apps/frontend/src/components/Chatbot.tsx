@@ -85,6 +85,34 @@ const extractSuggestedQuestions = (content: string): { mainContent: string; ques
   return { mainContent, questions };
 };
 
+// AI 응답에서 입력 예시를 분리하는 함수
+const extractInputExamples = (content: string): { mainContent: string; examples: string[] } => {
+  // 입력 예시 패턴: **입력 예시**, 입력 예시, 선택 가능한 유형 등
+  const headerRegex = /(?:\*\*|\#\#)?\s*(?:입력\s*예시|선택\s*가능한\s*유형)(?:\*\*|\#\#)?/i;
+  const match = content.match(headerRegex);
+
+  if (!match) return { mainContent: content, examples: [] };
+
+  const splitIndex = match.index!;
+  const mainContent = content.substring(0, splitIndex).trim();
+  const examplesSection = content.substring(splitIndex + match[0].length).trim();
+
+  const examples = examplesSection
+    .split(/\n/)
+    .map(line => line.trim())
+    .filter(line => line.match(/^[•\-\*]\s/)) // 불릿으로 시작하는 줄만 필터링
+    .map(line => {
+      let text = line.replace(/^[•\-\*]\s*/, '').trim(); // 불릿 제거
+      // 따옴표 제거 (양쪽 모두 있을 때만)
+      if (text.startsWith('"') && text.endsWith('"')) {
+        text = text.slice(1, -1);
+      }
+      return text;
+    });
+
+  return { mainContent, examples };
+};
+
 // AI 응답을 순위별로 파싱하는 함수
 const parseRankedContent = (content: string): { rank: number | null; content: string }[] => {
   // 순위 패턴: 1순위, 2순위, **1순위**, 1위, **1위** 등
@@ -138,7 +166,7 @@ export default function Chatbot({ onRecommendLands, onChatbotRecommend, onChatSt
   const [showHistoryModal, setShowHistoryModal] = useState(false)
   const [latestFilterInfo, setLatestFilterInfo] = useState<FilterInfo | null>(null)
   const [latestProperties, setLatestProperties] = useState<any[]>([])
-  // const messagesEndRef = useRef<HTMLDivElement>(null) // 자동 스크롤 제거됨
+  const messagesEndRef = useRef<HTMLDivElement>(null)
   // 초기 마운트 시 저장된 세션 복원
   useEffect(() => {
     const savedSessions = localStorage.getItem('chatSessions')
@@ -182,6 +210,24 @@ export default function Chatbot({ onRecommendLands, onChatbotRecommend, onChatSt
       localStorage.setItem('currentSessionId', currentSessionId)
     }
   }, [currentSessionId])
+
+  // 메시지 변경 시 자동 스크롤
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  // 모달 열릴 때 배경 스크롤 막기
+  useEffect(() => {
+    if (showHistoryModal) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [showHistoryModal])
 
   const formatTime = (date: Date) => {
     const hours = date.getHours().toString().padStart(2, '0')
@@ -656,10 +702,14 @@ export default function Chatbot({ onRecommendLands, onChatbotRecommend, onChatSt
                   ) : (
                     /* AI 메시지 - 순위별 개별 말풍선 */
                     (() => {
-                      const { mainContent, questions } = extractSuggestedQuestions(message.content);
+                      // 1. 추가 질문 분리
+                      const { mainContent: contentWithoutQs, questions } = extractSuggestedQuestions(message.content);
+                      // 2. 입력 예시 분리
+                      const { mainContent: finalContent, examples } = extractInputExamples(contentWithoutQs);
+
                       return (
                         <div className="space-y-3">
-                          {parseRankedContent(mainContent).map((part, partIndex, arr) => {
+                          {parseRankedContent(finalContent).map((part, partIndex, arr) => {
                             const colors = part.rank
                               ? (rankColors[part.rank] || defaultRankColor)
                               : { bg: 'bg-gray-100', border: '', badge: '' };
@@ -680,6 +730,19 @@ export default function Chatbot({ onRecommendLands, onChatbotRecommend, onChatSt
                                   <div className="prose prose-sm max-w-none text-gray-900">
                                     <ReactMarkdown
                                       components={{
+                                        p: ({ children }) => (
+                                          <p className="mb-2 last:mb-0 leading-relaxed whitespace-pre-wrap text-[15px]">
+                                            {children}
+                                          </p>
+                                        ),
+                                        ul: ({ children }) => (
+                                          <ul className="mb-3 space-y-1 list-none pl-1">
+                                            {children}
+                                          </ul>
+                                        ),
+                                        li: ({ children }) => (
+                                          <li className="mb-1">{children}</li>
+                                        ),
                                         a: ({ href, children }) => {
                                           const text = String(children);
                                           if (text.includes('상세보기')) {
@@ -714,6 +777,82 @@ export default function Chatbot({ onRecommendLands, onChatbotRecommend, onChatSt
                               </div>
                             );
                           })}
+
+                          {/* 입력 예시 섹션 - 칩 형태 (본문 바로 뒤) */}
+                          {examples.length > 0 && (
+                            <div className="flex justify-start">
+                              <div className="w-[85%]">
+                                <p className="text-xs font-bold text-gray-500 mb-2 ml-1">👇 이렇게 질문해보세요</p>
+                                <div className="flex flex-wrap gap-2">
+                                  {examples.map((example, exIndex) => (
+                                    <button
+                                      key={exIndex}
+                                      onClick={async () => {
+                                        // 바로 질문 전송 (로직 중복 제거 필요하지만 일단 인라인 처리)
+                                        const sessionId = currentSessionId || Date.now().toString();
+                                        if (!currentSessionId) {
+                                          const newSession: ChatSession = {
+                                            id: sessionId,
+                                            title: '새 대화',
+                                            messages: [],
+                                            createdAt: new Date(),
+                                            updatedAt: new Date(),
+                                          };
+                                          setSessions(prev => [newSession, ...prev]);
+                                          setCurrentSessionId(sessionId);
+                                        }
+
+                                        const userMessage: Message = {
+                                          id: Date.now().toString(),
+                                          type: 'user',
+                                          content: example,
+                                          timestamp: new Date(),
+                                        };
+
+                                        setMessages(prev => [...prev, userMessage]);
+                                        setIsLoading(true);
+
+                                        try {
+                                          const answer = await sendChatQuestion(example, sessionId);
+                                          const aiMessage: Message = {
+                                            id: (Date.now() + 1).toString(),
+                                            type: 'ai',
+                                            content: answer,
+                                            timestamp: new Date(),
+                                          };
+                                          setMessages(prev => [...prev, aiMessage]);
+
+                                          if (onRecommendLands) {
+                                            const landIds = [...answer.matchAll(/\/landDetail\/(\d+)/g)]
+                                              .map(match => Number(match[1]))
+                                              .filter(Boolean);
+                                            if (landIds.length > 0) {
+                                              onRecommendLands(landIds);
+                                            }
+                                          }
+                                        } catch (error) {
+                                          setMessages(prev => [
+                                            ...prev,
+                                            {
+                                              id: (Date.now() + 2).toString(),
+                                              type: 'ai',
+                                              content: '응답 중 오류가 발생했습니다. 다시 시도해주세요.',
+                                              timestamp: new Date(),
+                                            },
+                                          ]);
+                                        } finally {
+                                          setIsLoading(false);
+                                        }
+                                      }}
+                                      className="px-3 py-1.5 bg-white border border-indigo-200 text-indigo-600 text-sm rounded-full hover:bg-indigo-50 transition-all shadow-sm"
+                                    >
+                                      {example}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          )}
 
                           {/* 추가질문 섹션 - 별도 말풍선, 2열 그리드 */}
                           {questions.length > 0 && (
@@ -839,7 +978,7 @@ export default function Chatbot({ onRecommendLands, onChatbotRecommend, onChatSt
             className="absolute inset-0 bg-black/70 backdrop-blur-md"
             onClick={() => setShowHistoryModal(false)}
           />
-          <div className="relative bg-white rounded-xl shadow-[var(--shadow-xl)] w-full max-w-2xl max-h-[80vh] flex flex-col z-[10000]">
+          <div className="relative bg-white rounded-xl shadow-[var(--shadow-xl)] w-full max-w-2xl max-h-[70vh] flex flex-col z-[10000]">
             <div className="flex items-center justify-between p-6 border-b">
               <h3 className="text-xl font-semibold text-[var(--color-primary)]">
                 과거 대화 내역
@@ -864,7 +1003,7 @@ export default function Chatbot({ onRecommendLands, onChatbotRecommend, onChatSt
                 </svg>
               </button>
             </div>
-            <div className="p-6 overflow-y-auto">
+            <div className="p-6 overflow-y-auto flex-1">
               {sessions.length === 0 ? (
                 <p className="text-sm text-[var(--color-text-tertiary)] text-center py-8">
                   저장된 대화가 없습니다

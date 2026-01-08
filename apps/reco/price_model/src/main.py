@@ -4,13 +4,21 @@
 import argparse
 from pathlib import Path
 
+<<<<<<< HEAD:apps/reco/models/price_model/ML/src/main.py
 from .data_loader import DataLoader
 from .preprocessor import PriceDataPreprocessor
 from .model import get_models
 from .trainer import ModelTrainer
+=======
+from loaders.data_loader import DataLoader
+from preprocessing.preprocessor import PriceDataPreprocessor
+from training.model import get_models
+from training.trainer import ModelTrainer
+>>>>>>> ebd2c7930b7a1f006d5e9868a05e7c6a4588b468:apps/reco/price_model/src/main.py
 
-ML_ROOT = Path(__file__).resolve().parent.parent  # .../ML
-REPO_ROOT = ML_ROOT.parent.parent.parent.parent.parent  # SKN18-FINAL-1TEAM
+ML_ROOT = Path(__file__).resolve().parent.parent  # src -> price_model
+# price_model -> reco -> apps -> SKN18-FINAL-1TEAM (3개 parent)
+REPO_ROOT = ML_ROOT.parents[2]  # SKN18-FINAL-1TEAM
 DEFAULT_DATA_DIR = REPO_ROOT / "data" / "actual_transaction_price"
 
 
@@ -98,15 +106,14 @@ def main(
 
     # 6. 모델 저장
     print(f"\n[Step 6] 모델 저장")
-    # 항상 ML 디렉터리 하위에 저장되도록 절대 경로 계산
-    ml_root = Path(__file__).resolve().parent.parent  # .../ML
+    ml_root = Path(__file__).resolve().parent.parent
     if Path(output_dir).is_absolute():
         resolved_output_dir = output_dir
     else:
         resolved_output_dir = str(ml_root / output_dir)
 
     model_path = trainer.save_model(
-        preprocessor=pipeline,
+        preprocessor=preprocessor,
         output_dir=resolved_output_dir
     )
 

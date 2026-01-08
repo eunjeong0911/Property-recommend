@@ -2,6 +2,7 @@ import pandas as pd
 from pathlib import Path
 import os
 
+<<<<<<< HEAD:apps/reco/models/price_model/prepare_wolse_dataset.py
 # Docker 환경에서는 /data가 마운트됨, 로컬에서는 프로젝트 루트/data
 if Path("/data/actual_transaction_price").exists():
     # Docker 환경: ./data:/data:ro 로 마운트됨
@@ -10,6 +11,12 @@ else:
     # 로컬 환경: apps/reco/models/price_model/prepare_wolse_dataset.py
     REPO_ROOT = Path(__file__).resolve().parents[4]
     BASE_DIR = REPO_ROOT / "data" / "actual_transaction_price"
+=======
+# 이 파일 위치 기준으로 프로젝트 루트 찾기
+# loaders/ -> src/ -> price_model/ -> reco/ -> apps/ -> SKN18-FINAL-1TEAM (6개 parent)
+REPO_ROOT = Path(__file__).resolve().parents[5]
+BASE_DIR = REPO_ROOT / "data" / "actual_transaction_price"
+>>>>>>> ebd2c7930b7a1f006d5e9868a05e7c6a4588b468:apps/reco/price_model/src/loaders/prepare_wolse_dataset.py
 
 
 # -------------------------------
@@ -217,10 +224,13 @@ def load_and_filter_monthly(path: Path) -> pd.DataFrame:
 
 
 # -------------------------------
-# 3) 실행 파트
+# 3) 메인 실행 함수
 # -------------------------------
-if __name__ == "__main__":
-
+def run():
+    """
+    월세 데이터셋 준비 전체 파이프라인 실행
+    외부 모듈에서 호출 가능
+    """
     print("\n" + "=" * 60)
     print("월세 데이터셋 준비 시작")
     print("=" * 60 + "\n")
@@ -322,8 +332,22 @@ if __name__ == "__main__":
     print("전체 작업 완료!")
     print("=" * 60)
     print("\n생성된 파일:")
-    print(f"1. {BASE_DIR / '(총합)시장금리_및_대출금리(24.8~25.11).csv'}")
+    print(f"1. {BASE_DIR / '(총합)시장금리_및_대출금리(24.8~25.10).csv'}")
     print(f"2. {out}")
     print(f"3. {out_train}")
     print(f"4. {out_test}")
     print("\n" + "=" * 60 + "\n")
+    
+    return {
+        "rate_data_path": BASE_DIR / "(총합)시장금리_및_대출금리(24.8~25.10).csv",
+        "model_data_path": out,
+        "train_path": out_train,
+        "test_path": out_test,
+    }
+
+
+# -------------------------------
+# 4) 단독 실행 시
+# -------------------------------
+if __name__ == "__main__":
+    run()

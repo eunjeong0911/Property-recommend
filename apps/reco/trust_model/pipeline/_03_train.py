@@ -15,6 +15,7 @@ import pickle
 import warnings
 warnings.filterwarnings('ignore')
 
+<<<<<<< HEAD
 # Docker 환경에서는 /data로 마운트됨
 if Path("/data/ML/trust").exists():
     TRAIN_PATH = "/data/ML/trust/X_train.csv"
@@ -30,6 +31,12 @@ else:
     TEST_TARGET_PATH = "data/ML/trust/y_test.csv"
     MODEL_DIR = Path("apps/reco/models/trust_model/model")
     MODEL_TEMP_PATH = "apps/reco/trust_model/temp_trained_models.pkl"
+=======
+TRAIN_PATH = "data/brokerInfo/ML/X_train.csv"
+TEST_PATH = "data/brokerInfo/ML/X_test.csv"
+TRAIN_TARGET_PATH = "data/brokerInfo/ML/y_train.csv"
+TEST_TARGET_PATH = "data/brokerInfo/ML/y_test.csv"
+>>>>>>> ebd2c7930b7a1f006d5e9868a05e7c6a4588b468
 
 
 def load_processed_data():
@@ -159,9 +166,18 @@ def main():
         print(f"    - 과적합 정도:     {train_acc - test_acc:.4f}")
         print(f"    - CV Mean:        {cv_scores.mean():.4f} (±{cv_scores.std():.4f})")
     
+<<<<<<< HEAD
     # 5) 모델 + 스케일러 저장
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
     with open(MODEL_TEMP_PATH, "wb") as f:
+=======
+    
+    # 5) Temp 모델 저장 (_04_eval, _05_save_model용)
+    temp_model_path = "apps/reco/trust_model/temp_trained_models.pkl"
+    Path(temp_model_path).parent.mkdir(parents=True, exist_ok=True)
+    
+    with open(temp_model_path, "wb") as f:
+>>>>>>> ebd2c7930b7a1f006d5e9868a05e7c6a4588b468
         pickle.dump(
             {
                 "models": models,
@@ -176,13 +192,34 @@ def main():
             f,
         )
     
-    print(f"\n✓ 학습 완료, temp 모델 저장: {MODEL_TEMP_PATH}")
+    print(f"\n✓ Temp 모델 저장: {temp_model_path}")
     
-    # 6) 최고 성능 모델 출력
+    # 6) 최종 모델 저장
+    print(f"\n💾 최종 모델 저장 중...")
+    
+    # 최고 성능 모델 선택
     best_model_name = max(cv_results.keys(), key=lambda k: cv_results[k]['test_acc'])
     print(f"\n🏆 최고 Test 성능 모델: {best_model_name}")
     print(f"   - Test Accuracy: {cv_results[best_model_name]['test_acc']:.4f}")
     print(f"   - Train Accuracy: {cv_results[best_model_name]['train_acc']:.4f}")
+    
+    # 최종 모델 데이터 준비
+    final_model_data = {
+        "model": models[best_model_name],
+        "scaler": scaler,
+        "feature_names": list(X_train.columns),
+        "model_name": best_model_name
+    }
+    
+    # scripts/03_import/trust 폴더에 저장
+    final_model_path = "scripts/03_import/trust/final_trust_model.pkl"
+    Path("scripts/03_import/trust").mkdir(parents=True, exist_ok=True)
+    
+    with open(final_model_path, "wb") as f:
+        pickle.dump(final_model_data, f)
+    
+    print(f"\n✓ 최종 모델 저장 완료: {final_model_path}")
+    print(f"✓ 선택된 모델: {best_model_name}")
     
     print("\n" + "=" * 70)
     print(" " * 25 + "완료!")
