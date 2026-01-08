@@ -60,10 +60,9 @@ class Config:
     # 경로 설정 (Docker 환경 자동 감지)
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     
-    # Docker 환경에서는 /data/GraphDB_data, 로컬에서는 data/GraphDB_data
-    if os.path.exists("/data/GraphDB_data"):
-        DATA_DIR = "/data/GraphDB_data"
-        print("Docker 환경 감지: /data/GraphDB_data 사용")
+    if os.path.exists("/app/data/GraphDB_data"):
+        DATA_DIR = "/app/data/GraphDB_data"
+        print("Docker 환경 감지: /app/data/GraphDB_data 사용")
     else:
         DATA_DIR = os.path.join(BASE_DIR, "data", "GraphDB_data")
         print(f"로컬 환경 감지: {DATA_DIR} 사용")

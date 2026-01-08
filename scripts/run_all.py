@@ -1,21 +1,29 @@
 #!/usr/bin/env python
 """
 전체 ETL 파이프라인 실행 스크립트
-1. 크롤링 (Peterpan 부동산)
-2. 전처리 (OpenAI API)
-3. S3 업로드
-4. 데이터 Import (Neo4j, PostgreSQL, Elasticsearch)
-5. 중개사 신뢰도 등급 적용
-6. 실거래가 분류 모델 적용
+1. 크롤링 (Peterpan 부동산 데이터)
+2. 전처리 (위경도 좌표 변환, 검색 텍스트 생성)
+3. S3 데이터 저장
+4. S3 데이터 다운로드
+5. 데이터 Import (PostgreSQL, Neo4j, Elasticsearch)
+6. 가격 분류 모델 적용
+7. 중개사 신뢰도 평가 모델 적용
 """
 import os
 import sys
+import os
 import subprocess
 from pathlib import Path
+from datetime import datetime
 
-def run_script(script_path, cwd=None):
+def run_script(script_path, cwd=None, args=None):
+    """Python 스크립트 실행"""
     print(f"\n🚀 실행 중: {script_path}")
-    result = subprocess.run([sys.executable, str(script_path)], cwd=cwd)
+    cmd = [sys.executable, str(script_path)]
+    if args:
+        cmd.extend(args)
+    
+    result = subprocess.run(cmd, cwd=cwd)
     if result.returncode != 0:
         print(f"❌ 실패: {script_path} (Exit code: {result.returncode})")
         return False
@@ -23,50 +31,59 @@ def run_script(script_path, cwd=None):
 
 def main():
     base_dir = Path(__file__).parent
+    start_time = datetime.now()
     
     print("\n" + "=" * 80)
-    print(" " * 25 + "🚀 전체 ETL 파이프라인 시작")
+    print(" " * 25 + "🚀 ETL 파이프라인 시작")
+    print("=" * 80)
+    print(f"시작 시간: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 80)
     
-    # Step 1: 크롤링 (선택적 - 환경변수로 제어)
-    skip_crawling = os.getenv("SKIP_CRAWLING", "false").lower() == "true"
-    if not skip_crawling:
+    # Step 1: 크롤링 (환경 변수로 건너뛰기 가능)
+    if os.getenv('ENABLE_CRAWLING', 'false').lower() == 'true':
         print("\n" + "=" * 80)
-        print(" " * 20 + "�️ [Step 1/6] 크롤링 시작")
+        print(" " * 20 + "[Step 1/7] 크롤링 시작")
         print("=" * 80)
         crawl_script = base_dir / "01_crawling" / "peterpan" / "crawl_seoul.py"
         if crawl_script.exists():
             print(f"📍 스크립트: {crawl_script}")
             if not run_script(crawl_script):
-                sys.exit(1)
+                print("⚠️ 크롤링 실패, 계속 진행합니다...")
         else:
-            print(f"⚠️ 크롤링 스크립트를 찾을 수 없습니다: {crawl_script}")
-            print("   크롤링 없이 계속 진행합니다...")
-    else:
-        print("\n⏭ 크롤링 건너뛰기 (SKIP_CRAWLING=true)")
-    
-    # Step 2: 전처리 (선택적 - 환경변수로 제어)
-    skip_preprocessing = os.getenv("SKIP_PREPROCESSING", "false").lower() == "true"
-    if not skip_preprocessing:
+            print(f"⚠️ 크롤링 스크립트 없음: {crawl_script}")
+            print("   기존 데이터로 계속 진행합니다...")
+        
+        # Step 1-2: Geocoding (크롤링 직후 실행)
         print("\n" + "=" * 80)
-        print(" " * 20 + "🔧 [Step 2/6] 전처리 시작")
+        print(" " * 20 + "[Step 1-2/7] 주소 좌표 변환 (Geocoding)")
         print("=" * 80)
-        preprocess_script = base_dir / "02_preprocessing" / "generate_search_text_parallel.py"
-        if preprocess_script.exists():
-            print(f"📍 스크립트: {preprocess_script}")
-            if not run_script(preprocess_script):
-                sys.exit(1)
+        geocode_script = base_dir / "01_crawling" / "peterpan" / "geocode_addresses.py"
+        if geocode_script.exists():
+            print(f"📍 스크립트: {geocode_script}")
+            if not run_script(geocode_script):
+                print("⚠️ Geocoding 실패, 계속 진행합니다...")
         else:
-            print(f"⚠️ 전처리 스크립트를 찾을 수 없습니다: {preprocess_script}")
-            print("   전처리 없이 계속 진행합니다...")
-    else:
-        print("\n⏭ 전처리 건너뛰기 (SKIP_PREPROCESSING=true)")
-    
-    # Step 3: S3 업로드 (선택적 - 환경변수로 제어)
-    upload_to_s3 = os.getenv("UPLOAD_TO_S3", "false").lower() == "true"
-    if upload_to_s3:
+            print(f"⚠️ Geocoding 스크립트 없음: {geocode_script}")
+            print("   좌표 없이 계속 진행합니다...")
+
+    # Step 2: 전처리
+    if os.getenv('ENABLE_PREPROCESSING', 'false').lower() == 'true':
         print("\n" + "=" * 80)
-        print(" " * 20 + "📤 [Step 3/6] S3 업로드 시작")
+        print(" " * 20 + "[Step 2/7] 전처리 시작")
+        print("=" * 80)
+    preprocess_script = base_dir / "02_preprocessing" / "generate_search_text_parallel.py"
+    if preprocess_script.exists():
+        print(f"📍 스크립트: {preprocess_script}")
+        if not run_script(preprocess_script):
+            print("⚠️ 전처리 실패, 계속 진행합니다...")
+    else:
+        print(f"⚠️ 전처리 스크립트 없음: {preprocess_script}")
+        print("   전처리 없이 계속 진행합니다...")
+
+    # Step 3: S3 업로드 (크롤링/전처리 후)
+    if os.getenv('UPLOAD_TO_S3', 'false').lower() == 'true':
+        print("\n" + "=" * 80)
+        print(" " * 20 + "[Step 3/7] S3 데이터 업로드")
         print("=" * 80)
         upload_script = base_dir / "upload_to_s3.py"
         if upload_script.exists():
@@ -74,13 +91,28 @@ def main():
             if not run_script(upload_script):
                 print("⚠️ S3 업로드 실패, 계속 진행합니다...")
         else:
-            print(f"⚠️ S3 업로드 스크립트를 찾을 수 없습니다: {upload_script}")
-    else:
-        print("\n⏭ S3 업로드 건너뛰기 (UPLOAD_TO_S3=false)")
+            print(f"⚠️ S3 업로드 스크립트 없음: {upload_script}")
+            print("   S3 업로드 없이 계속 진행합니다...")
+
+    # Step 4: S3 데이터 다운로드 (선택적)
+    if os.getenv('DOWNLOAD_FROM_S3', 'false').lower() == 'true':
+        print("\n" + "=" * 80)
+        print(" " * 20 + "[Step 4/7] S3 데이터 다운로드")
+        print("=" * 80)
+        download_script = base_dir / "download_from_s3.py"
+        if download_script.exists():
+            print(f"📍 스크립트: {download_script}")
+            if not run_script(download_script):
+                print("❌ S3 다운로드 실패")
+                sys.exit(1)
+        else:
+            print(f"⚠️ S3 다운로드 스크립트 없음: {download_script}")
+            print("   S3 다운로드 없이 계속 진행합니다...")
     
-    # Step 4: 데이터 Import (Neo4j, PostgreSQL, Elasticsearch, Trust, Price)
+    
+    # Step 5: 데이터 Import
     print("\n" + "=" * 80)
-    print(" " * 15 + "📦 [Step 4/6] 데이터 Import 시작")
+    print(" " * 18 + "📦 [Step 5/7] 데이터 Import 시작")
     print("=" * 80)
     import_script = base_dir / "03_import" / "import_all.py"
     if not import_script.exists():
@@ -88,12 +120,51 @@ def main():
         sys.exit(1)
     
     print(f"📍 스크립트: {import_script}")
-    if not run_script(import_script):
+    if not import_script.exists():
+        print(f"❌ Import 스크립트를 찾을 수 없습니다: {import_script}")
         sys.exit(1)
-
+    
+    print(f"📍 스크립트: {import_script}")
+    if not run_script(import_script):
+        print("❌ 데이터 Import 실패")
+        sys.exit(1)
+    
+    # Step 6: 가격 분류 모델 적용
     print("\n" + "=" * 80)
-    print("✅ 전체 ETL 파이프라인이 성공적으로 완료되었습니다!")
+    print(" " * 15 + "🤖 [Step 6/7] 가격 분류 모델 적용 시작")
     print("=" * 80)
+    analysis_script = base_dir / "03_import" / "price_model" / "apply_price_classification.py"
+    if not analysis_script.exists():
+        print(f"⚠️ 분석 스크립트 없음: {analysis_script}")
+        print("   분석 없이 파이프라인을 완료합니다...")
+    else:
+        print(f"📍 스크립트: {analysis_script}")
+        if not run_script(analysis_script):
+            print("⚠️ 가격 분류 실패, 계속 진행합니다...")
+    
+    # Step 6: 중개사 신뢰도 평가 모델 적용
+    print("\n" + "=" * 80)
+    print(" " * 15 + "🏅 [Step 7/7] 중개사 신뢰도 평가 모델 적용 시작")
+    print("=" * 80)
+    trust_model_script = base_dir / "03_import" / "trust" / "predict_trust_scores.py"
+    if not trust_model_script.exists():
+        print(f"⚠️ 신뢰도 평가 스크립트 없음: {trust_model_script}")
+        print("   신뢰도 평가 없이 파이프라인을 완료합니다...")
+    else:
+        print(f"📍 스크립트: {trust_model_script}")
+        if not run_script(trust_model_script):
+            print("⚠️ 신뢰도 평가 실패, 파이프라인은 완료합니다...")
+    
+    # 완료
+    end_time = datetime.now()
+    duration = end_time - start_time
+    
+    print("\n" + "=" * 80)
+    print("✅ ETL 파이프라인 완료!")
+    print("=" * 80)
+    print(f"종료 시간: {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"총 소요 시간: {duration}")
+    print("=" * 80 + "\n")
 
 if __name__ == "__main__":
     main()

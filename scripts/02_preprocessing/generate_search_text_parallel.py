@@ -39,7 +39,7 @@ MODEL = "gpt-5-mini"
 CONCURRENT_LIMIT = 20   # 동시 처리 수 (배치당)
 SAVE_INTERVAL = 20     # 저장 간격
 
-DATA_DIR = Path(__file__).parent.parent.parent / "scripts" / "dataCrawling" / "피터팬 매물 데이터" / "data"
+DATA_DIR = Path(__file__).parent.parent.parent / "data" / "preprocessing"
 OUTPUT_DIR = Path(__file__).parent.parent.parent / "data" / "RDB" / "land"
 
 # OpenAI 비동기 클라이언트
@@ -163,36 +163,66 @@ def save_progress(data: list, output_path: Path):
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-
-
-
-
-
-
 async def process_file(input_path: Path, output_path: Path):
     """파일 처리 (비동기)"""
     print(f"\n처리 중: {input_path.name}")
     
-    # 기존 진행 로드
+    # 입력 파일 읽기 (data/preprocessing - 최신 크롤링 데이터)
+    with open(input_path, "r", encoding="utf-8") as f:
+        input_data = json.load(f)
+    
+    # 기존 출력 파일 읽기 (data/RDB/land - 이전에 처리된 데이터)
+    existing_data_by_id = {}
     if output_path.exists():
-        print(f"기존 파일에서 이어서 처리")
+        print(f"기존 출력 파일 확인 중...")
         with open(output_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    else:
-        with open(input_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
+            existing_data = json.load(f)
+            # 매물번호로 인덱싱
+            for item in existing_data:
+                listing_id = item.get("매물번호")
+                if listing_id:
+                    existing_data_by_id[listing_id] = item
+        print(f"  기존 데이터: {len(existing_data_by_id)}개")
     
-    # 처리 안 된 항목 필터링
-    to_process = [(i, item) for i, item in enumerate(data) if not item.get("search_text")]
+    # 입력 데이터를 기반으로 최종 데이터 구성
+    final_data = []
+    to_process = []  # 새로 처리해야 할 항목 (인덱스, 매물 데이터)
     
-    total = len(data)
+    for i, item in enumerate(input_data):
+        listing_id = item.get("매물번호")
+        if not listing_id:
+            final_data.append(item)
+            continue
+        
+        # 기존 데이터에 있는지 확인
+        if listing_id in existing_data_by_id:
+            existing_item = existing_data_by_id[listing_id]
+            
+            # 기존 search_text와 style_tags가 있으면 재사용
+            if existing_item.get("search_text"):
+                # 기존 데이터의 search_text와 style_tags를 현재 데이터에 복사
+                item["search_text"] = existing_item.get("search_text", "")
+                item["style_tags"] = existing_item.get("style_tags", [])
+                final_data.append(item)
+            else:
+                # search_text가 없으면 새로 생성 필요
+                final_data.append(item)
+                to_process.append((len(final_data) - 1, item))
+        else:
+            # 새로운 매물 - 처리 필요
+            final_data.append(item)
+            to_process.append((len(final_data) - 1, item))
+    
+    total = len(final_data)
     already_done = total - len(to_process)
     remaining = len(to_process)
     
-    print(f"총 {total}개 (완료: {already_done}, 남음: {remaining})")
+    print(f"총 {total}개 (완료: {already_done}, 새로 처리 필요: {remaining})")
     
     if not to_process:
         print("모두 처리 완료!")
+        # 변경사항이 없어도 최신 입력 데이터로 저장 (매물 정보 업데이트 반영)
+        save_progress(final_data, output_path)
         return
     
     semaphore = asyncio.Semaphore(CONCURRENT_LIMIT)
@@ -208,13 +238,13 @@ async def process_file(input_path: Path, output_path: Path):
         
         # 결과 반영
         for (idx, item), result in zip(batch, results):
-            data[idx]["search_text"] = result.get("search_text", "")
-            data[idx]["style_tags"] = result.get("style_tags", [])
+            final_data[idx]["search_text"] = result.get("search_text", "")
+            final_data[idx]["style_tags"] = result.get("style_tags", [])
         
         processed_count += len(batch)
         
         # 중간 저장
-        save_progress(data, output_path)
+        save_progress(final_data, output_path)
         
         # 진행 상황 출력
         elapsed = asyncio.get_event_loop().time() - start_time

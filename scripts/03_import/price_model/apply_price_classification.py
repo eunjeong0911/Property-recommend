@@ -3,7 +3,7 @@
 저장된 모델을 사용하여 매물 데이터에 가격 분류를 적용하고 DB에 저장
 
 Usage:
-    docker compose --profile scripts run --rm scripts
+    docker compose --profile scripts run --rm scripts python scripts/03_import/price_model/apply_price_classification.py
 """
 import argparse
 import pickle
@@ -26,17 +26,22 @@ IS_DOCKER = os.path.exists("/app") or os.path.exists("/data")
 
 if IS_DOCKER:
     # Docker 환경 (scripts 컨테이너)
-    # apps/reco가 /app/apps/reco에 마운트됨
-    SCRIPT_DIR = Path("/app/03_import/price_model")
-    MODEL_DIR = Path("/app/03_import/price_model")
-    DATA_DIR = Path("/data")
+    # 스크립트가 /app/03_import/price_model에 위치
+    SCRIPT_DIR = Path(__file__).resolve().parent
+    MODEL_DIR = SCRIPT_DIR  # 모델 파일이 스크립트와 같은 디렉토리에 있음
+    DATA_DIR = Path("/app/data")
     JSON_DATA_DIR = DATA_DIR / "RDB" / "land"
     INTEREST_RATE_PATH = DATA_DIR / "actual_transaction_price" / "(총합)시장금리_및_대출금리(24.8~25.10).csv"
 else:
     # 로컬 환경
     SCRIPT_DIR = Path(__file__).resolve().parent
     PROJECT_ROOT = SCRIPT_DIR.parents[2]  # SKN18-FINAL-1TEAM
-    MODEL_DIR = PROJECT_ROOT / "apps" / "reco" / "price_model" / "model"
+    # 로컬에서는 스크립트 디렉토리에도 모델이 있고, apps/reco에도 있음
+    # 우선 스크립트 디렉토리에서 찾고, 없으면 apps/reco에서 찾음
+    if (SCRIPT_DIR / "price_model_lightgbm.pkl").exists():
+        MODEL_DIR = SCRIPT_DIR
+    else:
+        MODEL_DIR = PROJECT_ROOT / "apps" / "reco" / "price_model" / "model"
     DATA_DIR = PROJECT_ROOT / "data"
     JSON_DATA_DIR = DATA_DIR / "RDB" / "land"
     INTEREST_RATE_PATH = DATA_DIR / "actual_transaction_price" / "(총합)시장금리_및_대출금리(24.8~25.10).csv"
@@ -347,7 +352,14 @@ class DatabaseManager:
             df['매물_URL'] = df['url']
             df['전체주소'] = df['address']
             
-            # 유효한 데이터만 필터링
+            # 유효한 데이터만 필터링 (디버깅 정보 추가)
+            print(f"\n📊 필터링 전 데이터 상태:")
+            print(f"  - 전체 매물: {len(df)}건")
+            print(f"  - 임대면적 > 0: {(df['임대면적'] > 0).sum()}건")
+            print(f"  - 임대료(만원) > 0: {(df['임대료(만원)'] > 0).sum()}건")
+            print(f"  - 자치구명 != '알수없음': {(df['자치구명'] != '알수없음').sum()}건")
+            
+            # 조건 완화: 보증금 또는 임대료가 있으면 OK
             valid_mask = (
                 (df['임대면적'] > 0) &
                 (df['임대료(만원)'] > 0) &

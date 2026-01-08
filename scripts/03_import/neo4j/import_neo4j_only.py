@@ -51,12 +51,20 @@ def main():
         
         # 3. 데이터 Import
         print("=" * 70)
-        print("1. 교통 데이터 Import")
+        print("1. 매물 데이터 Import (Neo4j) - 우선 실행")
+        print("=" * 70)
+        print("\n[1-1] 매물 데이터 Import 중...")
+        prop = PropertyImporter()
+        prop.import_properties()
+        print("✓ 매물 데이터 Import 완료\n")
+
+        print("=" * 70)
+        print("2. 교통 데이터 Import")
         print("=" * 70)
         transport = TransportImporter()
-        print("\n[1-1] 지하철역 데이터 Import 중...")
+        print("\n[2-1] 지하철역 데이터 Import 중...")
         transport.import_subway()
-        print("\n[1-2] 버스정류장 데이터 Import 중...")
+        print("\n[2-2] 버스정류장 데이터 Import 중...")
         transport.import_bus()
         print("✓ 교통 데이터 Import 완료\n")
         
@@ -108,13 +116,8 @@ def main():
         animal.import_pet_stores()
         print("✓ 반려동물 데이터 Import 완료\n")
         
-        print("=" * 70)
-        print("4. 매물 데이터 Import (Neo4j)")
-        print("=" * 70)
-        print("\n[4-1] 매물 데이터 Import 중...")
-        prop = PropertyImporter()
-        prop.import_properties()
-        print("✓ 매물 데이터 Import 완료\n")
+        # Property import moved to start
+
         
         print("=" * 70)
         print("5. 데이터 연결 (Linking)")

@@ -24,9 +24,20 @@ def update_broker_stats():
     print("=" * 70)
     
     # 1. CSV 로드
-    csv_path = '/data/brokerInfo/grouped_offices.csv'
-    if not os.path.exists(csv_path):
-        csv_path = 'data/brokerInfo/grouped_offices.csv'
+    # 경로 우선순위: /app/data (Docker) → data (상대 경로)
+    possible_paths = [
+        '/app/data/brokerInfo/grouped_offices.csv',  # Docker (로컬 + AWS)
+        'data/brokerInfo/grouped_offices.csv'        # 상대 경로
+    ]
+    
+    csv_path = None
+    for path in possible_paths:
+        if os.path.exists(path):
+            csv_path = path
+            break
+    
+    if not csv_path:
+        raise FileNotFoundError(f"CSV 파일을 찾을 수 없습니다. 시도한 경로: {possible_paths}")
     
     print(f"\n1. CSV 로드 중: {csv_path}")
     df = pd.read_csv(csv_path, encoding='utf-8-sig')

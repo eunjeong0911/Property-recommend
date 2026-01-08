@@ -6,14 +6,14 @@ Neo4j, PostgreSQL, Elasticsearch에 데이터를 일괄 적재합니다.
 
 Usage:
     // 전체 Import
-    docker compose --profile scripts run --rm scripts python 03_import/import_all.py
+    docker compose --profile scripts run --rm scripts python scripts/03_import/import_all.py
 
     // 특정 DB만 Import
-    docker compose --profile scripts run --rm scripts python 03_import/import_all.py --only neo4j
-    docker compose --profile scripts run --rm scripts python 03_import/import_all.py --only postgres
-    docker compose --profile scripts run --rm scripts python 03_import/import_all.py --only es
-    docker compose --profile scripts run --rm scripts python 03_import/import_all.py --only trust
-    docker compose --profile scripts run --rm scripts python 03_import/import_all.py --only price
+    docker compose --profile scripts run --rm scripts python scripts/03_import/import_all.py --only neo4j
+    docker compose --profile scripts run --rm scripts python scripts/03_import/import_all.py --only postgres
+    docker compose --profile scripts run --rm scripts python scripts/03_import/import_all.py --only es
+    docker compose --profile scripts run --rm scripts python scripts/03_import/import_all.py --only trust
+    docker compose --profile scripts run --rm scripts python scripts/03_import/import_all.py --only price
 """
 import sys
 import os
@@ -151,17 +151,21 @@ def main():
         if not args.skip_health_check:
             print("\n[사전 검증] DB 연결 확인 중...")
             
+            # Neo4j 연결 확인 (필수)
             if args.only is None or args.only == "neo4j":
                 DatabaseHealthCheck.wait_for_neo4j(
                     Config.NEO4J_URI, Config.NEO4J_USER, Config.NEO4J_PASSWORD
                 )
             
+            # PostgreSQL 연결 확인 (필수)
             if args.only is None or args.only == "postgres":
                 DatabaseHealthCheck.wait_for_postgres(
                     Config.POSTGRES_HOST, Config.POSTGRES_PORT,
                     Config.POSTGRES_DB, Config.POSTGRES_USER, Config.POSTGRES_PASSWORD
                 )
             
+            
+            # Elasticsearch 연결 확인 (필수)
             if args.only is None or args.only in ["es", "elasticsearch"]:
                 DatabaseHealthCheck.wait_for_elasticsearch(
                     os.getenv("ELASTICSEARCH_HOST", "elasticsearch"),
@@ -182,12 +186,10 @@ def main():
         elif args.only == "price":
             import_price_classification()
         else:
-            # 전체 Import (순서: Neo4j → PostgreSQL → Elasticsearch → Trust → Price)
+            # 전체 Import (순서: Neo4j → PostgreSQL → Elasticsearch)
             import_neo4j()
             import_postgres()
             import_elasticsearch()
-            import_trust()
-            import_price_classification()
         
         elapsed = time.time() - start_time
         print("\n" + "=" * 70)

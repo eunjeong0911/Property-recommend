@@ -30,9 +30,43 @@ def update_style_tags():
     )
     cur = conn.cursor()
     
+    # 컬럼 존재 여부 확인 및 추가
+    print("컬럼 확인 중...")
+    
+    # style_tags 컬럼 확인
+    cur.execute("""
+        SELECT EXISTS (
+            SELECT FROM information_schema.columns 
+            WHERE table_name = 'land' AND column_name = 'style_tags'
+        );
+    """)
+    has_style_tags = cur.fetchone()[0]
+    
+    if not has_style_tags:
+        print("  → style_tags 컬럼 추가 중...")
+        cur.execute("ALTER TABLE land ADD COLUMN style_tags TEXT[];")
+        print("  ✓ style_tags 컬럼 추가 완료")
+    
+    # search_text 컬럼 확인
+    cur.execute("""
+        SELECT EXISTS (
+            SELECT FROM information_schema.columns 
+            WHERE table_name = 'land' AND column_name = 'search_text'
+        );
+    """)
+    has_search_text = cur.fetchone()[0]
+    
+    if not has_search_text:
+        print("  → search_text 컬럼 추가 중...")
+        cur.execute("ALTER TABLE land ADD COLUMN search_text TEXT;")
+        print("  ✓ search_text 컬럼 추가 완료")
+    
+    conn.commit()
+    print("✓ 컬럼 확인 완료\n")
+    
     # JSON 파일 경로
-    if os.path.exists("/data/RDB/land"):
-        data_dir = "/data/RDB/land"
+    if os.path.exists("/app/data/RDB/land"):
+        data_dir = "/app/data/RDB/land"
     else:
         data_dir = os.path.join(Config.BASE_DIR, "data", "RDB", "land")
     
@@ -62,10 +96,13 @@ def update_style_tags():
             if not land_num:
                 continue
             
-            # style_tags 추출
+            # style_tags 추출 (PostgreSQL 배열로 저장)
             style_tags = item.get("style_tags") or item.get("스타일태그")
-            if isinstance(style_tags, list):
-                style_tags = ", ".join(style_tags)
+            if isinstance(style_tags, str):
+                # 문자열인 경우 쉼표로 분리하여 리스트로 변환
+                style_tags = [tag.strip() for tag in style_tags.split(",")]
+            elif not isinstance(style_tags, list):
+                style_tags = None
             
             # search_text 추출
             search_text = item.get("search_text") or item.get("검색텍스트")

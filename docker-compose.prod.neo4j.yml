@@ -1,0 +1,53 @@
+# =============================================================================
+# Docker Compose - Production Configuration (Neo4j Server)
+# =============================================================================
+# 이 파일은 Neo4j Server EC2 인스턴스에서 사용됩니다.
+#
+# 인스턴스: Neo4j Server (t3.small 사용)
+# 서비스: Neo4j Graph Database
+#
+# Usage:
+#   docker-compose -f docker-compose.prod.neo4j.yml up -d
+# =============================================================================
+
+services:
+  neo4j:
+    image: neo4j:5.15
+    container_name: realestate-neo4j
+    environment:
+      NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:?NEO4J_PASSWORD is required}
+      NEO4J_PLUGINS: '["apoc"]'
+      # Production memory settings
+      NEO4J_server_memory_heap_initial__size: 512m
+      # t3.small(2GB) 고려하여 Max Heap 조정 (1G -> 768m)
+      NEO4J_server_memory_heap_max__size: 768m
+      # Pagecache 조정 (512m -> 256m)
+      NEO4J_server_memory_pagecache_size: 256m
+    ports:
+      - "7474:7474" # HTTP
+      - "7687:7687" # Bolt
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:7474 || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+        reservations:
+          memory: 768M
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  neo4j_data:
+    name: realestate-neo4j-data
+  neo4j_logs:
+    name: realestate-neo4j-logs

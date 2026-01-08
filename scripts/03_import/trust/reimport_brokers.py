@@ -26,8 +26,8 @@ def import_brokers_from_json():
     print("=" * 70 + "\n")
     
     # 1. JSON 파일 경로
-    if os.path.exists("/data/RDB/land"):
-        data_dir = "/data/RDB/land"
+    if os.path.exists("/app/data/RDB/land"):
+        data_dir = "/app/data/RDB/land"
     else:
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         data_dir = os.path.join(base_dir, "data", "RDB", "land")
@@ -90,16 +90,31 @@ def import_brokers_from_json():
     for reg_num, data in brokers_dict.items():
         info = data['info']
         
+        # 통계 데이터 파싱
+        def parse_count(value):
+            if not value:
+                return 0
+            try:
+                return int(value.replace('건', '').replace(',', '').strip())
+            except:
+                return 0
+        
+        completed_deals = parse_count(info.get('거래완료', '0'))
+        registered_properties = parse_count(info.get('등록매물', '0'))
+        
         # UPSERT
         query = """
         INSERT INTO landbroker (
-            office_name, representative, phone, address, registration_number
-        ) VALUES (%s, %s, %s, %s, %s)
+            office_name, representative, phone, address, registration_number,
+            completed_deals, registered_properties
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s)
         ON CONFLICT (registration_number) DO UPDATE SET
             office_name = COALESCE(EXCLUDED.office_name, landbroker.office_name),
             representative = COALESCE(EXCLUDED.representative, landbroker.representative),
             phone = COALESCE(EXCLUDED.phone, landbroker.phone),
             address = COALESCE(EXCLUDED.address, landbroker.address),
+            completed_deals = EXCLUDED.completed_deals,
+            registered_properties = EXCLUDED.registered_properties,
             updated_at = CURRENT_TIMESTAMP
         RETURNING landbroker_id, (xmax = 0) AS is_new;
         """
@@ -109,7 +124,9 @@ def import_brokers_from_json():
             info.get('representative') or info.get('대표자'),
             info.get('phone') or info.get('전화번호'),
             info.get('address') or info.get('주소'),
-            reg_num
+            reg_num,
+            completed_deals,
+            registered_properties
         )
         
         try:
