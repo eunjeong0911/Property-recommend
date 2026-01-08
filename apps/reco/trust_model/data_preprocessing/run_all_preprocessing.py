@@ -8,8 +8,21 @@
 """
 
 import sys
+import os
 from pathlib import Path
 from datetime import datetime
+
+# Docker 환경 감지 및 작업 디렉토리 설정
+if Path("/app").exists() and Path("/data").exists():
+    # Docker 환경
+    project_root = Path("/")
+    os.chdir(project_root)
+    print(f"Docker 환경 - 작업 디렉토리: {project_root}")
+else:
+    # 로컬 환경: 프로젝트 루트로 이동
+    project_root = Path(__file__).parent.parent.parent.parent.parent
+    os.chdir(project_root)
+    print(f"로컬 환경 - 작업 디렉토리: {project_root}")
 
 
 def run_script(script_name: str, step: int, description: str) -> bool:

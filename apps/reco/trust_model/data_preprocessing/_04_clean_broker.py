@@ -8,9 +8,13 @@ from pathlib import Path
 def clean_merged_brokers():
     """land_ 컬럼만 있고 나머지가 비어있는 행을 제거하고 불필요한 컬럼 삭제"""
     
-    # CSV 파일 읽기
-    input_file = "data/brokerInfo/merged_brokers.csv"
-    output_file = "data/brokerInfo/cleaned_brokers.csv"
+    # Docker 환경에서는 /data로 마운트됨
+    if Path("/data/brokerInfo").exists():
+        input_file = "/data/brokerInfo/merged_brokers.csv"
+        output_file = "/data/brokerInfo/cleaned_brokers.csv"
+    else:
+        input_file = "data/brokerInfo/merged_brokers.csv"
+        output_file = "data/brokerInfo/cleaned_brokers.csv"
     
     print(f"=== {input_file} 파일 로드 중 ===")
     df = pd.read_csv(input_file)

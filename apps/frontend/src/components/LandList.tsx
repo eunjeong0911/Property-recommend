@@ -23,7 +23,6 @@ import { useSession } from 'next-auth/react';
 
 interface LandListProps {
     filterParams?: LandFilterParams;
-    recommendedLandIds?: number[];
 }
 
 const ITEMS_PER_PAGE = 5; // 페이지당 5개 표시 (화면에 맞춤)
@@ -39,7 +38,7 @@ const loadPageStateFromStorage = () => {
     }
 };
 
-export default function LandList({ filterParams, recommendedLandIds }: LandListProps) {
+export default function LandList({ filterParams }: LandListProps) {
     const router = useRouter();
     const { data: session } = useSession();
     const [lands, setLands] = useState<Land[]>([]);
@@ -64,18 +63,13 @@ export default function LandList({ filterParams, recommendedLandIds }: LandListP
 
     useEffect(() => {
         const loadLands = async () => {
+            // ★★★ 일반 필터 모드 - API 호출 ★★★
             try {
                 setLoading(true);
+                console.log('[LandList] 📋 일반 필터 모드 - API 호출:', filterParams);
                 const data = await fetchLands(filterParams);
-
-                // AI 추천 매물 ID가 있으면 필터링
-                if (recommendedLandIds && recommendedLandIds.length > 0) {
-                    const filtered = data.filter(land => recommendedLandIds.includes(land.id));
-                    setLands(filtered);
-                } else {
-                    setLands(data);
-                }
-
+                console.log('[LandList] ✅ API 응답:', data.length, '개');
+                setLands(data);
                 setError(null);
             } catch (err) {
                 console.error('Failed to fetch lands:', err);
@@ -86,7 +80,7 @@ export default function LandList({ filterParams, recommendedLandIds }: LandListP
         };
 
         loadLands();
-    }, [filterParams, recommendedLandIds]);
+    }, [filterParams]);
 
     // 필터가 변경되면 페이지를 1로 리셋 (첫 마운트 제외)
     useEffect(() => {
@@ -256,7 +250,9 @@ export default function LandList({ filterParams, recommendedLandIds }: LandListP
             {/* 매물 리스트 헤더 */}
             <div className="bg-white border border-[var(--color-border-light)] rounded-xl p-6 shadow-[var(--shadow-md)]">
                 <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-semibold text-[var(--color-primary)]">추천 매물</h3>
+                    <h3 className="text-lg font-semibold text-[var(--color-primary)]">
+                        추천 매물
+                    </h3>
                     <span className="text-sm text-[var(--color-text-tertiary)]">
                         총 {lands.length}개
                     </span>

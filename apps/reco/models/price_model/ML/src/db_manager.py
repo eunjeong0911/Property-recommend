@@ -6,7 +6,7 @@ import psycopg2
 from psycopg2.extras import execute_batch
 from typing import List, Dict
 import pandas as pd
-from config import DB_CONFIG, RESULTS_TABLE, CLASS_LABELS
+from .config import DB_CONFIG, RESULTS_TABLE, CLASS_LABELS
 
 
 class DatabaseManager:
