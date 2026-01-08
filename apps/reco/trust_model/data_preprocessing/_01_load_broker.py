@@ -232,8 +232,11 @@ def collect_seoul_brokers():
     print(f"\n=== 총 {len(all_brokers)}건의 중개업소 정보 수집 완료 ===\n")
     
     if all_brokers:
-        # CSV 파일로 저장
-        csv_filepath = "data/brokerInfo/brokers.csv"
+        # Docker 환경에서는 /data로 마운트됨
+        if Path("/data/brokerInfo").exists():
+            csv_filepath = "/data/brokerInfo/brokers.csv"
+        else:
+            csv_filepath = "data/brokerInfo/brokers.csv"
         api.save_to_csv(all_brokers, csv_filepath)
         
         print(f"\n서울시 전체 중개업소 정보가 저장되었습니다.")

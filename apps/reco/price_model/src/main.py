@@ -4,10 +4,17 @@
 import argparse
 from pathlib import Path
 
+<<<<<<< HEAD:apps/reco/models/price_model/ML/src/main.py
+from .data_loader import DataLoader
+from .preprocessor import PriceDataPreprocessor
+from .model import get_models
+from .trainer import ModelTrainer
+=======
 from loaders.data_loader import DataLoader
 from preprocessing.preprocessor import PriceDataPreprocessor
 from training.model import get_models
 from training.trainer import ModelTrainer
+>>>>>>> ebd2c7930b7a1f006d5e9868a05e7c6a4588b468:apps/reco/price_model/src/main.py
 
 ML_ROOT = Path(__file__).resolve().parent.parent  # src -> price_model
 # price_model -> reco -> apps -> SKN18-FINAL-1TEAM (3개 parent)
