@@ -66,6 +66,9 @@ services:
       target: runner
     command: [] # Use Dockerfile CMD
     volumes: []
+    environment:
+      # 배포 환경에서는 Nginx 리버스 프록시를 통해 RAG 서비스 접근
+      - NEXT_PUBLIC_RAG_URL=/rag
     deploy:
       resources:
         limits:
