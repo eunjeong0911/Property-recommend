@@ -79,13 +79,17 @@ export default function LandImage({
             <div
                 className="relative w-full aspect-square bg-gray-200 rounded-lg overflow-hidden group"
             >
-                <img
-                    src={images[currentImageIndex]}
-                    alt="매물 이미지"
-                    className="absolute inset-0 w-full h-full object-cover"
-                    referrerPolicy="no-referrer"
-                    crossOrigin="anonymous"
-                />
+                <div className="relative w-full h-full">
+                    <Image
+                        src={images[currentImageIndex]}
+                        alt="매물 이미지"
+                        width={500}
+                        height={500}
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                        unoptimized
+                    />
+                </div>
 
                 {/* 이전/다음 버튼 */}
                 {images.length > 1 && (
