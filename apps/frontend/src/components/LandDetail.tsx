@@ -425,21 +425,61 @@ export default function LandDetail({ landId }: LandDetailProps) {
                     ?
                   </button>
                   {showTopBrokerTooltip && (
-                    <div className="absolute top-full left-0 mt-2 w-72 bg-white rounded-lg shadow-xl border border-gray-200 p-4 z-50">
-                      <p className="text-sm font-bold text-blue-600 mb-2">
-                        중개사 신뢰도 평가 모델
+                    <div className="absolute top-full left-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 p-4 z-50 text-left">
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-lg">🏅</span>
+                        <p className="text-sm font-bold text-gray-900">
+                          중개사 신뢰도 평가
+                        </p>
+                      </div>
+
+                      <p className="text-sm text-gray-700 mb-4 leading-relaxed font-normal">
+                        해당 중개사는 실적, 인력 전문성, 운영 이력을 AI 모델로 종합 분석했을 때 <span className={`font-bold ${land.broker.trust_score === 'A' ? 'text-yellow-600' :
+                          land.broker.trust_score === 'B' ? 'text-gray-500' :
+                            'text-amber-700'
+                          }`}>
+                          '{land.broker.trust_score === 'A' ? '골드(A등급)' :
+                            land.broker.trust_score === 'B' ? '실버(B등급)' :
+                              '브론즈(C등급)'}'
+                        </span> 등급으로 분류됩니다.
                       </p>
-                      <p className="text-xs text-slate-600 leading-relaxed mb-3">
-                        AI 기반 평가 모델을 통해 중개사의 실적, 인력, 거래 이력, 구조 등을 종합적으로 분석하여 신뢰도를 A, B, C 등급으로 평가합니다.
-                      </p>
-                      <div className="mt-3 pt-3 border-t border-gray-200">
-                        <p className="text-xs text-slate-600 mb-2">
+
+                      <div className="bg-blue-50 p-3 rounded-md mb-4">
+                        <p className="text-xs text-gray-800 leading-relaxed font-normal">
+                          <span className="font-bold text-blue-600">💬 쉽게 말하면?</span>{' '}
+                          {land.broker.trust_score === 'A' ? (
+                            <>해당 지역 내에서 거래 활동이 가장 활발하고, 운영 안정성이 검증된 <span className="font-bold">상위 30%</span> 전문가입니다.</>
+                          ) : land.broker.trust_score === 'B' ? (
+                            <>거래 활동이 꾸준하며, 평균적인 운영 이력을 보유한 <span className="font-bold">중위 40%</span> 중개사입니다.</>
+                          ) : (
+                            <>신규 개업했거나 거래 이력이 상대적으로 적은 <span className="font-bold">하위 30%</span> 그룹에 해당하여, 꼼꼼한 확인이 권장됩니다.</>
+                          )}
+                        </p>
+                      </div>
+
+                      <div className="space-y-2 border-t border-gray-100 pt-3">
+                        <div className="flex items-start gap-2">
+                          <span className="text-gray-400 text-xs mt-0.5">✔️</span>
+                          <p className="text-xs text-gray-600 font-normal">
+                            <span className="font-bold text-gray-700">다각도 분석</span>: 거래 성사율, 자격증 여부, 중개 경력 등 다양한 요소 반영
+                          </p>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <span className="text-gray-400 text-xs mt-0.5">✔️</span>
+                          <p className="text-xs text-gray-600 font-normal">
+                            <span className="font-bold text-gray-700">객관적 평가</span>: 데이터 기반의 AI 알고리즘 산출
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 pt-3 border-t border-gray-200">
+                        <p className="text-xs text-slate-600 mb-2 font-normal">
                           <strong>현재 중개사 신뢰도:</strong>
                         </p>
                         <div className="flex items-center gap-2 mb-2">
                           <span className={`inline-block px-2 py-1 rounded-full text-xs font-bold ${land.broker.trust_score === 'A' ? 'bg-yellow-500 text-white' :
                             land.broker.trust_score === 'B' ? 'bg-gray-400 text-white' :
-                              'bg-amber-700 text-white'
+                              'bg-amber-700 !text-white'
                             }`}>
                             {land.broker.trust_score === 'A' ? '골드 (A등급)' :
                               land.broker.trust_score === 'B' ? '실버 (B등급)' :
@@ -454,8 +494,8 @@ export default function LandDetail({ landId }: LandDetailProps) {
                           </div>
                         )}
                         {land.broker.trust_score === 'C' && (
-                          <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded">
-                            <p className="text-xs text-red-800">
+                          <div className="mt-2 p-2 bg-amber-700 border border-amber-700 rounded">
+                            <p className="text-xs text-white">
                               🚨 <strong>경고:</strong> 브론즈 등급 중개사입니다. 매물 정보의 정확성을 반드시 재확인하시고, 계약 시 각별히 주의하시기 바랍니다.
                             </p>
                           </div>
