@@ -302,7 +302,8 @@ export default function Chatbot({ onRecommendLands, onChatbotRecommend, onChatSt
 
     try {
       // 직접 fetch로 filter_info와 graph_results 받아오기
-      const response = await fetch('http://localhost:8001/query', {
+      const ragUrl = process.env.NEXT_PUBLIC_RAG_URL || 'http://localhost:8001';
+      const response = await fetch(`${ragUrl}/query`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -75,41 +75,51 @@ class TransportImporter:
     def link_subway(self):
         print("Linking Subway Stations (1.5km)...")
         with self.driver.session() as session:
-            # Check if already linked
-            result = session.run("MATCH ()-[r:NEAR_SUBWAY]->() RETURN count(r) as cnt")
-            existing = result.single()["cnt"]
-            if existing > 0:
-                print(f"  ⏭ Subway links already exist ({existing}). Skipping.")
+            # 연결되지 않은 매물 개수 확인
+            result = session.run("MATCH (p:Property) WHERE NOT (p)-[:NEAR_SUBWAY]->() RETURN count(p) as cnt")
+            unlinked_total = result.single()["cnt"]
+            
+            if unlinked_total == 0:
+                print("  ⏭ All properties are already linked to Subway. Skipping.")
                 return
             
-            result = session.run("MATCH (p:Property) RETURN count(p) as cnt")
-            total = result.single()["cnt"]
-            if total == 0:
-                print("  ⚠ No properties found. Skipping.")
-                return
-            print(f"  Total properties to process: {total}")
+            print(f"  Properties to link: {unlinked_total}")
             
             batch_size = 500
             offset = 0
             linked_count = 0
             
-            while offset < total:
+            # 반복문: 남은 미연결 매물이 없을 때까지
+            # 주의: LIMIT으로 끊어서 처리하되, WHERE 조건이 있으므로 offset을 쓸 필요 없이 배치를 반복하면 됨
+            # 하지만 안전하게 '처리된 수'를 추적
+            
+            while True:
+                # 연결이 없는 매물 $limit개를 가져와서 연결 생성
+                # offset을 쓰면 안됨 (처리되면 조건에서 빠지므로)
                 result = session.run("""
                     MATCH (p:Property)
-                    WITH p SKIP $offset LIMIT $limit
+                    WHERE NOT (p)-[:NEAR_SUBWAY]->()
+                    WITH p LIMIT $limit
                     MATCH (s:SubwayStation)
                     WHERE point.distance(p.location, s.location) < 1500
                     MERGE (p)-[r:NEAR_SUBWAY]->(s)
                     SET r.distance = toInteger(round(point.distance(p.location, s.location))),
                         r.walking_time = toInteger(round((point.distance(p.location, s.location) * 1.3) / 80))
-                    RETURN count(r) as cnt
-                """, offset=offset, limit=batch_size)
-                linked_count += result.single()["cnt"]
-                offset += batch_size
-                progress = min(offset, total)
-                print(f"  Subway linking: {progress}/{total} ({progress*100//total}%) - {linked_count} links")
+                    RETURN count(p) as processed_node_cnt, count(r) as created_rel_cnt
+                """, limit=batch_size)
                 
-            print(f"  Linking Subway completed. Total links: {linked_count}")
+                record = result.single()
+                processed_nodes = record["processed_node_cnt"]
+                created_rels = record["created_rel_cnt"]
+                
+                if processed_nodes == 0:
+                    break
+                    
+                linked_count += created_rels
+                offset += processed_nodes
+                print(f"  Subway linking progress: {offset}/{unlinked_total} (approx) - {created_rels} new links")
+
+            print(f"  Linking Subway completed. Total new links: {linked_count}")
 
     def import_bus(self):
         with self.driver.session() as session:
@@ -172,41 +182,45 @@ class TransportImporter:
     def link_bus(self):
         print("Linking Bus Stations (200m)...")
         with self.driver.session() as session:
-            # Check if already linked
-            result = session.run("MATCH ()-[r:NEAR_BUS]->() RETURN count(r) as cnt")
-            existing = result.single()["cnt"]
-            if existing > 0:
-                print(f"  ⏭ Bus links already exist ({existing}). Skipping.")
-                return
+            # 연결되지 않은 매물 개수 확인
+            result = session.run("MATCH (p:Property) WHERE NOT (p)-[:NEAR_BUS]->() RETURN count(p) as cnt")
+            unlinked_total = result.single()["cnt"]
             
-            result = session.run("MATCH (p:Property) RETURN count(p) as cnt")
-            total = result.single()["cnt"]
-            if total == 0:
-                print("  ⚠ No properties found. Skipping.")
-                return
-            print(f"  Total properties to process: {total}")
+            if unlinked_total == 0:
+                 print("  ⏭ All properties are already linked to Bus. Skipping.")
+                 return
+            
+            print(f"  Properties to link: {unlinked_total}")
             
             batch_size = 500
             offset = 0
             linked_count = 0
             
-            while offset < total:
+            while True:
                 result = session.run("""
                     MATCH (p:Property)
-                    WITH p SKIP $offset LIMIT $limit
+                    WHERE NOT (p)-[:NEAR_BUS]->()
+                    WITH p LIMIT $limit
                     MATCH (b:BusStation)
                     WHERE point.distance(p.location, b.location) < 200
                     MERGE (p)-[r:NEAR_BUS]->(b)
                     SET r.distance = toInteger(round(point.distance(p.location, b.location))),
                         r.walking_time = toInteger(round((point.distance(p.location, b.location) * 1.3) / 80))
-                    RETURN count(r) as cnt
-                """, offset=offset, limit=batch_size)
-                linked_count += result.single()["cnt"]
-                offset += batch_size
-                progress = min(offset, total)
-                print(f"  Bus linking: {progress}/{total} ({progress*100//total}%) - {linked_count} links")
+                    RETURN count(p) as processed_node_cnt, count(r) as created_rel_cnt
+                """, limit=batch_size)
                 
-            print(f"  Linking Bus completed. Total links: {linked_count}")
+                record = result.single()
+                processed_nodes = record["processed_node_cnt"]
+                created_rels = record["created_rel_cnt"]
+                
+                if processed_nodes == 0:
+                    break
+                    
+                linked_count += created_rels
+                offset += processed_nodes
+                print(f"  Bus linking progress: {offset}/{unlinked_total} (approx) - {created_rels} new links")
+                
+            print(f"  Linking Bus completed. Total new links: {linked_count}")
 
 if __name__ == "__main__":
     importer = TransportImporter()

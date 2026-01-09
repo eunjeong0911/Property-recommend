@@ -66,33 +66,25 @@ class PropertyImporter:
             print("Falling back to GraphDB_data/land...")
             land_dir = Path(Config.DATA_DIR) / "land"
         
-        if not land_dir.exists():
-            print(f"❌ No land data directory found!")
-            cursor.close()
-            return
-
-        json_files = list(land_dir.glob("*.json"))
-        print(f"Found {len(json_files)} JSON files with coordinates")
-
-        # 좌표 데이터 매핑 생성 (매물번호 -> 좌표)
-        coords_map = {}
-        for json_file in json_files:
-            try:
-                with open(json_file, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                
-                for item in data:
-                    listing_id = item.get("매물번호")
-                    coords_info = item.get("좌표_정보", {})
-                    lat = coords_info.get("위도")
-                    lng = coords_info.get("경도")
-                    
-                    if listing_id and lat is not None and lng is not None:
-                        coords_map[listing_id] = {"latitude": lat, "longitude": lng}
-            except Exception as e:
-                print(f"  Error reading {json_file.name}: {e}")
+        # JSON 파일 목록 수집
+        json_files = []
         
-        print(f"Loaded coordinates for {len(coords_map)} properties")
+        if land_dir.exists():
+            json_files.extend(list(land_dir.glob("*.json")))
+        
+        # 2. data/zigbangland 디렉토리 추가 (직방)
+        # Docker: /app/data/zigbangland, Local: ../data/zigbangland (Config 기준)
+        if os.path.exists("/app/data/zigbangland"):
+            zigbang_dir = Path("/app/data/zigbangland")
+            print("Docker 환경 감지: zigbangland")
+        else:
+            zigbang_dir = Path(Config.BASE_DIR) / "data" / "zigbangland"
+            print(f"로컬 환경 감지: {zigbang_dir}")
+        
+        if zigbang_dir.exists():
+            json_files.extend(list(zigbang_dir.glob("*.json")))
+
+        print(f"Found {len(json_files)} JSON files with coordinates to process.")
 
         with self.driver.session() as session:
             # 제약 조건 및 인덱스 생성

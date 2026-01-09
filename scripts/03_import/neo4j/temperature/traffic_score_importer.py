@@ -11,14 +11,23 @@ from database import Database
 class TrafficScoreImporter:
     def __init__(self):
         self.driver = Database.get_driver()
-        # Docker 환경 감지: /app/data가 존재하면 Docker 환경
-        if os.path.exists('/app/data'):
-            # Docker 환경
-            self.csv_path = "/app/data/GraphDB_data/subway_station/서울시 지하철 호선별 역별 시간대별 승하차 인원 정보.csv"
-        else:
-            # 로컬 환경: 프로젝트 루트 기준 상대 경로
-            base_path = os.path.dirname(os.path.abspath(__file__))
-            self.csv_path = os.path.join(base_path, "../../../../../data/GraphDB_data/subway_station/서울시 지하철 호선별 역별 시간대별 승하차 인원 정보.csv")
+        # Use absolute path for Docker and relative for local
+        # Docker: /app/data/GraphDB_data/subway_station/...
+        # Local: ../../../../../data/GraphDB_data/subway_station/... (relative to script)
+        
+        self.csv_path = "/app/data/GraphDB_data/subway_station/서울시 지하철 호선별 역별 시간대별 승하차 인원 정보.csv"
+        
+        # Fallback for local environment
+        if not os.path.exists(self.csv_path):
+             base_path = os.path.dirname(os.path.abspath(__file__))
+             # scripts/03_import/neo4j/temperature/ -> data/GraphDB_data
+             # up 3 levels to scripts/ -> up 1 to root -> data
+             # Actually it is: scripts/03_import/neo4j/temperature (4 levels deep from root?)
+             # Let's use Config logic if possible, or just standard relative path
+             
+             # Attempt to find project root by looking for 'data' dir
+             root_path = os.path.abspath(os.path.join(base_path, "../../../../../"))
+             self.csv_path = os.path.join(root_path, "data/GraphDB_data/subway_station/서울시 지하철 호선별 역별 시간대별 승하차 인원 정보.csv")
         self.work_hubs = [
             "가산디지털단지", "서울역", "여의도", "선릉", "시청", 
             "강남", "역삼", "잠실(송파구청)", "삼성(무역센터)", "을지로입구"

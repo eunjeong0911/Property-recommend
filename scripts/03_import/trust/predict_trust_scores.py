@@ -27,10 +27,10 @@ def load_model():
     """모델 로드"""
     # 여러 경로 시도
     possible_paths = [
-        '/scripts/03_import/trust/final_trust_model.pkl',  # Docker 마운트 경로
-        '/app/scripts/03_import/trust/final_trust_model.pkl',  # Docker 내부 경로
-        'scripts/03_import/trust/final_trust_model.pkl',  # 로컬 상대 경로
-        '03_import/trust/final_trust_model.pkl',  # 현재 디렉토리 기준
+        '/app/03_import/trust/final_trust_model.pkl',  # Docker 절대 경로 (scripts가 /app에 마운트됨)
+        '/scripts/03_import/trust/final_trust_model.pkl',
+        'scripts/03_import/trust/final_trust_model.pkl',
+        '03_import/trust/final_trust_model.pkl',
     ]
     
     model_path = None

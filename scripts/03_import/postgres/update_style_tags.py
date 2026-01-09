@@ -64,28 +64,40 @@ def update_style_tags():
     conn.commit()
     print("✓ 컬럼 확인 완료\n")
     
-    # JSON 파일 경로
+    # JSON 파일 데이터 소스 설정
+    data_sources = []
+    
+    # 1. RDB/land
     if os.path.exists("/app/data/RDB/land"):
-        data_dir = "/app/data/RDB/land"
+        data_sources.append("/app/data/RDB/land")
+        print("Docker 환경 감지: land")
     else:
-        data_dir = os.path.join(Config.BASE_DIR, "data", "RDB", "land")
-    
-    json_files = [
-        "00_통합_빌라주택.json",
-        "00_통합_아파트.json",
-        "00_통합_오피스텔.json",
-        "00_통합_원투룸.json"
-    ]
-    
+        data_sources.append(os.path.join(Config.BASE_DIR, "data", "RDB", "land"))
+        print("로컬 환경 감지: land")
+
+    # 2. zigbangland
+    if os.path.exists("/app/data/zigbangland"):
+        data_sources.append("/app/data/zigbangland")
+        print("Docker 환경 감지: zigbangland")
+    else:
+        # 로컬 경로 확인
+        zigbang_local = os.path.join(Config.BASE_DIR, "data", "zigbangland")
+        if os.path.exists(zigbang_local):
+            data_sources.append(zigbang_local)
+            print("로컬 환경 감지: zigbangland")
+
     total_updated = 0
     
-    for json_file in json_files:
-        file_path = os.path.join(data_dir, json_file)
-        if not os.path.exists(file_path):
-            print(f"  ⚠ 파일 없음: {json_file}")
+    for data_dir in data_sources:
+        if not os.path.exists(data_dir):
             continue
+            
+        # 해당 디렉토리의 모든 json 파일 처리
+        json_files = [f for f in os.listdir(data_dir) if f.endswith('.json')]
         
-        print(f"[처리 중] {json_file}")
+        for json_file in json_files:
+            file_path = os.path.join(data_dir, json_file)
+            print(f"[처리 중] {json_file}")
         
         with open(file_path, 'r', encoding='utf-8') as f:
             data = json.load(f)

@@ -160,7 +160,16 @@ class LandSerializer(serializers.ModelSerializer):
         return round(random.uniform(30.0, 45.0), 1)
 
     def get_deposit(self, obj):
-        """보증금 추출 - price_utils 사용"""
+        """보증금 추출 - DB 컬럼 우선 사용"""
+        # DB 컬럼 값 사용 (만원 단위 -> 원 단위 변환)
+        if hasattr(obj, 'deposit') and obj.deposit and obj.deposit > 0:
+            return obj.deposit * 10000
+        
+        # 전세의 경우 jeonse_price를 보증금으로 반환
+        if hasattr(obj, 'jeonse_price') and obj.jeonse_price and obj.jeonse_price > 0:
+             return obj.jeonse_price * 10000
+
+        # 기존 로직 (텍스트 파싱)
         deal_text = ''
         if obj.trade_info and isinstance(obj.trade_info, dict):
             deal_text = obj.trade_info.get('거래방식', '')
@@ -168,7 +177,12 @@ class LandSerializer(serializers.ModelSerializer):
         return extract_deposit_from_deal_text(deal_text, obj.deal_type or '')
 
     def get_monthly_rent(self, obj):
-        """월세 추출 - price_utils 사용"""
+        """월세 추출 - DB 컬럼 우선 사용"""
+        # DB 컬럼 값 사용 (만원 단위 -> 원 단위 변환)
+        if hasattr(obj, 'monthly_rent') and obj.monthly_rent and obj.monthly_rent > 0:
+            return obj.monthly_rent * 10000
+
+        # 기존 로직 (텍스트 파싱)
         deal_text = ''
         if obj.trade_info and isinstance(obj.trade_info, dict):
             deal_text = obj.trade_info.get('거래방식', '')
@@ -291,13 +305,14 @@ class LandSerializer(serializers.ModelSerializer):
         return get_land_temperatures(obj.land_num)
     
     def get_style_tags(self, obj):
+        """스타일 태그 반환 (쉼표 구분 문자열 또는 리스트 → 리스트)"""
         if obj.style_tags:
-            # PostgreSQL 배열로 저장된 경우 (list)
+            # 이미 리스트인 경우 (JSON 필드에서 로드된 경우)
             if isinstance(obj.style_tags, list):
-                return [tag.strip() for tag in obj.style_tags if tag and tag.strip()]
-            # 문자열로 저장된 경우 (하위 호환성)
-            elif isinstance(obj.style_tags, str):
-                return [tag.strip() for tag in obj.style_tags.split(',') if tag.strip()]
+                # 중괄호 제거
+                return [tag.replace('{', '').replace('}', '').strip() for tag in obj.style_tags if tag]
+            # 문자열인 경우 쉼표로 분리하고 중괄호 제거
+            return [tag.replace('{', '').replace('}', '').strip() for tag in obj.style_tags.split(',') if tag.strip()]
         return []
 
 
@@ -396,13 +411,13 @@ class LandListSerializer(serializers.ModelSerializer):
             return None
         
     def get_style_tags(self, obj):
-        """스타일 태그 반환 (PostgreSQL 배열 또는 쉼표 구분 문자열)"""
+        """스타일 태그 반환 (쉼표 구분 문자열 또는 리스트 → 리스트)"""
         if obj.style_tags:
-            # PostgreSQL 배열로 저장된 경우 (list)
+            # 이미 리스트인 경우 (JSON 필드에서 로드된 경우)
             if isinstance(obj.style_tags, list):
-                return [tag.strip() for tag in obj.style_tags if tag and tag.strip()]
-            # 문자열로 저장된 경우 (하위 호환성)
-            elif isinstance(obj.style_tags, str):
-                return [tag.strip() for tag in obj.style_tags.split(',') if tag.strip()]
+                # 중괄호 제거
+                return [tag.replace('{', '').replace('}', '').strip() for tag in obj.style_tags if tag]
+            # 문자열인 경우 쉼표로 분리하고 중괄호 제거
+            return [tag.replace('{', '').replace('}', '').strip() for tag in obj.style_tags.split(',') if tag.strip()]
         return []
 
