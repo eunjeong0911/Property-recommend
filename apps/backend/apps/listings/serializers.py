@@ -380,7 +380,11 @@ class LandListSerializer(serializers.ModelSerializer):
 
     def get_image(self, obj):
         if obj.images and isinstance(obj.images, list) and len(obj.images) > 0:
-            return obj.images[0]
+            img_url = obj.images[0]
+            # Zigbang 이미지 URL에 크기 파라미터 추가
+            if 'ic.zigbang.com' in img_url and '?' not in img_url:
+                img_url = f"{img_url}?w=800&h=600"
+            return img_url
         return None
 
     def get_price(self, obj):
