@@ -85,6 +85,8 @@ export default function LandImage({
                     fill
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
                     className="object-cover"
+                    referrerPolicy="no-referrer"
+                    unoptimized
                 />
 
                 {/* 이전/다음 버튼 */}

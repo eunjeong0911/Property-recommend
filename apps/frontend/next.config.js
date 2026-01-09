@@ -29,7 +29,16 @@ const nextConfig = {
         hostname: 'cdn.peterpanz.com',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'ic.zigbang.com',
+        pathname: '/**',
+      },
     ],
+    // Zigbang hotlink protection 우회
+    dangerouslyAllowSVG: true,
+    contentDispositionType: 'attachment',
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
   async rewrites() {
     return [
