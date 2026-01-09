@@ -1,27 +1,47 @@
-export const sendChatQuestion = async (question: string, sessionId?: string): Promise<string> => {
+// RAG 서비스 응답 인터페이스
+export interface ChatResponse {
+  answer: string;
+  filter_info?: {
+    summary: string;
+    details: {
+      location?: string;
+      facilities?: string[];
+      deal_type?: string;
+      building_type?: string;
+      max_deposit?: string;
+      max_rent?: string;
+      style?: string[];
+    };
+    search_strategy?: string;
+  };
+  properties?: any[];
+  session_id: string;
+}
+
+const isProduction = process.env.NODE_ENV === 'production';
+const RAG_BASE_URL = isProduction
+  ? 'https://goziphouse.com/rag'
+  : (process.env.NEXT_PUBLIC_RAG_URL || 'http://localhost:8001');
+
+export const sendChatQuestion = async (question: string, sessionId?: string): Promise<ChatResponse> => {
   try {
-    // Use relative path to leverage Next.js rewrites (proxies to RAG service)
-    const response = await fetch('/rag/query', {
+    const response = await fetch(`${RAG_BASE_URL}/query`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         question,
-        session_id: sessionId || undefined  // 세션 ID 전달
+        session_id: sessionId || undefined
       }),
     });
 
     if (!response.ok) {
-      throw new Error('Network response was not ok');
+      throw new Error(`Server error: ${response.status}`);
     }
 
     const data = await response.json();
-    // The RAG service returns { "answer": "..." } or similar structure based on the graph output
-    // Based on generate_node.py, it returns state["answer"]
-    // The main.py returns the result of graph.ainvoke, which is the final state.
-    // So data will be the full state object. We need to extract 'answer'.
-    return data.answer || "죄송합니다. 답변을 찾을 수 없습니다.";
+    return data;
   } catch (error) {
     console.error('Error sending chat question:', error);
     throw error;

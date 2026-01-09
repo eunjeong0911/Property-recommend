@@ -197,7 +197,6 @@ services:
       - .env
     environment:
       - NEO4J_URI=bolt://neo4j:7687
-      - POSTGRES_HOST=postgres
       - REDIS_URL=redis://redis:6379/0
       - ELASTICSEARCH_HOST=elasticsearch
       - PYTHONUNBUFFERED=1
