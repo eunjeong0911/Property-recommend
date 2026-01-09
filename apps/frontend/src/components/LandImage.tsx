@@ -15,7 +15,6 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useParticleEffect } from '../hooks/useParticleEffect';
-import { getProxiedImageUrls } from '../utils/imageProxy';
 
 interface LandImageProps {
     id?: string;
@@ -36,9 +35,7 @@ export default function LandImage({
     isLiked = false
 }: LandImageProps) {
     // 이미지가 없거나 빈 배열이면 placeholder 사용
-    const rawImages = propImages && propImages.length > 0 ? propImages : [DEFAULT_PLACEHOLDER];
-    // 프록시를 통해 이미지 로드
-    const images = getProxiedImageUrls(rawImages);
+    const images = propImages && propImages.length > 0 ? propImages : [DEFAULT_PLACEHOLDER];
     const router = useRouter();
     const [liked, setLiked] = useState(isLiked);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -82,14 +79,12 @@ export default function LandImage({
             <div
                 className="relative w-full aspect-square bg-gray-200 rounded-lg overflow-hidden group"
             >
-                <Image
+                <img
                     src={images[currentImageIndex]}
                     alt="매물 이미지"
-                    fill
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
-                    className="object-cover"
+                    className="absolute inset-0 w-full h-full object-cover"
                     referrerPolicy="no-referrer"
-                    unoptimized
+                    crossOrigin="anonymous"
                 />
 
                 {/* 이전/다음 버튼 */}
