@@ -15,6 +15,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useParticleEffect } from '../hooks/useParticleEffect';
+import { getProxiedImageUrls } from '../utils/imageProxy';
 
 interface LandImageProps {
     id?: string;
@@ -35,7 +36,9 @@ export default function LandImage({
     isLiked = false
 }: LandImageProps) {
     // 이미지가 없거나 빈 배열이면 placeholder 사용
-    const images = propImages && propImages.length > 0 ? propImages : [DEFAULT_PLACEHOLDER];
+    const rawImages = propImages && propImages.length > 0 ? propImages : [DEFAULT_PLACEHOLDER];
+    // 프록시를 통해 이미지 로드
+    const images = getProxiedImageUrls(rawImages);
     const router = useRouter();
     const [liked, setLiked] = useState(isLiked);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
