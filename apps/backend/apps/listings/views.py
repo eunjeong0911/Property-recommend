@@ -586,11 +586,18 @@ def proxy_image(request):
         return HttpResponseBadRequest("Invalid image domain")
     
     try:
-        # 외부 이미지 요청 (referrer 없이)
+        # 외부 이미지 요청 - 실제 브라우저처럼 보이도록 완전한 헤더 사용
         response = requests.get(
             image_url,
             headers={
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+                'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Referer': 'https://www.zigbang.com/',
+                'Sec-Fetch-Dest': 'image',
+                'Sec-Fetch-Mode': 'no-cors',
+                'Sec-Fetch-Site': 'same-site',
             },
             timeout=10,
             stream=True
