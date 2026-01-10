@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { sendChatQuestion } from '../api/chatApi'
 import ReactMarkdown from 'react-markdown'
 
@@ -264,35 +264,15 @@ export default function Chatbot({ onRecommendLands, onChatbotRecommend, onChatSt
     setMessages([])
   }
 
-  // 메시지 전송
-  const handleSendMessage = async () => {
-    if (!inputValue.trim() || isLoading) return
-
-    let sessionId = currentSessionId
-
-    // 세션이 없으면 자동으로 새 세션 생성
-    if (!sessionId) {
-      sessionId = Date.now().toString()
-      const newSession: ChatSession = {
-        id: sessionId,
-        title: '새 대화',
-        messages: [],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }
-      setSessions(prev => [newSession, ...prev])
-      setCurrentSessionId(sessionId)
-    }
-
+  const processQuestion = async (content: string, sessionId: string) => {
     const userMessage: Message = {
       id: Date.now().toString(),
       type: 'user',
-      content: inputValue.trim(),
+      content: content.trim(),
       timestamp: new Date(),
     }
 
     setMessages(prev => [...prev, userMessage])
-    setInputValue('')
     setIsLoading(true)
 
     // 대화 시작 알림 (필터 모드 전환)
@@ -301,17 +281,8 @@ export default function Chatbot({ onRecommendLands, onChatbotRecommend, onChatSt
     }
 
     try {
-      // 직접 fetch로 filter_info와 graph_results 받아오기
-      const ragUrl = process.env.NEXT_PUBLIC_RAG_URL || 'http://localhost:8001';
-      const response = await fetch(`${ragUrl}/query`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          question: userMessage.content,
-          session_id: sessionId
-        }),
-      });
-      const data = await response.json();
+      // API 호출 (이제 객체를 반환함)
+      const data = await sendChatQuestion(userMessage.content, sessionId);
       const answer = data.answer || '응답을 받을 수 없습니다.';
 
       const aiMessage: Message = {
@@ -333,20 +304,19 @@ export default function Chatbot({ onRecommendLands, onChatbotRecommend, onChatSt
         .map(match => Number(match[1]))
         .filter(Boolean);
 
-      // 새로운 콜백으로 전달 (우선)
+      // 콜백 호출
       if (onChatbotRecommend && (landIds.length > 0 || data.filter_info)) {
         onChatbotRecommend({
           landIds,
           filterInfo: data.filter_info || null,
-          properties: data.properties || []  // 백엔드의 properties 필드 사용
+          properties: data.properties || []
         });
         setLatestProperties(data.properties || []);
-      }
-      // 기존 콜백 호환성 유지
-      else if (onRecommendLands && landIds.length > 0) {
+      } else if (onRecommendLands && landIds.length > 0) {
         onRecommendLands(landIds);
       }
     } catch (error) {
+      console.error('챗봇 에러:', error);
       setMessages(prev => [
         ...prev,
         {
@@ -359,6 +329,29 @@ export default function Chatbot({ onRecommendLands, onChatbotRecommend, onChatSt
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // 메시지 전송 (텍스트 입력)
+  const handleSendMessage = async () => {
+    if (!inputValue.trim() || isLoading) return
+
+    let sessionId = currentSessionId
+    if (!sessionId) {
+      sessionId = Date.now().toString()
+      const newSession: ChatSession = {
+        id: sessionId,
+        title: '새 대화',
+        messages: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+      setSessions(prev => [newSession, ...prev])
+      setCurrentSessionId(sessionId)
+    }
+
+    const content = inputValue.trim()
+    setInputValue('')
+    await processQuestion(content, sessionId)
   }
 
   // 메시지 변경 시 세션 내용/제목 업데이트
@@ -490,12 +483,9 @@ export default function Chatbot({ onRecommendLands, onChatbotRecommend, onChatSt
               {/* 추천 질문 버튼 */}
               <div className="flex flex-wrap gap-3 justify-center max-w-md">
                 <button
-                  onClick={async () => {
-                    const question = '강남 원룸 추천해줘';
-
-                    let sessionId = currentSessionId;
-                    if (!sessionId) {
-                      sessionId = Date.now().toString();
+                  onClick={() => {
+                    const sessionId = currentSessionId || Date.now().toString();
+                    if (!currentSessionId) {
                       const newSession: ChatSession = {
                         id: sessionId,
                         title: '새 대화',
@@ -506,60 +496,16 @@ export default function Chatbot({ onRecommendLands, onChatbotRecommend, onChatSt
                       setSessions(prev => [newSession, ...prev]);
                       setCurrentSessionId(sessionId);
                     }
-
-                    const userMessage: Message = {
-                      id: Date.now().toString(),
-                      type: 'user',
-                      content: question,
-                      timestamp: new Date(),
-                    };
-
-                    setMessages(prev => [...prev, userMessage]);
-                    setIsLoading(true);
-
-                    try {
-                      const answer = await sendChatQuestion(question, sessionId);
-                      const aiMessage: Message = {
-                        id: (Date.now() + 1).toString(),
-                        type: 'ai',
-                        content: answer,
-                        timestamp: new Date(),
-                      };
-                      setMessages(prev => [...prev, aiMessage]);
-
-                      if (onRecommendLands) {
-                        const landIds = [...answer.matchAll(/\/landDetail\/(\d+)/g)]
-                          .map(match => Number(match[1]))
-                          .filter(Boolean);
-                        if (landIds.length > 0) {
-                          onRecommendLands(landIds);
-                        }
-                      }
-                    } catch (error) {
-                      setMessages(prev => [
-                        ...prev,
-                        {
-                          id: (Date.now() + 2).toString(),
-                          type: 'ai',
-                          content: '응답 중 오류가 발생했습니다. 다시 시도해주세요.',
-                          timestamp: new Date(),
-                        },
-                      ]);
-                    } finally {
-                      setIsLoading(false);
-                    }
+                    processQuestion('강남 원룸 추천해줘', sessionId);
                   }}
                   className="px-4 py-2 bg-white border-2 border-purple-200 text-purple-600 rounded-full text-sm font-medium hover:bg-purple-50 hover:border-purple-300 transition-all shadow-sm"
                 >
                   강남 원룸 추천해줘
                 </button>
                 <button
-                  onClick={async () => {
-                    const question = '전세 매물 알려줘';
-
-                    let sessionId = currentSessionId;
-                    if (!sessionId) {
-                      sessionId = Date.now().toString();
+                  onClick={() => {
+                    const sessionId = currentSessionId || Date.now().toString();
+                    if (!currentSessionId) {
                       const newSession: ChatSession = {
                         id: sessionId,
                         title: '새 대화',
@@ -570,60 +516,16 @@ export default function Chatbot({ onRecommendLands, onChatbotRecommend, onChatSt
                       setSessions(prev => [newSession, ...prev]);
                       setCurrentSessionId(sessionId);
                     }
-
-                    const userMessage: Message = {
-                      id: Date.now().toString(),
-                      type: 'user',
-                      content: question,
-                      timestamp: new Date(),
-                    };
-
-                    setMessages(prev => [...prev, userMessage]);
-                    setIsLoading(true);
-
-                    try {
-                      const answer = await sendChatQuestion(question, sessionId);
-                      const aiMessage: Message = {
-                        id: (Date.now() + 1).toString(),
-                        type: 'ai',
-                        content: answer,
-                        timestamp: new Date(),
-                      };
-                      setMessages(prev => [...prev, aiMessage]);
-
-                      if (onRecommendLands) {
-                        const landIds = [...answer.matchAll(/\/landDetail\/(\d+)/g)]
-                          .map(match => Number(match[1]))
-                          .filter(Boolean);
-                        if (landIds.length > 0) {
-                          onRecommendLands(landIds);
-                        }
-                      }
-                    } catch (error) {
-                      setMessages(prev => [
-                        ...prev,
-                        {
-                          id: (Date.now() + 2).toString(),
-                          type: 'ai',
-                          content: '응답 중 오류가 발생했습니다. 다시 시도해주세요.',
-                          timestamp: new Date(),
-                        },
-                      ]);
-                    } finally {
-                      setIsLoading(false);
-                    }
+                    processQuestion('전세 매물 알려줘', sessionId);
                   }}
                   className="px-4 py-2 bg-white border-2 border-purple-200 text-purple-600 rounded-full text-sm font-medium hover:bg-purple-50 hover:border-purple-300 transition-all shadow-sm"
                 >
                   전세 매물 알려줘
                 </button>
                 <button
-                  onClick={async () => {
-                    const question = '교통 좋은 곳 어디야?';
-
-                    let sessionId = currentSessionId;
-                    if (!sessionId) {
-                      sessionId = Date.now().toString();
+                  onClick={() => {
+                    const sessionId = currentSessionId || Date.now().toString();
+                    if (!currentSessionId) {
                       const newSession: ChatSession = {
                         id: sessionId,
                         title: '새 대화',
@@ -634,48 +536,7 @@ export default function Chatbot({ onRecommendLands, onChatbotRecommend, onChatSt
                       setSessions(prev => [newSession, ...prev]);
                       setCurrentSessionId(sessionId);
                     }
-
-                    const userMessage: Message = {
-                      id: Date.now().toString(),
-                      type: 'user',
-                      content: question,
-                      timestamp: new Date(),
-                    };
-
-                    setMessages(prev => [...prev, userMessage]);
-                    setIsLoading(true);
-
-                    try {
-                      const answer = await sendChatQuestion(question, sessionId);
-                      const aiMessage: Message = {
-                        id: (Date.now() + 1).toString(),
-                        type: 'ai',
-                        content: answer,
-                        timestamp: new Date(),
-                      };
-                      setMessages(prev => [...prev, aiMessage]);
-
-                      if (onRecommendLands) {
-                        const landIds = [...answer.matchAll(/\/landDetail\/(\d+)/g)]
-                          .map(match => Number(match[1]))
-                          .filter(Boolean);
-                        if (landIds.length > 0) {
-                          onRecommendLands(landIds);
-                        }
-                      }
-                    } catch (error) {
-                      setMessages(prev => [
-                        ...prev,
-                        {
-                          id: (Date.now() + 2).toString(),
-                          type: 'ai',
-                          content: '응답 중 오류가 발생했습니다. 다시 시도해주세요.',
-                          timestamp: new Date(),
-                        },
-                      ]);
-                    } finally {
-                      setIsLoading(false);
-                    }
+                    processQuestion('교통 좋은 곳 어디야?', sessionId);
                   }}
                   className="px-4 py-2 bg-white border-2 border-purple-200 text-purple-600 rounded-full text-sm font-medium hover:bg-purple-50 hover:border-purple-300 transition-all shadow-sm"
                 >
@@ -788,8 +649,7 @@ export default function Chatbot({ onRecommendLands, onChatbotRecommend, onChatSt
                                   {examples.map((example, exIndex) => (
                                     <button
                                       key={exIndex}
-                                      onClick={async () => {
-                                        // 바로 질문 전송 (로직 중복 제거 필요하지만 일단 인라인 처리)
+                                      onClick={() => {
                                         const sessionId = currentSessionId || Date.now().toString();
                                         if (!currentSessionId) {
                                           const newSession: ChatSession = {
@@ -802,48 +662,7 @@ export default function Chatbot({ onRecommendLands, onChatbotRecommend, onChatSt
                                           setSessions(prev => [newSession, ...prev]);
                                           setCurrentSessionId(sessionId);
                                         }
-
-                                        const userMessage: Message = {
-                                          id: Date.now().toString(),
-                                          type: 'user',
-                                          content: example,
-                                          timestamp: new Date(),
-                                        };
-
-                                        setMessages(prev => [...prev, userMessage]);
-                                        setIsLoading(true);
-
-                                        try {
-                                          const answer = await sendChatQuestion(example, sessionId);
-                                          const aiMessage: Message = {
-                                            id: (Date.now() + 1).toString(),
-                                            type: 'ai',
-                                            content: answer,
-                                            timestamp: new Date(),
-                                          };
-                                          setMessages(prev => [...prev, aiMessage]);
-
-                                          if (onRecommendLands) {
-                                            const landIds = [...answer.matchAll(/\/landDetail\/(\d+)/g)]
-                                              .map(match => Number(match[1]))
-                                              .filter(Boolean);
-                                            if (landIds.length > 0) {
-                                              onRecommendLands(landIds);
-                                            }
-                                          }
-                                        } catch (error) {
-                                          setMessages(prev => [
-                                            ...prev,
-                                            {
-                                              id: (Date.now() + 2).toString(),
-                                              type: 'ai',
-                                              content: '응답 중 오류가 발생했습니다. 다시 시도해주세요.',
-                                              timestamp: new Date(),
-                                            },
-                                          ]);
-                                        } finally {
-                                          setIsLoading(false);
-                                        }
+                                        processQuestion(example, sessionId);
                                       }}
                                       className="px-3 py-1.5 bg-white border border-indigo-200 text-indigo-600 text-sm rounded-full hover:bg-indigo-50 transition-all shadow-sm"
                                     >
@@ -868,8 +687,7 @@ export default function Chatbot({ onRecommendLands, onChatbotRecommend, onChatSt
                                   {questions.map((question, qIndex) => (
                                     <button
                                       key={qIndex}
-                                      onClick={async () => {
-                                        // 바로 질문 전송
+                                      onClick={() => {
                                         const sessionId = currentSessionId || Date.now().toString();
                                         if (!currentSessionId) {
                                           const newSession: ChatSession = {
@@ -882,48 +700,7 @@ export default function Chatbot({ onRecommendLands, onChatbotRecommend, onChatSt
                                           setSessions(prev => [newSession, ...prev]);
                                           setCurrentSessionId(sessionId);
                                         }
-
-                                        const userMessage: Message = {
-                                          id: Date.now().toString(),
-                                          type: 'user',
-                                          content: question,
-                                          timestamp: new Date(),
-                                        };
-
-                                        setMessages(prev => [...prev, userMessage]);
-                                        setIsLoading(true);
-
-                                        try {
-                                          const answer = await sendChatQuestion(question, sessionId);
-                                          const aiMessage: Message = {
-                                            id: (Date.now() + 1).toString(),
-                                            type: 'ai',
-                                            content: answer,
-                                            timestamp: new Date(),
-                                          };
-                                          setMessages(prev => [...prev, aiMessage]);
-
-                                          if (onRecommendLands) {
-                                            const landIds = [...answer.matchAll(/\/landDetail\/(\d+)/g)]
-                                              .map(match => Number(match[1]))
-                                              .filter(Boolean);
-                                            if (landIds.length > 0) {
-                                              onRecommendLands(landIds);
-                                            }
-                                          }
-                                        } catch (error) {
-                                          setMessages(prev => [
-                                            ...prev,
-                                            {
-                                              id: (Date.now() + 2).toString(),
-                                              type: 'ai',
-                                              content: '응답 중 오류가 발생했습니다. 다시 시도해주세요.',
-                                              timestamp: new Date(),
-                                            },
-                                          ]);
-                                        } finally {
-                                          setIsLoading(false);
-                                        }
+                                        processQuestion(question, sessionId);
                                       }}
                                       className="text-left px-3 py-2 bg-white border border-purple-200 rounded-lg text-sm text-purple-700 hover:bg-purple-100 hover:border-purple-300 transition-colors"
                                     >

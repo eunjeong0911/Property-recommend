@@ -197,7 +197,6 @@ services:
       - .env
     environment:
       - NEO4J_URI=bolt://neo4j:7687
-      - POSTGRES_HOST=postgres
       - REDIS_URL=redis://redis:6379/0
       - ELASTICSEARCH_HOST=elasticsearch
       - PYTHONUNBUFFERED=1
@@ -267,7 +266,7 @@ services:
       - .env
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8000
-      - NEXT_PUBLIC_RAG_URL=http://rag:8001
+      - NEXT_PUBLIC_RAG_URL=http://localhost:8001
       - SERVER_API_URL=http://backend:8000
       - NEXT_PUBLIC_KAKAO_MAP_KEY=${NEXT_PUBLIC_KAKAO_MAP_KEY}
       - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
