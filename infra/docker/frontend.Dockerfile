@@ -28,24 +28,21 @@ COPY apps/frontend .
 # Disable telemetry during build
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Build arguments for environment variables (baked into the build)
-ARG NEXT_PUBLIC_API_URL
-ARG NEXT_PUBLIC_KAKAO_MAP_KEY
-ARG NEXTAUTH_URL
-ARG NEXTAUTH_SECRET
-ARG GOOGLE_CLIENT_ID
-ARG GOOGLE_CLIENT_SECRET
+# Build arguments for PUBLIC environment variables only (safe to bake into build)
+ARG NEXT_PUBLIC_API_URL=https://goziphouse.com
+ARG NEXT_PUBLIC_RAG_URL=https://goziphouse.com/rag
+ARG NEXT_PUBLIC_KAKAO_MAP_KEY=29d460d952fdd2737e2be0432924660c
 
-# Set environment variables for build
+# Set PUBLIC environment variables for build
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
-    NEXT_PUBLIC_KAKAO_MAP_KEY=$NEXT_PUBLIC_KAKAO_MAP_KEY \
-    NEXTAUTH_URL=$NEXTAUTH_URL \
-    NEXTAUTH_SECRET=$NEXTAUTH_SECRET \
-    GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID \
-    GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET
+    NEXT_PUBLIC_RAG_URL=$NEXT_PUBLIC_RAG_URL \
+    NEXT_PUBLIC_KAKAO_MAP_KEY=$NEXT_PUBLIC_KAKAO_MAP_KEY
 
 RUN npm run build
 
+# -----------------------------------------------------------------------------
+# Stage 3: Runner - Production image
+# -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 # Stage 3: Runner - Production image
 # -----------------------------------------------------------------------------
@@ -59,21 +56,13 @@ ENV NODE_ENV=production \
 RUN addgroup --system --gid 1001 nodejs \
     && adduser --system --uid 1001 nextjs
 
-# Copy public assets
+# Copy essential files
 COPY --from=builder /app/public ./public
+COPY --from=builder /app/package.json ./package.json
 
-# Set up .next directory with correct permissions
-RUN mkdir .next \
-    && chown nextjs:nodejs .next
-
-# Copy standalone build output
-# Automatically leverage output traces to reduce image size
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
-# Ensure server.js is executable
-RUN chown nextjs:nodejs /app/server.js \
-    && chmod +x /app/server.js
+# Copy built artifacts (Standard Build)
+COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 
 # Install curl for health checks
 RUN apk add --no-cache curl
@@ -89,4 +78,5 @@ ENV PORT=3000 \
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:3000/api/health || exit 1
 
-CMD ["node", "server.js"]
+# Use standard Next.js start command
+CMD ["npm", "run", "start"]

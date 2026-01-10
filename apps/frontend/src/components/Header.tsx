@@ -60,7 +60,7 @@ export default function Header() {
 
 
           {/* 마이페이지 / 로그인 버튼 */}
-          {session ? (
+          {session?.user ? (
             <Link
               href="/my"
               className="ml-4 px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary-dark)] transition-colors font-medium text-sm shadow-[var(--shadow-md)]"

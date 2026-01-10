@@ -197,7 +197,6 @@ services:
       - .env
     environment:
       - NEO4J_URI=bolt://neo4j:7687
-      - POSTGRES_HOST=postgres
       - REDIS_URL=redis://redis:6379/0
       - ELASTICSEARCH_HOST=elasticsearch
       - PYTHONUNBUFFERED=1
@@ -212,6 +211,7 @@ services:
         condition: service_healthy
     networks:
       - backend-network
+      - frontend-network
     deploy:
       resources:
         limits:
@@ -265,7 +265,8 @@ services:
     env_file:
       - .env
     environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_RAG_URL=http://localhost:8001
       - SERVER_API_URL=http://backend:8000
       - NEXT_PUBLIC_KAKAO_MAP_KEY=${NEXT_PUBLIC_KAKAO_MAP_KEY}
       - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
@@ -310,13 +311,12 @@ services:
       context: .
       dockerfile: infra/docker/scripts.Dockerfile
     container_name: realestate-scripts
-    command: python run_all.py
+    command: python scripts/run_all.py
     volumes:
-      - ./scripts:/app
+      - ./scripts:/app/scripts
       - ./libs:/libs:ro
-      - ./data:/data
+      - ./data:/app/data
       - ./apps/reco:/app/apps/reco:ro
-      - ./apps/reco/trust_model:/data/trust_model:ro
     env_file:
       - .env
     environment:

@@ -27,10 +27,10 @@ def load_model():
     """모델 로드"""
     # 여러 경로 시도
     possible_paths = [
-        '/scripts/03_import/trust/final_trust_model.pkl',  # Docker 마운트 경로
-        '/app/scripts/03_import/trust/final_trust_model.pkl',  # Docker 내부 경로
-        'scripts/03_import/trust/final_trust_model.pkl',  # 로컬 상대 경로
-        '03_import/trust/final_trust_model.pkl',  # 현재 디렉토리 기준
+        '/app/03_import/trust/final_trust_model.pkl',  # Docker 절대 경로 (scripts가 /app에 마운트됨)
+        '/scripts/03_import/trust/final_trust_model.pkl',
+        'scripts/03_import/trust/final_trust_model.pkl',
+        '03_import/trust/final_trust_model.pkl',
     ]
     
     model_path = None
@@ -142,25 +142,57 @@ def predict():
     
     # 1. 모델 로드
     print("1. 모델 로드 중...")
-    model, scaler, feature_names = load_model()
-    print(f"  ✓ Feature: {feature_names}")
+    try:
+        model, scaler, feature_names = load_model()
+        print(f"  ✓ Feature: {feature_names}")
+    except Exception as e:
+        print(f"  ✗ 모델 로드 실패: {e}")
+        return
     
     # 2. DB 연결 및 Broker 조회
     print("\n2. Broker 데이터 조회 중...")
-    conn = get_db_connection()
-    cur = conn.cursor()
-    
-    cur.execute("""
-        SELECT landbroker_id, office_name, completed_deals, registered_properties,
-               brokers_count, assistants_count, staff_count, 
-               registration_date, address
-        FROM landbroker
-    """)
-    
-    columns = [desc[0] for desc in cur.description]
-    brokers = [dict(zip(columns, row)) for row in cur.fetchall()]
-    total = len(brokers)
-    print(f"  ✓ {total}개 broker")
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # 테이블 존재 확인
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'landbroker'
+            )
+        """)
+        table_exists = cur.fetchone()[0]
+        
+        if not table_exists:
+            print("  ⚠ landbroker 테이블이 존재하지 않습니다.")
+            print("  → 중개사 데이터가 아직 Import되지 않았습니다.")
+            print("  → Trust Score 예측을 건너뜁니다.")
+            cur.close()
+            conn.close()
+            return
+        
+        cur.execute("""
+            SELECT landbroker_id, office_name, completed_deals, registered_properties,
+                   brokers_count, assistants_count, staff_count, 
+                   registration_date, address
+            FROM landbroker
+        """)
+        
+        columns = [desc[0] for desc in cur.description]
+        brokers = [dict(zip(columns, row)) for row in cur.fetchall()]
+        total = len(brokers)
+        
+        if total == 0:
+            print("  ⚠ landbroker 테이블에 데이터가 없습니다.")
+            cur.close()
+            conn.close()
+            return
+            
+        print(f"  ✓ {total}개 broker")
+    except Exception as e:
+        print(f"  ✗ DB 조회 실패: {e}")
+        return
     
     # 3. 예측
     print("\n3. 예측 실행 중...")

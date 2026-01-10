@@ -25,27 +25,43 @@ def import_brokers_from_json():
     print(" " * 15 + "중개사 정보 Import (JSON 기반)")
     print("=" * 70 + "\n")
     
-    # 1. JSON 파일 경로
-    if os.path.exists("/data/RDB/land"):
-        data_dir = "/data/RDB/land"
+    # 1. 데이터 소스 및 파일 수집
+    data_sources = []
+    
+    # (1) RDB/land
+    if os.path.exists("/app/data/RDB/land"):
+        data_sources.append("/app/data/RDB/land")
     else:
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        data_dir = os.path.join(base_dir, "data", "RDB", "land")
+        local_land = os.path.join(base_dir, "data", "RDB", "land")
+        if os.path.exists(local_land):
+            data_sources.append(local_land)
+
+    # (2) zigbangland (직방)
+    if os.path.exists("/app/data/zigbangland"):
+         data_sources.append("/app/data/zigbangland")
+         print("Docker 환경 감지: zigbangland 추가")
+    else:
+         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+         local_zigbang = os.path.join(base_dir, "data", "zigbangland")
+         if os.path.exists(local_zigbang):
+             data_sources.append(local_zigbang)
+             print(f"로컬 환경 감지: {local_zigbang} 추가")
     
-    json_files = [
-        "00_통합_빌라주택.json",
-        "00_통합_아파트.json",
-        "00_통합_오피스텔.json",
-        "00_통합_원투룸.json"
-    ]
+    # 모든 JSON 파일 수집
+    json_files = []
+    for d_dir in data_sources:
+        if os.path.exists(d_dir):
+            found = [os.path.join(d_dir, f) for f in os.listdir(d_dir) if f.endswith('.json')]
+            json_files.extend(found)
     
-    print(f"1. JSON 파일 읽기 중... (경로: {data_dir})\n")
+    print(f"1. JSON 파일 읽기 중... (총 {len(json_files)}개 파일)\n")
     
     # 2. 중개사 정보 수집 (등록번호 기준 중복 제거)
     brokers_dict = {}  # {registration_number: {info, land_nums}}
     
-    for json_file in json_files:
-        file_path = os.path.join(data_dir, json_file)
+    for file_path in json_files:
+        json_file = os.path.basename(file_path)
         if not os.path.exists(file_path):
             print(f"  ⚠ 파일 없음: {json_file}")
             continue
@@ -90,16 +106,31 @@ def import_brokers_from_json():
     for reg_num, data in brokers_dict.items():
         info = data['info']
         
+        # 통계 데이터 파싱
+        def parse_count(value):
+            if not value:
+                return 0
+            try:
+                return int(value.replace('건', '').replace(',', '').strip())
+            except:
+                return 0
+        
+        completed_deals = parse_count(info.get('거래완료', '0'))
+        registered_properties = parse_count(info.get('등록매물', '0'))
+        
         # UPSERT
         query = """
         INSERT INTO landbroker (
-            office_name, representative, phone, address, registration_number
-        ) VALUES (%s, %s, %s, %s, %s)
+            office_name, representative, phone, address, registration_number,
+            completed_deals, registered_properties
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s)
         ON CONFLICT (registration_number) DO UPDATE SET
             office_name = COALESCE(EXCLUDED.office_name, landbroker.office_name),
             representative = COALESCE(EXCLUDED.representative, landbroker.representative),
             phone = COALESCE(EXCLUDED.phone, landbroker.phone),
             address = COALESCE(EXCLUDED.address, landbroker.address),
+            completed_deals = EXCLUDED.completed_deals,
+            registered_properties = EXCLUDED.registered_properties,
             updated_at = CURRENT_TIMESTAMP
         RETURNING landbroker_id, (xmax = 0) AS is_new;
         """
@@ -109,7 +140,9 @@ def import_brokers_from_json():
             info.get('representative') or info.get('대표자'),
             info.get('phone') or info.get('전화번호'),
             info.get('address') or info.get('주소'),
-            reg_num
+            reg_num,
+            completed_deals,
+            registered_properties
         )
         
         try:
