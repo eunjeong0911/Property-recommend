@@ -462,9 +462,7 @@ def _format_filter_info(collected: dict = None, hard_filters: dict = None,
     if options:
         details["options"] = options if isinstance(options, list) else [options]
         # ★★★ 핵심 수정: 스타일(✨)과 중복되는 옵션은 요약에서 제외 (예: 풀옵션) ★★★
-        unique_options = [opt for opt in details["options"] if opt not in (details.get("style", []))]
-        if unique_options:
-            summary_parts.append(f"🔧 {', '.join(unique_options[:2])}")
+        summary_parts.append(f"🔧 {', '.join(details['options'][:2])}")
 
     
     # 검색 전략 (개발자용)

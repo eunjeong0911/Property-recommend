@@ -200,12 +200,12 @@ def es_keyword_search_node(state: RAGState) -> RAGState:
         # 가격/타입 필터 적용 (기존 결과가 있으면 더 관대하게)
         building_type = hard_filters.get("building_type")
         if building_type and not existing_results:  # 새 검색일 때만 building_type 필터
-            filter_clauses.append({"term": {"building_type": building_type}})
+            filter_clauses.append({"term": {"building_type.keyword": building_type}})
         
         # ★★★ 거래 유형은 항상 적용 (사용자가 명시적으로 선택한 조건) ★★★
         deal_type = hard_filters.get("deal_type")
         if deal_type:
-            filter_clauses.append({"term": {"deal_type": deal_type}})
+            filter_clauses.append({"term": {"deal_type.keyword": deal_type}})
             print(f"[ES Keyword] 🏠 거래유형 필터 적용: {deal_type}")
         
         # 보증금 범위 (항상 적용)
@@ -276,7 +276,7 @@ def es_keyword_search_node(state: RAGState) -> RAGState:
         # 매핑된 스타일 태그는 style_tags 필드에서 검색
         if soft_filters:
             filter_clauses.append({
-                "terms": {"style_tags": soft_filters}
+                "terms": {"style_tags.keyword": soft_filters}
             })
             print(f"[ES Keyword] 🎨 스타일 태그 필터 적용: {soft_filters}")
         
@@ -325,6 +325,20 @@ def es_keyword_search_node(state: RAGState) -> RAGState:
         
         print(f"[ES Keyword] ✅ {len(results)}개 매물 발견")
         
+        # ★★★ 역 정보 보강 (Enrichment) ★★★
+        # ES 결과에는 역 정보(poi_details)가 없으므로 Neo4j에서 가져옴
+        if results:
+            from nodes.neo4j_search_node import enrich_properties_with_stations
+            prop_ids = [str(r['id']) for r in results]
+            enriched_data = enrich_properties_with_stations(prop_ids)
+            
+            # ID별로 매핑
+            station_map = {str(e['id']): e['poi_details'] for e in enriched_data}
+            for r in results:
+                r['poi_details'] = station_map.get(str(r['id']), [])
+            
+            print(f"[ES Keyword] 🚇 {len(results)}개 매물 역 정보 보강 완료")
+        
         # =====================================================================
         # ★★★ 자동 폴백 메커니즘 (Requirements 1.3) ★★★
         # 결과가 0개이고 스타일 필터가 적용된 경우, 스타일 필터 제외 후 재검색
@@ -354,7 +368,11 @@ def es_keyword_search_node(state: RAGState) -> RAGState:
             
             # 거래 유형 필터
             if deal_type:
-                fallback_filter_clauses.append({"term": {"deal_type": deal_type}})
+                fallback_filter_clauses.append({"term": {"deal_type.keyword": deal_type}})
+            
+            # 건물 타입 필터
+            if building_type:
+                fallback_filter_clauses.append({"term": {"building_type.keyword": building_type}})
             
             # 보증금 범위
             if max_deposit or min_deposit:
@@ -491,7 +509,10 @@ def es_keyword_search_node(state: RAGState) -> RAGState:
             applied_optional_filters.append(("max_deposit", f"{hard_filters.get('max_deposit')}만원", FILTER_NAME_MAPPING["max_deposit"]))
         
         # 결과가 적고 제거 가능한 필터가 있으면 제안
-        if len(results) <= LOW_RESULT_THRESHOLD and applied_optional_filters:
+        # ★★★ 핵심 수정: ES 결과가 없어서 기존 결과(existing_results)를 사용하는 경우도 고려해야 함 ★★★
+        effective_results = results if results else existing_results
+        
+        if len(effective_results) <= LOW_RESULT_THRESHOLD and applied_optional_filters:
             state["suggest_filter_removal"] = True
             state["low_result_filters"] = applied_optional_filters
             
