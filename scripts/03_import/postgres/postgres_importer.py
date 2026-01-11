@@ -23,7 +23,12 @@ class PostgresImporter:
         "00_통합_빌라주택.json": "빌라주택",
         "00_통합_아파트.json": "아파트",
         "00_통합_오피스텔.json": "오피스텔",
-        "00_통합_원투룸.json": "원투룸"
+        "00_통합_원투룸.json": "원투룸",
+        "01_통합_빌라주택.json": "빌라주택",
+        "01_통합_아파트.json": "아파트",
+        "01_통합_오피스텔.json": "오피스텔",
+        "01_통합_원투룸.json": "원투룸",
+
     }
     
     def __init__(self):
@@ -109,20 +114,20 @@ class PostgresImporter:
                 self.cur.execute("ALTER TABLE land ADD COLUMN search_text TEXT;")
                 print("  ✓ search_text 컬럼 추가 완료")
 
-            # agent_info 컬럼 확인
-            check_agent_info = """
-            SELECT EXISTS (
-                SELECT FROM information_schema.columns 
-                WHERE table_name = 'land' AND column_name = 'agent_info'
-            );
-            """
-            self.cur.execute(check_agent_info)
-            has_agent_info = self.cur.fetchone()[0]
+            # # agent_info 컬럼 확인
+            # check_agent_info = """
+            # SELECT EXISTS (
+            #     SELECT FROM information_schema.columns 
+            #     WHERE table_name = 'land' AND column_name = 'agent_info'
+            # );
+            # """
+            # self.cur.execute(check_agent_info)
+            # has_agent_info = self.cur.fetchone()[0]
             
-            if not has_agent_info:
-                print("  → agent_info 컬럼 추가 중...")
-                self.cur.execute("ALTER TABLE land ADD COLUMN agent_info JSONB;")
-                print("  ✓ agent_info 컬럼 추가 완료")
+            # if not has_agent_info:
+            #     print("  → agent_info 컬럼 추가 중...")
+            #     self.cur.execute("ALTER TABLE land ADD COLUMN agent_info JSONB;")
+            #     print("  ✓ agent_info 컬럼 추가 완료")
         
         # land_image 테이블 확인 및 생성
         check_image_query = """

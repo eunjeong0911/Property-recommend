@@ -85,6 +85,64 @@ class PropertyImporter:
             json_files.extend(list(zigbang_dir.glob("*.json")))
 
         print(f"Found {len(json_files)} JSON files with coordinates to process.")
+        
+        # JSON 파일들을 읽어서 coords_map 생성
+        coords_map = {}
+        for json_file in json_files:
+            try:
+                with open(json_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    # JSON 파일이 리스트인 경우
+                    if isinstance(data, list):
+                        for item in data:
+                            # land_num 또는 매물번호 필드 확인 (한글 필드명 지원)
+                            land_num = item.get('land_num') or item.get('매물번호')
+                            
+                            # 좌표 정보 추출 (flat 또는 nested 구조 모두 지원)
+                            lat = None
+                            lon = None
+                            
+                            # 1. Flat 구조 확인
+                            lat = item.get('latitude') or item.get('위도')
+                            lon = item.get('longitude') or item.get('경도')
+                            
+                            # 2. Nested 구조 확인 (좌표_정보 안에 있는 경우)
+                            if not lat or not lon:
+                                coord_info = item.get('좌표_정보', {})
+                                if isinstance(coord_info, dict):
+                                    lat = coord_info.get('latitude') or coord_info.get('위도')
+                                    lon = coord_info.get('longitude') or coord_info.get('경도')
+                            
+                            if land_num and lat and lon:
+                                coords_map[str(land_num)] = {
+                                    'latitude': float(lat),
+                                    'longitude': float(lon)
+                                }
+                    # JSON 파일이 딕셔너리인 경우
+                    elif isinstance(data, dict):
+                        land_num = data.get('land_num') or data.get('매물번호')
+                        
+                        # 좌표 정보 추출
+                        lat = data.get('latitude') or data.get('위도')
+                        lon = data.get('longitude') or data.get('경도')
+                        
+                        # Nested 구조 확인
+                        if not lat or not lon:
+                            coord_info = data.get('좌표_정보', {})
+                            if isinstance(coord_info, dict):
+                                lat = coord_info.get('latitude') or coord_info.get('위도')
+                                lon = coord_info.get('longitude') or coord_info.get('경도')
+                        
+                        if land_num and lat and lon:
+                            coords_map[str(land_num)] = {
+                                'latitude': float(lat),
+                                'longitude': float(lon)
+                            }
+            except Exception as e:
+                print(f"⚠️ Error reading {json_file}: {e}")
+                continue
+        
+        print(f"✓ Loaded coordinates for {len(coords_map)} properties from JSON files")
 
         with self.driver.session() as session:
             # 제약 조건 및 인덱스 생성
