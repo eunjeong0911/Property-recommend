@@ -27,14 +27,24 @@ class LandViewSet(viewsets.ReadOnlyModelViewSet):
         # N+1 쿼리 방지: 이미지, 중개업소, 가격 정보를 한 번에 조회
         queryset = Land.objects.with_images().select_related('landbroker').prefetch_related('price_predictions')
         
-        # 지역 필터 (부분 일치)
+        # 자치구 필터 (district)
+        district = self.request.query_params.get('district', None)
+        if district and district != '전체' and district != '':
+            queryset = queryset.filter(address__icontains=district)
+            
+        # 행정동 필터 (dong)
+        dong = self.request.query_params.get('dong', None)
+        if dong and dong != '전체' and dong != '':
+            queryset = queryset.filter(address__icontains=dong)
+
+        # 지역 필터 (부분 일치) - 기존 호환성 유지
         address = self.request.query_params.get('address', None)
-        if address:
+        if address and address != '전체' and address != '':
             queryset = queryset.filter(address__icontains=address)
         
         # 거래유형 필터
         deal_type = self.request.query_params.get('deal_type', None)
-        if deal_type:
+        if deal_type and deal_type != '전체':
             if deal_type == '단기임대':
                 # 단기임대는 deal_type에 "단기임대"가 포함된 모든 매물
                 queryset = queryset.filter(deal_type__icontains='단기임대')
@@ -48,7 +58,10 @@ class LandViewSet(viewsets.ReadOnlyModelViewSet):
         
         # 건물유형 필터 (정확히 일치)
         building_type = self.request.query_params.get('building_type', None)
-        if building_type:
+        if building_type and building_type != '전체':
+            # 원룸 → 원투룸 매핑 (DB에는 원투룸으로 저장됨)
+            if building_type == '원룸':
+                building_type = '원투룸'
             queryset = queryset.filter(building_type=building_type)
         
         return queryset

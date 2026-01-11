@@ -58,10 +58,10 @@ const loadFilterFromStorage = (): LandFilterParams => {
         if (!saved) return {};
         const parsed = JSON.parse(saved);
         return {
-            region: parsed.selectedRegion || undefined,
-            dong: parsed.selectedDong || undefined,
-            transaction_type: parsed.selectedTransaction || undefined,
-            building_type: parsed.selectedBuilding || undefined,
+            district: parsed.district || parsed.selectedRegion || undefined,
+            dong: parsed.dong || parsed.selectedDong || undefined,
+            transaction_type: parsed.transaction_type || parsed.selectedTransaction || undefined,
+            building_type: parsed.building_type || parsed.selectedBuilding || undefined,
         };
     } catch {
         return {};
@@ -168,6 +168,11 @@ export default function MainPage() {
             properties: data.properties?.length
         });
 
+        // ★★★ 중요: prevFilterRef를 먼저 업데이트하여 useEffect 중복 호출 방지 ★★★
+        if (data.filterInfo?.details) {
+            prevFilterRef.current = JSON.stringify(data.filterInfo.details);
+        }
+
         // ★★★ 필터 정보 업데이트 → useEffect가 자동으로 매물 조회 ★★★
         setChatbotFilterInfo(data.filterInfo);
 
@@ -192,10 +197,6 @@ export default function MainPage() {
 
                     if (fullLandData.length > 0) {
                         setChatbotProperties(fullLandData);
-                        // 이미 데이터가 있으므로 prevFilterRef 업데이트하여 중복 호출 방지
-                        if (data.filterInfo?.details) {
-                            prevFilterRef.current = JSON.stringify(data.filterInfo.details);
-                        }
                         return;
                     }
                 } catch (error) {

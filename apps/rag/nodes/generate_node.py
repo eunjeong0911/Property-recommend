@@ -70,34 +70,39 @@ def generate(state: RAGState) -> RAGState:
     unique_results = []
     seen_ids = set()
     
-    # Flatten if list of lists
-    raw_items = []
+    # graph_results를 ID 맵으로 변환
+    graph_map = {}
     if isinstance(graph_results, list):
-         for item in graph_results:
-             if isinstance(item, list): raw_items.extend(item)
-             else: raw_items.append(item)
-    else:
-        raw_items = [graph_results]
+        for item in graph_results:
+            if isinstance(item, list):
+                for sub in item:
+                    if isinstance(sub, dict):
+                        gid = sub.get('p.id') or sub.get('id')
+                        if gid: graph_map[str(gid)] = sub
+            elif isinstance(item, dict):
+                gid = item.get('p.id') or item.get('id')
+                if gid: graph_map[str(gid)] = item
 
-    for result in raw_items:
-        if not isinstance(result, dict): continue
+    # sql_results 순서대로 병합
+    for sql_row in sql_results:
+        prop_id = sql_row.get('land_num') or sql_row.get('land_id')
+        if not prop_id: continue
         
-        prop_id = result.get('p.id') or result.get('id')
-        
-        unique_key = prop_id
-        if unique_key and unique_key not in seen_ids:
-            seen_ids.add(unique_key)
-            merged = {**result}
+        prop_id_str = str(prop_id)
+        if prop_id_str not in seen_ids:
+            seen_ids.add(prop_id_str)
             
-            # Merge SQL details (필수! Neo4j에는 ID만 있고 주소는 PostgreSQL에 있음)
-            if prop_id and str(prop_id) in sql_details:
-                merged['postgres_details'] = sql_details[str(prop_id)]
-            else:
-                # Exclude properties that failed SQL filtering or have no details
-                print(f"[Generate] ⚠️ Skipping property {prop_id}: not found in PostgreSQL")
-                continue
-
-
+            # graph_results에서 기본 정보 가져오기
+            result = graph_map.get(prop_id_str, {})
+            
+            # 병합
+            merged = {**result}
+            merged['postgres_details'] = sql_row
+            
+            # ID 필드 통일
+            if 'id' not in merged:
+                merged['id'] = prop_id_str
+            
             # --- PRE-PROCESS DETAILS FOR LLM ---
             # Extract and format the specific detail lists returned by neo4j_search_node
             
@@ -183,8 +188,24 @@ def generate(state: RAGState) -> RAGState:
             
             merged['formatted_temperature'] = temp_str
             
-            # 4. Station Info
-            merged['formatted_poi'] = poi_info
+            # 4. Station Info (Subway Priority)
+            # poi_info가 역이 아닐 경우(예: 동/대학교), trans_details에서 가장 가까운 역을 찾아 표시
+            final_station = poi_info
+            
+            # poi_info가 비어있거나 '역'이 포함되지 않은 경우 trans_details 확인
+            if not poi_info or '역' not in poi_info:
+                trans_list = result.get('trans_details', [])
+                if trans_list:
+                    # trans_details는 이미 거리순 정렬되어 있음
+                    first_trans = trans_list[0]
+                    if isinstance(first_trans, dict):
+                        name = first_trans.get('name', '')
+                        dist = first_trans.get('dist') or 0
+                        walking_time = first_trans.get('time') or 0
+                        if name:
+                            final_station = f"{name} ({int(dist)}m, {int(walking_time)}분)"
+            
+            merged['formatted_poi'] = final_station
             
             # 5. Pre-generate detail link (확실한 링크 생성!)
             postgres_details = merged.get('postgres_details', {})
@@ -203,6 +224,10 @@ def generate(state: RAGState) -> RAGState:
     context = unique_results
     print(f"\n[Generate] ✅ Context merging complete!")
     print(f"[Generate] 📝 Prepared {len(context)} unique properties for answer generation")
+    
+    # ★★★ 핵심 수정: 좌측 리스트 순서 동기화 ★★★
+    # 챗봇 답변과 좌측 매물 리스트의 순서를 일치시키기 위해 graph_results 업데이트
+    state["graph_results"] = unique_results
     
     # Check for zero results - return immediately without LLM call
     if not context or len(context) == 0:
@@ -232,24 +257,6 @@ def generate(state: RAGState) -> RAGState:
     
     # Store full results for Redis caching
     full_results = context
-    
-    # Sort by price if available (Prioritize cheaper options to ensure diversity)
-    # This addresses user feedback where only the most expensive options (e.g. at the limit) were shown.
-    def price_sort_key(item):
-        details = item.get('postgres_details', {})
-        deposit = details.get('parsed_deposit') # 만원 단위
-        rent = details.get('parsed_rent', 0)    # 만원 단위
-        
-        if deposit is not None:
-            return (deposit, rent)
-        return (float('inf'), float('inf'))
-        
-    # Check if we have price data to sort by
-    has_price_data = any(item.get('postgres_details', {}).get('parsed_deposit') is not None for item in context)
-    
-    if has_price_data:
-        print("[Generate] 💰 Sorting results by price (low to high)...")
-        context.sort(key=price_sort_key)
     
     # Select top 3 for display
     context_for_display = context[:3]
@@ -451,13 +458,42 @@ def generate(state: RAGState) -> RAGState:
     
     print(f"[Generate] 🚀 Executing parallel batch generation (Workers: {len(batch_inputs)})...")
     
-    # 3. 병렬 실행 (Batch)
-    
-    # batch 호출로 병렬 처리 (속도 3배 향상)
-    results = chain.batch(batch_inputs)
-    
-    # 4. 결과 합치기
-    answer = "\n\n".join(results)
+    # 3. 병렬 실행 (Batch) with fallback
+    try:
+        # batch 호출로 병렬 처리 (속도 3배 향상)
+        results = chain.batch(batch_inputs)
+        
+        # 4. 결과 합치기
+        answer = "\n\n".join(results)
+    except Exception as e:
+        print(f"[Generate] ⚠️ OpenAI API failed: {e}")
+        print(f"[Generate] 🔄 Generating fallback response from property data...")
+        
+        # Fallback: OpenAI 없이 간단한 응답 생성
+        fallback_parts = []
+        for i, item in enumerate(slim_context):
+            details = item.get('postgres_details', {})
+            rank = i + 1
+            
+            address = details.get('address', '주소 정보 없음')
+            price = details.get('formatted_price', '가격 정보 없음')
+            area = details.get('listing_area', '')
+            room = details.get('listing_room', '')
+            poi = item.get('formatted_poi', '')
+            link = item.get('detail_link', '')
+            
+            fallback_text = f"""**{rank}순위**
+- 주소: {address}
+- 가격: {price}
+- 면적: {area}
+- 구성: {room}
+- 역: {poi}
+{link}"""
+            fallback_parts.append(fallback_text)
+        
+        answer = "\n\n".join(fallback_parts)
+        print(f"[Generate] ✅ Fallback response generated: {len(fallback_parts)} properties")
+
 
 
 

@@ -317,8 +317,7 @@ async def query(request: QueryRequest, background_tasks: BackgroundTasks):
         
         # 첫 번째 제거 가능한 필터로 제안
         first_filter = low_result_filters[0]
-        filter_key, filter_value = first_filter
-        filter_kr = filter_names_kr.get(filter_key, filter_key)
+        filter_key, filter_value, filter_kr = first_filter
         
         suggestion_msg = f"검색 결과가 {len(graph_results)}개로 적습니다. 😢\n\n" \
                          f"'{filter_value}' ({filter_kr}) 조건을 제외하고 다시 검색해볼까요?\n\n" \
@@ -348,6 +347,26 @@ async def query(request: QueryRequest, background_tasks: BackgroundTasks):
         "result_count": len(graph_results),
         "properties": graph_results[:20]
     }
+
+
+def _format_price_kr(val):
+    """만원 단위 숫자를 한국어 금액 표현으로 변환 (예: 10000 -> 1억)"""
+    if val is None: return ""
+    try:
+        # 숫자가 아닌 경우 (이미 '1억' 등으로 들어온 경우) 처리
+        if isinstance(val, str) and not val.isdigit():
+            return val
+            
+        val_int = int(val)
+        if val_int >= 10000:
+            eok = val_int // 10000
+            man = val_int % 10000
+            if man > 0:
+                return f"{eok}억 {man}만원"
+            return f"{eok}억"
+        return f"{val_int}만원"
+    except Exception:
+        return str(val)
 
 
 def _format_filter_info(collected: dict = None, hard_filters: dict = None, 
@@ -409,11 +428,13 @@ def _format_filter_info(collected: dict = None, hard_filters: dict = None,
     max_deposit = price_info.get("max_deposit") or hard_filters.get("max_deposit")
     max_rent = price_info.get("max_rent") or hard_filters.get("max_rent")
     if max_deposit:
-        details["max_deposit"] = f"{max_deposit}만원 이하"
-        summary_parts.append(f"💰 보증금 {max_deposit}만원↓")
+        deposit_str = _format_price_kr(max_deposit)
+        details["max_deposit"] = f"{deposit_str} 이하"
+        summary_parts.append(f"💰 보증금 {deposit_str}↓")
     if max_rent:
-        details["max_rent"] = f"{max_rent}만원 이하"
-        summary_parts.append(f"💵 월세 {max_rent}만원↓")
+        rent_str = _format_price_kr(max_rent)
+        details["max_rent"] = f"{rent_str} 이하"
+        summary_parts.append(f"💵 월세 {rent_str}↓")
     
     # 스타일/선호도
     styles = collected.get("style") or soft_filters or []
@@ -440,6 +461,7 @@ def _format_filter_info(collected: dict = None, hard_filters: dict = None,
     options = collected.get("options") or hard_filters.get("options", [])
     if options:
         details["options"] = options if isinstance(options, list) else [options]
+        # ★★★ 핵심 수정: 스타일(✨)과 중복되는 옵션은 요약에서 제외 (예: 풀옵션) ★★★
         summary_parts.append(f"🔧 {', '.join(details['options'][:2])}")
 
     

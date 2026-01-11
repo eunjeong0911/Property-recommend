@@ -89,7 +89,7 @@ export default function LandList({ filterParams }: LandListProps) {
         if (savedFilter) {
             const parsed = JSON.parse(savedFilter);
             const currentFilter = {
-                selectedRegion: filterParams?.region || '',
+                selectedRegion: filterParams?.district || '',
                 selectedDong: filterParams?.dong || '',
                 selectedTransaction: filterParams?.transaction_type || '',
                 selectedBuilding: filterParams?.building_type || '',

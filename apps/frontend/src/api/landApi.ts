@@ -6,15 +6,18 @@ export async function fetchLands(params?: LandFilterParams): Promise<Land[]> {
     const queryParams = new URLSearchParams();
 
     if (params) {
-        // 자치구 + 행정동을 조합하여 address로 전달
-        let addressFilter = '';
-        if (params.region) addressFilter = params.region;
-        if (params.dong) addressFilter += (addressFilter ? ' ' : '') + params.dong;
-
-        if (addressFilter) queryParams.append('address', addressFilter);
+        if (params.district) queryParams.append('district', params.district);
+        if (params.dong) queryParams.append('dong', params.dong);
         if (params.transaction_type) queryParams.append('deal_type', params.transaction_type);
         if (params.building_type) queryParams.append('building_type', params.building_type);
         if (params.search) queryParams.append('search', params.search);
+
+        // 하위 호환성을 위해 address도 전달 (필요시)
+        if (params.district || params.dong) {
+            let addressFilter = params.district || '';
+            if (params.dong) addressFilter += (addressFilter ? ' ' : '') + params.dong;
+            queryParams.append('address', addressFilter);
+        }
     }
 
     const response = await fetch(`${API_BASE_URL}/api/listings/lands/?${queryParams.toString()}`);
@@ -54,7 +57,7 @@ export async function fetchLandsByFilter(params: ChatbotFilterParams): Promise<L
 
     const data = await response.json();
     let results: Land[] = data.results || data;
-    
+
     console.log('[fetchLandsByFilter] 📦 API 응답:', results.length, '개');
 
     // 클라이언트 사이드 가격 필터링 (백엔드에서 지원하지 않는 경우)
@@ -103,7 +106,7 @@ export async function fetchLandsByIds(ids: (string | number)[]): Promise<Land[]>
             const data = await response.json();
             const results = data.results || data;
             // 정확히 일치하는 매물 찾기
-            const exactMatch = results.find((land: Land) => 
+            const exactMatch = results.find((land: Land) =>
                 land.land_num === String(id) || land.id === Number(id)
             );
             return exactMatch || (results.length > 0 ? results[0] : null);

@@ -693,6 +693,36 @@ def build_university_multi_query() -> str:
     """
 
 
+def enrich_properties_with_stations(property_ids: List[str]) -> List[Dict]:
+    """
+    주어진 매물 ID들에 대해 가장 가까운 지하철역 정보를 Neo4j에서 조회하여 보강합니다.
+    Elasticsearch 검색 결과 등에 역 정보가 없을 때 사용합니다.
+    """
+    if not property_ids:
+        return []
+        
+    query = """
+    UNWIND $ids as prop_id
+    MATCH (p:Property {id: prop_id})
+    OPTIONAL MATCH (p)-[r:NEAR_SUBWAY]->(s:SubwayStation)
+    WITH p, s, r ORDER BY r.distance
+    WITH p, head(collect(s)) as closest_sub, head(collect(r)) as closest_r
+    RETURN p.id as id,
+           CASE WHEN closest_sub IS NOT NULL 
+                THEN [{name: closest_sub.name, dist: toInteger(closest_r.distance), time: toInteger(closest_r.walking_time)}]
+                ELSE [] 
+           END as poi_details
+    """
+    
+    try:
+        results = get_graph().query(query, params={"ids": property_ids})
+        print(f"[Neo4j Enrichment] ✅ Enriched {len(results)} properties with station info")
+        return results
+    except Exception as e:
+        print(f"[Neo4j Enrichment] ❌ Error: {e}")
+        return []
+
+
 # -----------------------------------------------------------------------------
 # 4. 쿼리 실행 함수 (Query Execution)
 # -----------------------------------------------------------------------------

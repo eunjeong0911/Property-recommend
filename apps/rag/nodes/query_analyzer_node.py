@@ -437,7 +437,6 @@ def _clear_session_location(session_id: str):
 def _analyze_with_openai(client, question: str, history: List[Dict] = None) -> Dict[str, Any]:
     """OpenAI API를 사용하여 질문 분석 + 검색 전략 결정"""
     
-    # 대화 히스토리 포맷팅
     history_text = ""
     if history and len(history) > 0:
         history_text = "\n\n이전 대화 (최근 5개):\n"
@@ -446,13 +445,60 @@ def _analyze_with_openai(client, question: str, history: List[Dict] = None) -> D
             a = turn.get('answer', '')[:100]
             history_text += f"Q{i}: {q}\nA{i}: {a}...\n"
     
+    def normalize_price(val):
+        """가격 문자열(예: '1억', '1억 5천')을 만원 단위 숫자로 변환"""
+        if val is None: return None
+        if isinstance(val, (int, float)): return int(val)
+        if not isinstance(val, str): return val
+        
+        val = val.replace(',', '').replace(' ', '')
+        try:
+            # "1억 5000" 또는 "1억 5천" -> 15000
+            if '억' in val:
+                parts = val.split('억')
+                eok = int(re.sub(r'[^0-9]', '', parts[0])) if parts[0] else 0
+                man = 0
+                if len(parts) > 1 and parts[1]:
+                    man_part = parts[1]
+                    if '천' in man_part:
+                        # "5천" -> 5000
+                        cheon_match = re.search(r'(\d+)천', man_part)
+                        if cheon_match:
+                            man = int(cheon_match.group(1)) * 1000
+                        else:
+                            # "천"만 있는 경우 (예: "억천") - 드물지만 처리
+                            man = 1000
+                    else:
+                        man_str = re.sub(r'[^0-9]', '', man_part)
+                        man = int(man_str) if man_str else 0
+                return eok * 10000 + man
+            
+            if '천' in val:
+                match = re.search(r'(\d+)천', val)
+                if match:
+                    return int(match.group(1)) * 1000
+                return 1000
+                
+            # 숫자만 있는 경우
+            return int(re.sub(r'[^0-9]', '', val))
+        except Exception:
+            return val
+
     prompt = f"""사용자의 부동산 검색 질문을 분석하여 JSON 형식으로 반환하세요.
 
 ⚠️ 중요 규칙:
 - 사용자가 **명시적으로 언급한 조건만** 추출하세요.
 - 언급되지 않은 조건은 절대로 추론하거나 추가하지 마세요.
 - 예: "중앙대 원룸 추천"에서 거래유형(월세/전세)은 언급되지 않았으므로 deal_type은 빈 문자열이어야 합니다.
-- 예: "대학교 근처"에서 역세권(subway)은 언급되지 않았으므로 facilities에 subway를 포함하지 마세요.
+
+💰 가격 추출 규칙:
+- "60" 또는 "60만원" -> 60
+- "1억" -> "1억"
+- "1억 5천" -> "1억 5천"
+- "2000/60" -> max_deposit: 2000, max_rent: 60
+- 숫자가 모호할 경우(예: "60정도") 한국 부동산 관례에 따라 월세는 만원 단위(60 = 60만원)로 해석하세요.
+- **절대로 60을 6000으로 변환하지 마세요.** (60은 60만원을 의미합니다)
+- **"1억"과 같은 표현은 그대로 "1억"으로 추출해도 됩니다.** (시스템에서 자동으로 10000으로 변환합니다)
 
 {history_text}
 현재 질문: "{question}"
@@ -462,7 +508,7 @@ def _analyze_with_openai(client, question: str, history: List[Dict] = None) -> D
     "hard_filters": {{
         "location": "지하철역 또는 지역명 (없으면 빈 문자열)",
         "deal_type": "월세|전세|매매|단기임대 (없으면 빈 문자열)",
-        "building_type": "원룸|투룸|오피스텔|아파트|빌라 (없으면 빈 문자열)",
+        "building_type": "원투룸|빌라주택|오피스텔|아파트 (없으면 빈 문자열)",
         "max_deposit": 보증금 상한 만원 단위 숫자 (없으면 null),
         "min_deposit": 보증금 하한 만원 단위 숫자 (없으면 null),
         "max_rent": 월세 상한 만원 단위 숫자 (없으면 null),
@@ -515,6 +561,13 @@ def _analyze_with_openai(client, question: str, history: List[Dict] = None) -> D
             result_text = result_text[4:]
     
     result = json.loads(result_text)
+    
+    # 가격 정보 정규화 (만원 단위 숫자로 통일)
+    hf = result.get("hard_filters", {})
+    for key in ["max_deposit", "min_deposit", "max_rent"]:
+        if key in hf:
+            hf[key] = normalize_price(hf[key])
+            
     return result
 
 
@@ -555,16 +608,14 @@ def _fallback_analysis(state: RAGState, question: str) -> None:
         hard_filters["deal_type"] = "매매"
     
     # 건물 타입
-    if "원룸" in question:
-        hard_filters["building_type"] = "원룸"
-    elif "투룸" in question or "2룸" in question:
-        hard_filters["building_type"] = "투룸"
+    if "원룸" in question or "투룸" in question or "2룸" in question:
+        hard_filters["building_type"] = "원투룸"
     elif "오피스텔" in question:
         hard_filters["building_type"] = "오피스텔"
     elif "아파트" in question:
         hard_filters["building_type"] = "아파트"
     elif "빌라" in question:
-        hard_filters["building_type"] = "빌라"
+        hard_filters["building_type"] = "빌라주택"
     
     # 가격 추출
     deposit_pattern = r"보증금\s*(\d+)"
@@ -745,7 +796,11 @@ def _check_missing_conditions(conditions: Dict) -> List[str]:
     필수 조건 (모두 충족해야 검색 실행):
     1. location: 위치 조건 (구/동/역/시설 기반)
     2. deal_type: 거래 유형 (전세/월세/매매/단기임대)
-    3. style: 스타일/옵션 조건
+    
+    선택 조건 (있으면 추가 필터로 사용):
+    - style: 스타일/옵션 조건 (깨끗한, 밝은, 조용한 등)
+    - price_info: 가격 조건
+    - building_type: 건물 타입
     
     Returns:
         누락된 조건 목록 (순서대로 질문)
@@ -761,7 +816,8 @@ def _check_missing_conditions(conditions: Dict) -> List[str]:
     if not conditions.get("deal_type"):
         missing.append("deal_type")
     
-    # 3. 스타일/옵션 체크
+    # 3. 스타일 조건 체크 (Requirements 4.1)
+    # 위치와 거래유형이 있어도 스타일이 없으면 질문함
     if not conditions.get("style"):
         missing.append("style")
     
@@ -899,17 +955,17 @@ def _sync_collected_to_filters(state: RAGState, collected: Dict) -> None:
         # 스타일 매핑 적용 (자연어 → 시스템 태그)
         mapped_tags, new_unmapped = map_style_keywords(collected_styles)
         
-        # 매핑된 태그를 soft_filters에 추가 (중복 제거)
-        for tag in mapped_tags:
-            if tag and tag not in soft_filters:
-                soft_filters.append(tag)
+        # ★★★ 핵심 수정: 기존 필터를 덮어씌워 중복 제거 (Requirements 4.5) ★★★
+        # 기존에 있던 soft_filters와 unmapped_styles를 새로운 매핑 결과로 대체
+        soft_filters = mapped_tags
+        unmapped_styles = new_unmapped
         
-        # 매핑되지 않은 스타일을 unmapped_styles에 추가 (중복 제거)
-        for style in new_unmapped:
-            if style and style not in unmapped_styles:
-                unmapped_styles.append(style)
+        # ★★★ UI 동기화 수정: collected["style"]도 업데이트하여 프론트엔드 중복 제거 ★★★
+        # 프론트엔드 필터바는 collected_conditions["style"]을 사용하므로 이를 정리해줘야 함
+        new_style_list = list(set(mapped_tags + new_unmapped))
+        collected["style"] = new_style_list
         
-        print(f"[Sync] ✨ 스타일 동기화: 원본={collected_styles}, 매핑됨={mapped_tags}, 미매핑={new_unmapped}")
+        print(f"[Sync] ✨ 스타일 동기화 (교체): 원본={collected_styles}, 매핑됨={mapped_tags}, 미매핑={new_unmapped}")
     
     # state 업데이트
     state["hard_filters"] = hard_filters

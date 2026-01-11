@@ -23,7 +23,12 @@ class PostgresImporter:
         "00_통합_빌라주택.json": "빌라주택",
         "00_통합_아파트.json": "아파트",
         "00_통합_오피스텔.json": "오피스텔",
-        "00_통합_원투룸.json": "원투룸"
+        "00_통합_원투룸.json": "원투룸",
+        "01_통합_빌라주택.json": "빌라주택",
+        "01_통합_아파트.json": "아파트",
+        "01_통합_오피스텔.json": "오피스텔",
+        "01_통합_원투룸.json": "원투룸",
+
     }
     
     def __init__(self):
@@ -70,7 +75,6 @@ class PostgresImporter:
                 description TEXT,
                 style_tags TEXT[],
                 search_text TEXT,
-                agent_info JSONB,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
@@ -110,20 +114,20 @@ class PostgresImporter:
                 self.cur.execute("ALTER TABLE land ADD COLUMN search_text TEXT;")
                 print("  ✓ search_text 컬럼 추가 완료")
 
-            # agent_info 컬럼 확인
-            check_agent_info = """
-            SELECT EXISTS (
-                SELECT FROM information_schema.columns 
-                WHERE table_name = 'land' AND column_name = 'agent_info'
-            );
-            """
-            self.cur.execute(check_agent_info)
-            has_agent_info = self.cur.fetchone()[0]
+            # # agent_info 컬럼 확인
+            # check_agent_info = """
+            # SELECT EXISTS (
+            #     SELECT FROM information_schema.columns 
+            #     WHERE table_name = 'land' AND column_name = 'agent_info'
+            # );
+            # """
+            # self.cur.execute(check_agent_info)
+            # has_agent_info = self.cur.fetchone()[0]
             
-            if not has_agent_info:
-                print("  → agent_info 컬럼 추가 중...")
-                self.cur.execute("ALTER TABLE land ADD COLUMN agent_info JSONB;")
-                print("  ✓ agent_info 컬럼 추가 완료")
+            # if not has_agent_info:
+            #     print("  → agent_info 컬럼 추가 중...")
+            #     self.cur.execute("ALTER TABLE land ADD COLUMN agent_info JSONB;")
+            #     print("  ✓ agent_info 컬럼 추가 완료")
         
         # land_image 테이블 확인 및 생성
         check_image_query = """
@@ -520,23 +524,28 @@ class PostgresImporter:
             style_tags = []
         
         search_text = item.get("search_text") or item.get("검색텍스트")
+        
+        # 중개사 정보는 Trust 모델에서 별도로 수집 및 연결
+        # PostgreSQL Import 단계에서는 NULL로 설정
+        landbroker_id = None
         agent_info = Json(item.get("중개사_정보", {}))
 
         query = """
             INSERT INTO land (
-                land_num, building_type, address, deal_type,
+                land_num, landbroker_id, building_type, address, deal_type,
                 deposit, monthly_rent, jeonse_price, sale_price,
                 url, trade_info, listing_info,
                 additional_options, description,
-                style_tags, search_text, agent_info
+                style_tags, search_text
             ) VALUES (
-                %s, %s, %s, %s,
+                %s, %s, %s, %s, %s,
                 %s, %s, %s, %s,
                 %s, %s, %s,
                 %s, %s,
-                %s, %s, %s
+                %s, %s
             )
             ON CONFLICT (land_num) DO UPDATE SET
+                landbroker_id = EXCLUDED.landbroker_id,
                 building_type = EXCLUDED.building_type,
                 address = EXCLUDED.address,
                 deal_type = EXCLUDED.deal_type,
@@ -551,17 +560,16 @@ class PostgresImporter:
                 description = EXCLUDED.description,
                 style_tags = EXCLUDED.style_tags,
                 search_text = EXCLUDED.search_text,
-                agent_info = EXCLUDED.agent_info,
                 updated_at = CURRENT_TIMESTAMP
             RETURNING land_id, (xmax = 0) AS inserted;
         """
 
         self.cur.execute(query, (
-            land_num, building_type, address, deal_type,
+            land_num, landbroker_id, building_type, address, deal_type,
             deposit, monthly_rent, jeonse_price, sale_price,
             url, trade_info, listing_info,
             additional_options, description,
-            style_tags, search_text, agent_info
+            style_tags, search_text
         ))
         
         result = self.cur.fetchone()
