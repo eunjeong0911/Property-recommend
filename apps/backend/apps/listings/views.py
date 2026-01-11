@@ -59,6 +59,9 @@ class LandViewSet(viewsets.ReadOnlyModelViewSet):
         # 건물유형 필터 (정확히 일치)
         building_type = self.request.query_params.get('building_type', None)
         if building_type and building_type != '전체':
+            # 원룸 → 원투룸 매핑 (DB에는 원투룸으로 저장됨)
+            if building_type == '원룸':
+                building_type = '원투룸'
             queryset = queryset.filter(building_type=building_type)
         
         return queryset

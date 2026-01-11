@@ -171,34 +171,36 @@ class LandSerializer(serializers.ModelSerializer):
         return round(random.uniform(30.0, 45.0), 1)
 
     def get_deposit(self, obj):
-        """보증금 추출 - DB 컬럼 우선 사용"""
-        # DB 컬럼 값 사용 (만원 단위 -> 원 단위 변환)
-        if hasattr(obj, 'deposit') and obj.deposit and obj.deposit > 0:
-            return obj.deposit * 10000
+        """보증금 추출 - DB 컬럼 우선 사용 (만원 단위)"""
+        # DB 컬럼 값 사용 (만원 단위 그대로 반환)
+        if hasattr(obj, 'deposit') and obj.deposit is not None and obj.deposit > 0:
+            return obj.deposit
         
         # 전세의 경우 jeonse_price를 보증금으로 반환
-        if hasattr(obj, 'jeonse_price') and obj.jeonse_price and obj.jeonse_price > 0:
-             return obj.jeonse_price * 10000
+        if hasattr(obj, 'jeonse_price') and obj.jeonse_price is not None and obj.jeonse_price > 0:
+             return obj.jeonse_price
 
-        # 기존 로직 (텍스트 파싱)
+        # 기존 로직 (텍스트 파싱) - 원 단위로 반환되므로 만원으로 변환
         deal_text = ''
         if obj.trade_info and isinstance(obj.trade_info, dict):
             deal_text = obj.trade_info.get('거래방식', '')
         
-        return extract_deposit_from_deal_text(deal_text, obj.deal_type or '')
+        raw_deposit = extract_deposit_from_deal_text(deal_text, obj.deal_type or '')
+        return raw_deposit // 10000 if raw_deposit else 0
 
     def get_monthly_rent(self, obj):
-        """월세 추출 - DB 컬럼 우선 사용"""
-        # DB 컬럼 값 사용 (만원 단위 -> 원 단위 변환)
-        if hasattr(obj, 'monthly_rent') and obj.monthly_rent and obj.monthly_rent > 0:
-            return obj.monthly_rent * 10000
+        """월세 추출 - DB 컬럼 우선 사용 (만원 단위)"""
+        # DB 컬럼 값 사용 (만원 단위 그대로 반환)
+        if hasattr(obj, 'monthly_rent') and obj.monthly_rent is not None and obj.monthly_rent > 0:
+            return obj.monthly_rent
 
-        # 기존 로직 (텍스트 파싱)
+        # 기존 로직 (텍스트 파싱) - 원 단위로 반환되므로 만원으로 변환
         deal_text = ''
         if obj.trade_info and isinstance(obj.trade_info, dict):
             deal_text = obj.trade_info.get('거래방식', '')
         
-        return extract_monthly_rent_from_deal_text(deal_text, obj.deal_type or '')
+        raw_rent = extract_monthly_rent_from_deal_text(deal_text, obj.deal_type or '')
+        return raw_rent // 10000 if raw_rent else 0
 
     def get_price(self, obj):
         """가격 포맷팅 (만원 단위) - price_utils 사용"""
