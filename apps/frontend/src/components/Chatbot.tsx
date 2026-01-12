@@ -295,7 +295,8 @@ export default function Chatbot({ onRecommendLands, onChatbotRecommend, onChatSt
       setMessages(prev => [...prev, aiMessage])
 
       // 필터 정보와 매물 데이터 저장
-      if (data.filter_info) {
+      // ★ 관련 없는 질문이나 에러 응답은 필터를 업데이트하지 않음
+      if (data.filter_info && data.filter_info.details && Object.keys(data.filter_info.details).length > 0) {
         setLatestFilterInfo(data.filter_info);
       }
 
@@ -304,11 +305,13 @@ export default function Chatbot({ onRecommendLands, onChatbotRecommend, onChatSt
         .map(match => Number(match[1]))
         .filter(Boolean);
 
-      // 콜백 호출
-      if (onChatbotRecommend && (landIds.length > 0 || data.filter_info)) {
+      // 콜백 호출 - 유효한 필터 정보가 있을 때만
+      const hasValidFilter = data.filter_info && data.filter_info.details && Object.keys(data.filter_info.details).length > 0;
+      
+      if (onChatbotRecommend && (landIds.length > 0 || hasValidFilter)) {
         onChatbotRecommend({
           landIds,
-          filterInfo: data.filter_info || null,
+          filterInfo: hasValidFilter ? data.filter_info : null,
           properties: data.properties || []
         });
         setLatestProperties(data.properties || []);
