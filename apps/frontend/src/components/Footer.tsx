@@ -16,19 +16,6 @@ const Footer: React.FC = () => {
 
   return (
     <footer className="border-t border-slate-700/50 bg-gradient-to-r from-slate-800/95 via-slate-900/95 to-slate-800/95 backdrop-blur-md text-[11px] text-slate-400">
-      {/* 상단 링크 영역 (로그인 / 전체서비스 / 약관 / 개인정보) */}
-      <div className="border-b border-slate-700/50">
-        <div className="mx-auto flex max-w-6xl flex-wrap gap-3 px-4 py-5 text-[11px] text-slate-400">
-          <span className="text-slate-600">|</span>
-          <Link href="/terms" className="hover:text-cyan-400 transition-colors">
-            이용약관
-          </Link>
-          <span className="text-slate-600">|</span>
-          <Link href="/privacy" className="hover:text-cyan-400 transition-colors">
-            개인정보 처리방침
-          </Link>
-        </div>
-      </div>
 
       {/* 안내/면책 문구 영역 */}
       <div className="mx-auto max-w-6xl px-4 py-6 leading-loose">
@@ -63,16 +50,6 @@ const Footer: React.FC = () => {
                 className="hover:text-cyan-400 transition-colors"
               >
                 final7333@gmail.com
-              </Link>
-            </div>
-            <div className="flex gap-1 justify-center">
-              <span className="font-medium text-slate-500">GITHUB</span>
-              <Link
-                href="https://github.com/SKNETWORKS-FAMILY-AICAMP/SKN18-FINAL-1TEAM"
-                target="_blank"
-                className="hover:text-cyan-400 transition-colors"
-              >
-                @GoZip
               </Link>
             </div>
           </div>

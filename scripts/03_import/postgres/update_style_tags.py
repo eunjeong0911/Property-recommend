@@ -1,0 +1,150 @@
+"""
+기존 매물 데이터에 style_tags와 search_text를 업데이트하는 스크립트
+"""
+import sys
+import os
+import json
+import psycopg2
+from pathlib import Path
+
+# Add scripts/03_import to path
+IMPORT_DIR = Path(__file__).parent.parent
+sys.path.insert(0, str(IMPORT_DIR))
+
+from config import Config
+
+
+def update_style_tags():
+    """JSON 파일에서 style_tags, search_text를 읽어 DB 업데이트"""
+    print("\n" + "=" * 60)
+    print("  Style Tags & Search Text 업데이트")
+    print("=" * 60 + "\n")
+    
+    # DB 연결
+    conn = psycopg2.connect(
+        dbname=Config.POSTGRES_DB,
+        user=Config.POSTGRES_USER,
+        password=Config.POSTGRES_PASSWORD,
+        host=Config.POSTGRES_HOST,
+        port=Config.POSTGRES_PORT
+    )
+    cur = conn.cursor()
+    
+    # 컬럼 존재 여부 확인 및 추가
+    print("컬럼 확인 중...")
+    
+    # style_tags 컬럼 확인
+    cur.execute("""
+        SELECT EXISTS (
+            SELECT FROM information_schema.columns 
+            WHERE table_name = 'land' AND column_name = 'style_tags'
+        );
+    """)
+    has_style_tags = cur.fetchone()[0]
+    
+    if not has_style_tags:
+        print("  → style_tags 컬럼 추가 중...")
+        cur.execute("ALTER TABLE land ADD COLUMN style_tags TEXT[];")
+        print("  ✓ style_tags 컬럼 추가 완료")
+    
+    # search_text 컬럼 확인
+    cur.execute("""
+        SELECT EXISTS (
+            SELECT FROM information_schema.columns 
+            WHERE table_name = 'land' AND column_name = 'search_text'
+        );
+    """)
+    has_search_text = cur.fetchone()[0]
+    
+    if not has_search_text:
+        print("  → search_text 컬럼 추가 중...")
+        cur.execute("ALTER TABLE land ADD COLUMN search_text TEXT;")
+        print("  ✓ search_text 컬럼 추가 완료")
+    
+    conn.commit()
+    print("✓ 컬럼 확인 완료\n")
+    
+    # JSON 파일 데이터 소스 설정
+    data_sources = []
+    
+    # 1. RDB/land
+    if os.path.exists("/app/data/RDB/land"):
+        data_sources.append("/app/data/RDB/land")
+        print("Docker 환경 감지: land")
+    else:
+        data_sources.append(os.path.join(Config.BASE_DIR, "data", "RDB", "land"))
+        print("로컬 환경 감지: land")
+
+    # 2. zigbangland
+    if os.path.exists("/app/data/zigbangland"):
+        data_sources.append("/app/data/zigbangland")
+        print("Docker 환경 감지: zigbangland")
+    else:
+        # 로컬 경로 확인
+        zigbang_local = os.path.join(Config.BASE_DIR, "data", "zigbangland")
+        if os.path.exists(zigbang_local):
+            data_sources.append(zigbang_local)
+            print("로컬 환경 감지: zigbangland")
+
+    total_updated = 0
+    
+    for data_dir in data_sources:
+        if not os.path.exists(data_dir):
+            continue
+            
+        # 해당 디렉토리의 모든 json 파일 처리
+        json_files = [f for f in os.listdir(data_dir) if f.endswith('.json')]
+        
+        for json_file in json_files:
+            file_path = os.path.join(data_dir, json_file)
+            print(f"[처리 중] {json_file}")
+        
+        with open(file_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        updated = 0
+        for item in data:
+            land_num = item.get("매물번호")
+            if not land_num:
+                continue
+            
+            # style_tags 추출 (PostgreSQL 배열로 저장)
+            style_tags = item.get("style_tags") or item.get("스타일태그")
+            if isinstance(style_tags, str):
+                # 문자열인 경우 쉼표로 분리하여 리스트로 변환
+                style_tags = [tag.strip() for tag in style_tags.split(",")]
+            elif not isinstance(style_tags, list):
+                style_tags = None
+            
+            # search_text 추출
+            search_text = item.get("search_text") or item.get("검색텍스트")
+            
+            if style_tags or search_text:
+                cur.execute("""
+                    UPDATE land 
+                    SET style_tags = %s, search_text = %s
+                    WHERE land_num = %s
+                """, (style_tags, search_text, land_num))
+                
+                if cur.rowcount > 0:
+                    updated += 1
+        
+        conn.commit()
+        print(f"  ✓ {updated}건 업데이트 완료")
+        total_updated += updated
+    
+    # 결과 확인
+    cur.execute("SELECT COUNT(*) FROM land WHERE style_tags IS NOT NULL")
+    with_tags = cur.fetchone()[0]
+    
+    print("\n" + "=" * 60)
+    print(f"  총 업데이트: {total_updated}건")
+    print(f"  style_tags가 있는 매물: {with_tags}건")
+    print("=" * 60 + "\n")
+    
+    cur.close()
+    conn.close()
+
+
+if __name__ == "__main__":
+    update_style_tags()

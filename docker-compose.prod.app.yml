@@ -1,0 +1,133 @@
+# =============================================================================
+# Docker Compose - Production Configuration (App Server)
+# =============================================================================
+# 이 파일은 App Server EC2 인스턴스에서 사용됩니다.
+#
+# 인스턴스: App Server (t3.small 사용)
+# 서비스: Backend, Frontend, Nginx, Scripts
+#
+# Usage:
+#   docker-compose -f docker-compose.prod.app.yml up -d
+# =============================================================================
+
+services:
+  # ===========================================================================
+  # Application Server Services (App EC2)
+  # ===========================================================================
+
+  backend:
+    image: 046685909225.dkr.ecr.ap-northeast-2.amazonaws.com/realestate-backend:latest
+    container_name: realestate-backend
+    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120
+    # ports:
+    #   - "8000:8000"  # Nginx를 통해서만 접근하도록 주석 처리
+    env_file:
+      - .env.production
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.prod
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # Data only (Codes are baked in)
+      - ./data:/app/data
+      - ./apps/backend/config/settings/prod.py:/app/config/settings/prod.py
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/api/health/" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - backend-network
+      - frontend-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          # t3.small(2GB) 환경 고려하여 예약 메모리 축소
+          memory: 256M
+
+  frontend:
+    image: 046685909225.dkr.ecr.ap-northeast-2.amazonaws.com/realestate-frontend:latest
+    container_name: realestate-frontend
+    command: npm run start
+    # ports:
+    #   - "3000:3000"  # Nginx를 통해서만 접근하도록 주석 처리
+    env_file:
+      - .env.production
+    environment:
+      - NEXT_PUBLIC_API_URL=https://goziphouse.com
+      - NEXT_PUBLIC_RAG_URL=/rag
+      - NEXT_PUBLIC_KAKAO_API_KEY=${KAKAO_API_KEY}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - NEXTAUTH_URL=https://goziphouse.com
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-your-secret-key-here}
+    depends_on:
+      - backend
+    networks:
+      - frontend-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          # t3.small(2GB) 환경 고려하여 예약 메모리 축소
+          memory: 256M
+
+  nginx:
+    image: nginx:alpine
+    container_name: realestate-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./infra/nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - backend-network
+      - frontend-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  scripts:
+    image: 046685909225.dkr.ecr.ap-northeast-2.amazonaws.com/realestate-scripts:latest
+    container_name: realestate-scripts
+    volumes:
+      # Scripts and models are baked into image, only mount data
+      - ./data:/app/data
+    env_file:
+      - .env.production
+    environment:
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - NEO4J_URI=${NEO4J_URI}
+      - ELASTICSEARCH_HOST=${ELASTICSEARCH_HOST}
+      - PYTHONUNBUFFERED=1
+      - LOG_FORMAT=standard
+    networks:
+      - backend-network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    profiles:
+      - scripts
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  backend-network:
+    driver: bridge
+    name: realestate-backend
+  frontend-network:
+    driver: bridge
+    name: realestate-frontend

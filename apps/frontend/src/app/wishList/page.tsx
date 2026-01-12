@@ -22,14 +22,36 @@ import { fetchLandById } from '@/api/landApi'
 import { Land } from '@/types/land'
 
 export default function WishListPage() {
-  const [showComparison, setShowComparison] = useState(false)
-  const [selectedLands, setSelectedLands] = useState<number[]>([])
+  // sessionStorage에서 비교 상태 복원
+  const [showComparison, setShowComparison] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('wishlist_showComparison') === 'true'
+    }
+    return false
+  })
+  const [selectedLands, setSelectedLands] = useState<number[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('wishlist_selectedLands')
+      return saved ? JSON.parse(saved) : []
+    }
+    return []
+  })
   const [wishlistLands, setWishlistLands] = useState<Land[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 8
   const totalPages = Math.ceil(wishlistLands.length / pageSize)
+
+  // 비교 상태 변경 시 sessionStorage에 저장
+  useEffect(() => {
+    sessionStorage.setItem('wishlist_showComparison', String(showComparison))
+  }, [showComparison])
+
+  // 선택된 매물 변경 시 sessionStorage에 저장
+  useEffect(() => {
+    sessionStorage.setItem('wishlist_selectedLands', JSON.stringify(selectedLands))
+  }, [selectedLands])
 
   // 찜 매물 데이터 로드
   useEffect(() => {
@@ -49,7 +71,6 @@ export default function WishListPage() {
 
         setWishlistLands(lands)
       } catch (err) {
-        console.error('Failed to load wishlist:', err)
         setError('찜 매물을 불러오는데 실패했습니다.')
       } finally {
         setLoading(false)
@@ -88,7 +109,7 @@ export default function WishListPage() {
   // 온도 계산 (가격 예측 정보 기반)
   const getTemperature = (land: Land): number => {
     if (land.price_prediction) {
-      const label = land.price_prediction.prediction_label_korean
+      const label = land.price_prediction.predicted_label_kr;
       if (label === '저렴') return 0.3
       if (label === '적정') return 0.6
       if (label === '비쌈') return 0.9
@@ -126,13 +147,15 @@ export default function WishListPage() {
           // 중개사 온도 (temperature)
           temperature: land.temperature,
           // ML 가격 예측
-          pricePredictionLabel: land.price_prediction?.prediction_label_korean,
-          pricePredictionProb: land.price_prediction?.probability_underpriced ||
-            land.price_prediction?.probability_fair ||
-            land.price_prediction?.probability_overpriced,
+          pricePredictionLabel: land.price_prediction?.predicted_label_kr,
+          pricePredictionProb: land.price_prediction?.underpriced_prob ||
+            land.price_prediction?.fair_prob ||
+            land.price_prediction?.overpriced_prob,
           // 중개사 신뢰도
           brokerTrustScore: land.broker?.trust_score,
           brokerTrustGrade: land.broker?.trust_grade,
+          // 온도 데이터
+          temperatures: land.temperatures,
         }
       })
       .filter(Boolean) as any[]
@@ -140,7 +163,7 @@ export default function WishListPage() {
 
   if (loading) {
     return (
-      <div className="max-w-5xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto px-4 py-8">
         <SideTab />
         <LoadingSpinner message="찜 매물을 불러오는 중..." />
       </div>
@@ -149,7 +172,7 @@ export default function WishListPage() {
 
   if (error) {
     return (
-      <div className="max-w-5xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto px-4 py-8">
         <SideTab />
         <div>
           <div className="bg-red-50 border border-red-200 rounded-lg p-12 text-center">
@@ -161,7 +184,7 @@ export default function WishListPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
+    <div className="max-w-4xl mx-auto px-4 py-8">
       {/* 가로 탭 */}
       <SideTab />
 
@@ -220,6 +243,17 @@ export default function WishListPage() {
                         images={land.images}
                         price={formatPrice(land)}
                         isLiked={true}
+                        onLike={async () => {
+                          // 찜 해제 시 목록에서 제거
+                          try {
+                            const { removeWishlist } = await import('@/api/wishlistApi');
+                            await removeWishlist(land.id);
+                            // 상태 업데이트하여 UI에서 제거
+                            setWishlistLands(prev => prev.filter(l => l.id !== land.id));
+                          } catch (error) {
+                            console.error('Failed to remove from wishlist:', error);
+                          }
+                        }}
                       />
                     </div>
                     {/* 주소 정보 */}

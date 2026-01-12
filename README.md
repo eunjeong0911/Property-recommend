@@ -1,3 +1,6 @@
+<img width="1277" height="653" alt="image" src="https://github.com/user-attachments/assets/aba2cb6d-e8ea-4809-b5f3-0ce2836f48b7" />
+
+
 # 🏠 부동산 매물 추천 AI 플랫폼
 
 > **AI 기반 부동산 매물 검색 및 추천 서비스**  
@@ -11,7 +14,7 @@
 [![TailwindCSS](https://img.shields.io/badge/tailwindcss-3.4-blue.svg)](https://tailwindcss.com/)
 [![Neo4j](https://img.shields.io/badge/neo4j-5.15-blue.svg)](https://neo4j.com/)
 [![PostgreSQL](https://img.shields.io/badge/postgresql-16-blue.svg)](https://www.postgresql.org/)
-[![OpenSearch](https://img.shields.io/badge/opensearch-2.11-blue.svg)](https://opensearch.org/)
+[![Elasticsearch](https://img.shields.io/badge/elasticsearch-8.17-blue.svg)](https://www.elastic.co/)
 [![LangChain](https://img.shields.io/badge/langchain-0.3-yellow.svg)](https://www.langchain.com/)
 [![Docker](https://img.shields.io/badge/docker-24-blue.svg)](https://www.docker.com/)
 
@@ -98,7 +101,7 @@
 ### 1. 🤖 AI 챗봇 (RAG)
 - 자연어 기반 매물 검색
 - LangGraph 기반 질문 분류 및 응답
-- Neo4j + PostgreSQL + OpenSearch 하이브리드 검색
+- Neo4j + PostgreSQL + Elasticsearch 하이브리드 검색
 
 ### 2.  ML 모델
 - 중개사 신뢰도 모델: A/B/C 등급 분류 (정확도 84.51%)
@@ -128,7 +131,7 @@
 - **Cache**: Redis 7
 
 ### Search Engine
-- **OpenSearch 2.11** (Elasticsearch 호환)
+- **Elasticsearch 8.17**
   - **하이브리드 검색**: 키워드 + k-NN 벡터 검색 결합
   - **텍스트 재정렬**: Neo4j 후보를 텍스트 기반 재정렬
   - **한글 분석**: Nori Analyzer (형태소 분석)
@@ -143,9 +146,6 @@
 
 ### Infrastructure
 - **Containerization**: Docker, Docker Compose
-- **Cloud**: AWS (ECS, RDS, ElastiCache, OpenSearch Service)
-- **CI/CD**: AWS CodePipeline, CodeBuild, CodeDeploy
-- **Monitoring**: CloudWatch
 
 ### Development Tools
 - **Package Manager**: uv (Python), npm (Node.js)
@@ -187,7 +187,7 @@
 │  │+vec  │ │Graph │ │Cache │      │
 │  └──────┘ └──────┘ └──────┘      │
 │  ┌──────────────────────┐         │
-│  │ OpenSearch 2.11      │         │
+│  │ Elasticsearch 8.17   │         │
 │  │ - 하이브리드 검색     │         │
 │  │ - k-NN 벡터 검색     │         │
 │  └──────────────────────┘         │
@@ -224,7 +224,7 @@
 **3. Data Layer**
 - **PostgreSQL 16**: 매물 데이터, 사용자 정보
 - **Neo4j 5.15**: 매물-시설 관계 그래프
-- **OpenSearch 2.11**: 하이브리드 검색 (키워드 + 벡터)
+- **Elasticsearch 8.17**: 하이브리드 검색 (키워드 + 벡터)
 - **Redis 7**: 세션 캐시
 
 **4. AI/ML Services**
@@ -235,7 +235,7 @@
 
 **1. 매물 검색 흐름**
 ```
-사용자 → Frontend → Backend → PostgreSQL/Neo4j/OpenSearch
+사용자 → Frontend → Backend → PostgreSQL/Neo4j/Elasticsearch
 → 하이브리드 검색 (Neo4j 60% + ES 40%)
 → Backend → Frontend → 사용자
 ```

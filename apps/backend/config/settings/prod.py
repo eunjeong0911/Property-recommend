@@ -40,3 +40,6 @@ if os.getenv("ENABLE_HSTS", "False").lower() in ("true", "1", "yes"):
     SECURE_HSTS_SECONDS = 31536000  # 1 year
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
+
+# AWS ALB의 HTTPS 헤더 신뢰 설정 (무한 리다이렉트 해결)
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

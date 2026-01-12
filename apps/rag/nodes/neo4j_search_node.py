@@ -93,25 +93,53 @@ FACILITY_CONFIG = {
     }
 }
 
+# 시설 타입 → 온도 Metric 매핑 (온도 기반 검색용)
+FACILITY_TO_TEMPERATURE = {
+    "safety": "Safety",              # 안전, 치안, CCTV
+    "convenience": "LivingConvenience",  # 편의점, 마트, 세탁소
+    "hospital": "LivingConvenience",     # 병원, 약국
+    "pharmacy": "LivingConvenience",     # 약국
+    "subway": "Traffic",             # 지하철, 교통
+    "park": "Culture",               # 공원, 산책
+    "university": "Culture",         # 대학교
+}
+
 # 주요 지하철역/지역명 패턴 (서울 전 노선 커버)
 LOCATION_PATTERNS = [
-    # 지하철역 (역 접미사 포함)
-    r"(홍대입구|강남|신촌|건대입구|잠실|여의도|이태원|합정|상수|망원|연남|성수|왕십리|"
-    r"신림|봉천|낙성대|사당|교대|서초|삼성|선릉|역삼|논현|신사|압구정|청담|"
-    r"명동|종로|종로3가|종로5가|동대문|혜화|대학로|을지로|을지로3가|을지로4가|시청|광화문|경복궁|안국|"
-    r"노원|도봉|수유|미아|길음|돈암|성신여대|한성대|창동|쌍문|"
-    r"구로|신도림|영등포|당산|선유도|문래|대림|가산|가산디지털단지|금천|"
-    r"마포|공덕|애오개|아현|충정로|서울역|용산|이촌|동작|"
-    r"천호|강동|암사|길동|둔촌|명일|고덕|상일동|"
-    r"을지로입구|신당|상왕십리|신설동|동묘앞|신정네거리|양천구청|도림천|"
-    r"고속터미널|남부터미널|약수|금호|옥수|압구정로데오|잠원|"
-    r"동대문역사문화공원|충무로|회현|숙대입구|삼각지|한강진|"
-    r"청구|신금호|행당|마장|답십리|장한평|"
-    r"녹사평|효창공원앞|대흥|광흥창|"
-    r"어린이대공원|군자|면목|사가정|용마산|중곡|상봉|"
-    r"남구로|신풍|보라매|신대방삼거리|장승배기|"
-    r"김포공항|마곡나루|가양|양천향교|염창|등촌|증미|신논현|언주|선정릉|삼성중앙|봉은사|종합운동장|"
-    r"양재|양재시민의숲|청계산입구|판교|정자)(?:역)?",
+    # 지하철역 (역 접미사 포함) - 서울 1~9호선 전체
+    # 1호선 (서울역~청량리, 경인선 일부)
+    r"(서울역|시청|종각|종로3가|종로5가|동대문|동묘앞|신설동|제기동|청량리|"
+    # 2호선 (순환선 + 지선)
+    r"을지로입구|을지로3가|을지로4가|동대문역사문화공원|신당|상왕십리|왕십리|한양대|뚝섬|성수|"
+    r"건대입구|강변|잠실나루|잠실|잠실새내|종합운동장|삼성|선릉|역삼|강남|교대|서초|방배|사당|"
+    r"낙성대|서울대입구|봉천|신림|신대방|구로디지털단지|대림|신도림|문래|영등포구청|당산|합정|"
+    r"홍대입구|신촌|이대|아현|충정로|용답|신답|용두|도림천|양천구청|신정네거리|까치산|"
+    # 3호선
+    r"지축|구파발|연신내|불광|녹번|홍제|무악재|독립문|경복궁|안국|충무로|동대입구|"
+    r"약수|금호|옥수|압구정|신사|잠원|고속터미널|남부터미널|양재|매봉|도곡|대치|학여울|대청|일원|수서|가락시장|경찰병원|오금|"
+    # 4호선
+    r"당고개|상계|노원|창동|쌍문|수유|미아|미아사거리|길음|성신여대입구|한성대입구|혜화|"
+    r"명동|회현|숙대입구|삼각지|신용산|이촌|동작|이수|남태령|"
+    # 5호선
+    r"방화|개화산|김포공항|송정|마곡|발산|우장산|화곡|신정|목동|오목교|영등포시장|신길|여의도|"
+    r"여의나루|마포|공덕|애오개|서대문|광화문|청구|신금호|행당|마장|답십리|장한평|군자|아차산|광나루|천호|강동|"
+    r"둔촌동|올림픽공원|길동|굽은다리|명일|고덕|상일동|방이|개롱|거여|마천|"
+    # 6호선
+    r"응암|역촌|독바위|구산|새절|증산|디지털미디어시티|월드컵경기장|마포구청|망원|상수|광흥창|대흥|"
+    r"효창공원앞|녹사평|이태원|한강진|버티고개|창신|보문|안암|고려대|종암|월곡|상월곡|돌곶이|석계|태릉입구|화랑대|봉화산|신내|"
+    # 7호선
+    r"장암|도봉산|수락산|마들|중계|하계|공릉|먹골|중화|상봉|면목|사가정|용마산|중곡|어린이대공원|뚝섬유원지|청담|강남구청|학동|논현|반포|"
+    r"내방|남성|숭실대입구|상도|장승배기|신대방삼거리|보라매|신풍|남구로|가산디지털단지|철산|광명사거리|천왕|온수|까치울|"
+    # 8호선
+    r"암사|강동구청|몽촌토성|석촌|송파|문정|장지|복정|"
+    # 9호선
+    r"개화|공항시장|신방화|마곡나루|양천향교|가양|증미|등촌|염창|신목동|선유도|국회의사당|샛강|노량진|노들|흑석|"
+    r"구반포|신반포|사평|신논현|언주|선정릉|삼성중앙|봉은사|삼전|석촌고분|송파나루|한성백제|둔촌오륜|중앙보훈병원|"
+    # 기타 주요역/지역명 (신분당선, 경의중앙선 일부 등)
+    r"양재시민의숲|청계산입구|판교|정자|"
+    r"구로|영등포|용산|금천|독산|금천구청|가산|"
+    r"대학로|압구정로데오|연남|돈암)(?:역)?",
+
     # 대학교
     r"(서울대|연세대|고려대|이화여대|홍익대|건국대|한양대|성균관대|중앙대|경희대|"
     r"서강대|숙명여대|동국대|국민대|세종대|한국외대|시립대|광운대|상명대|덕성여대|"
@@ -125,8 +153,9 @@ LOCATION_PATTERNS = [
     r"목동|화곡|방화|개화|발산|등촌|마곡|상암|연희|연남동|"
     r"청량리|회기|중화|상봉|망우|태릉입구|공릉|하계|중계|"
     r"문정|가락|거여|마천|방이|오금|개롱|"
-    r"회현|남대문|후암|청파|원효로|한남|보광동|이태원동)"
+    r"회현|남대문|후암|청파|원효로|한남|보광동|이태원동|독산동|시흥동|가산동)"
 ]
+
 
 
 # -----------------------------------------------------------------------------
@@ -249,8 +278,15 @@ def analyze_question(question: str) -> Dict:
 # -----------------------------------------------------------------------------
 
 def build_single_facility_query(facility_type: str) -> str:
-    """단일 시설 타입에 대한 Cypher 쿼리 생성"""
+    """단일 시설 타입에 대한 Cypher 쿼리 생성 (온도 기반 우선)"""
     
+    # 온도 기반 검색 우선 사용
+    temp_metric = FACILITY_TO_TEMPERATURE.get(facility_type)
+    if temp_metric:
+        print(f"[QueryBuilder] 🌡️ Using temperature-based search: {temp_metric}")
+        return build_temperature_query(temp_metric)
+    
+    # 온도 매핑이 없는 경우 기존 방식 사용 (fallback)
     config = FACILITY_CONFIG.get(facility_type)
     if not config:
         return build_subway_query()  # 기본값
@@ -259,14 +295,69 @@ def build_single_facility_query(facility_type: str) -> str:
         return build_subway_query()
     elif facility_type == "university":
         return build_university_query()
-    elif facility_type == "safety":
-        return build_safety_query()
     else:
         return build_facility_query(
             relationship=config["relationship"],
             label=config["label"],
             result_key=config["result_key"]
         )
+
+
+def build_temperature_query(temp_metric: str) -> str:
+    """
+    온도 기반 검색 Cypher 쿼리 (TEXT INDEX 최적화)
+    
+    사전 계산된 온도 점수로 매물을 정렬합니다.
+    - Safety: 안전 온도 (CCTV, 범죄율, 경찰서 등 종합)
+    - Traffic: 교통 온도 (지하철, 버스 접근성)
+    - LivingConvenience: 생활편의 온도 (편의점, 마트, 세탁소)
+    - Culture: 문화 온도 (공원, 영화관, 도서관)
+    - Pet: 반려동물 온도 (동물병원, 펫샵, 놀이터)
+    """
+    return f"""
+    // 1. 위치 앵커 찾기 (TEXT INDEX 최적화: UNION으로 라벨별 분리)
+    CALL {{
+        MATCH (a:SubwayStation) WHERE a.name STARTS WITH $keyword OR a.name CONTAINS $keyword
+        RETURN a as anchor LIMIT 3
+        UNION ALL
+        MATCH (a:College) WHERE a.name STARTS WITH $keyword OR a.name CONTAINS $keyword
+        RETURN a as anchor LIMIT 3
+        UNION ALL
+        MATCH (a:Park) WHERE a.name STARTS WITH $keyword OR a.name CONTAINS $keyword
+        RETURN a as anchor LIMIT 3
+    }}
+    WITH anchor LIMIT 5
+    
+    // 2. 앵커 근처 매물 조회
+    MATCH (p:Property)-[r_anchor]-(anchor)
+    WHERE type(r_anchor) STARTS WITH 'NEAR_'
+    WITH DISTINCT p, anchor, r_anchor
+    
+    // 3. 온도 점수 조회 (핵심!)
+    MATCH (p)-[r_temp:HAS_TEMPERATURE]->(m:Metric {{name: '{temp_metric}'}})
+    
+    // 4. 온도로 정렬
+    WITH p, anchor, r_anchor, r_temp.temperature as temperature
+    ORDER BY temperature DESC
+    LIMIT 50
+    
+    // 5. 가장 가까운 지하철역 정보
+    OPTIONAL MATCH (p)-[r_sub:NEAR_SUBWAY]->(sub:SubwayStation)
+    WITH p, temperature, anchor, r_anchor, sub, r_sub
+    ORDER BY CASE WHEN r_sub IS NULL THEN 9999 ELSE r_sub.distance END
+    WITH p, temperature, anchor, r_anchor, 
+         head(collect(sub)) as closest_sub, 
+         head(collect(r_sub)) as closest_r_sub
+    
+    RETURN p.id as id,
+           temperature,
+           temperature as total_score,
+           [{{name: anchor.name, dist: toInteger(r_anchor.distance)}}] as poi_details,
+           CASE WHEN closest_sub IS NOT NULL 
+               THEN [{{name: closest_sub.name, dist: toInteger(closest_r_sub.distance), time: toInteger(closest_r_sub.walking_time)}}]
+               ELSE [] 
+           END as trans_details
+    """
 
 
 def build_subway_query() -> str:
@@ -602,9 +693,97 @@ def build_university_multi_query() -> str:
     """
 
 
+def enrich_properties_with_stations(property_ids: List[str]) -> List[Dict]:
+    """
+    주어진 매물 ID들에 대해 가장 가까운 지하철역 정보를 Neo4j에서 조회하여 보강합니다.
+    Elasticsearch 검색 결과 등에 역 정보가 없을 때 사용합니다.
+    """
+    if not property_ids:
+        return []
+        
+    query = """
+    UNWIND $ids as prop_id
+    MATCH (p:Property {id: prop_id})
+    OPTIONAL MATCH (p)-[r:NEAR_SUBWAY]->(s:SubwayStation)
+    WITH p, s, r ORDER BY r.distance
+    WITH p, head(collect(s)) as closest_sub, head(collect(r)) as closest_r
+    RETURN p.id as id,
+           CASE WHEN closest_sub IS NOT NULL 
+                THEN [{name: closest_sub.name, dist: toInteger(closest_r.distance), time: toInteger(closest_r.walking_time)}]
+                ELSE [] 
+           END as poi_details
+    """
+    
+    try:
+        results = get_graph().query(query, params={"ids": property_ids})
+        print(f"[Neo4j Enrichment] ✅ Enriched {len(results)} properties with station info")
+        return results
+    except Exception as e:
+        print(f"[Neo4j Enrichment] ❌ Error: {e}")
+        return []
+
+
 # -----------------------------------------------------------------------------
 # 4. 쿼리 실행 함수 (Query Execution)
 # -----------------------------------------------------------------------------
+
+
+
+
+def _clean_location_keyword(location: str) -> str:
+    """
+    위치 키워드 정제 (접미사 제거)
+    예: '합정동' -> '합정', '강남역' -> '강남', '마포구' -> '마포'
+    """
+    if not location:
+        return ""
+        
+    # 이미 2글자 이하면 제거하지 않음 (예: '중구' -> '중' X)
+    if len(location) <= 2:
+        return location
+        
+    # 행정구역/역 접미사 제거 패턴
+    import re
+    # 1. 역 제거
+    cleaned = re.sub(r'역$', '', location)
+    # 2. 동/구/시 제거 (단, '역삼동' -> '역삼' 처럼 의미 유지될 때만)
+    if cleaned != location: # 역이 제거되었으면 리턴
+        return cleaned
+        
+    cleaned = re.sub(r'(?:[동구시])$', '', location)
+    return cleaned if len(cleaned) >= 2 else location
+
+
+# -----------------------------------------------------------------------------
+# 5. 메인 검색 함수 (Main Search Function)
+# -----------------------------------------------------------------------------
+
+def generate_search_steps(location: str, facilities: List[str]) -> List[str]:
+    """검색 의도에 따른 사용자 친화적 진행 메시지 생성"""
+    steps = []
+    
+    # 1. 위치 검색 메시지
+    if location:
+        steps.append(f"{location} 근처 매물 찾는 중...")
+    
+    # 2. 시설별 검색 메시지
+    facility_msg_map = {
+        "safety": "안전한 방(CCTV/치안) 찾는 중...",
+        "convenience": "가까운 편의점 찾는 중...",
+        "hospital": "가까운 병원 확인하는 중...",
+        "general_hospital": "종합병원 접근성 확인 중...",
+        "pharmacy": "근처 약국 찾는 중...",
+        "park": "산책하기 좋은 공원 찾는 중...",
+        "university": "대학교 통학 거리 계산 중...",
+        "subway": "역세권 매물 스캔 중..."
+    }
+    
+    for fac in facilities:
+        if fac in facility_msg_map:
+            steps.append(facility_msg_map[fac])
+            
+    return steps
+
 
 def execute_query(location: str, analysis: Dict) -> List[Dict]:
     """
@@ -622,6 +801,11 @@ def execute_query(location: str, analysis: Dict) -> List[Dict]:
     facilities_dict = analysis['facilities_dict']
     location_type = analysis.get('location_type', '')
     
+    # ★ 키워드 정제 (합정동 -> 합정)
+    clean_location = _clean_location_keyword(location)
+    if clean_location != location:
+        print(f"[QueryBuilder] 🧹 Keyword cleaned: '{location}' -> '{clean_location}'")
+    
     try:
         # 다중 시설 검색
         if search_type == "multi":
@@ -632,7 +816,7 @@ def execute_query(location: str, analysis: Dict) -> List[Dict]:
                 print(f"[QueryBuilder] 🎓 Using university-anchor multi-criteria query")
                 query = build_university_multi_query()
                 params = {
-                    "keyword": location,
+                    "keyword": clean_location,
                     "need_conv": facilities_dict.get("convenience", False),
                     "need_hosp": facilities_dict.get("hospital", False) or facilities_dict.get("general_hospital", False),
                     "need_pharm": facilities_dict.get("pharmacy", False),
@@ -642,7 +826,7 @@ def execute_query(location: str, analysis: Dict) -> List[Dict]:
             else:
                 query = build_multi_criteria_query()
                 params = {
-                    "keyword": location,
+                    "keyword": clean_location,
                     "need_conv": facilities_dict.get("convenience", False),
                     "need_hosp": facilities_dict.get("hospital", False) or facilities_dict.get("general_hospital", False),
                     "need_pharm": facilities_dict.get("pharmacy", False),
@@ -659,7 +843,7 @@ def execute_query(location: str, analysis: Dict) -> List[Dict]:
             if location_type == "university":
                 print(f"[QueryBuilder] 🎓 University location detected - using university query")
                 query = build_university_query()
-                return get_graph().query(query, params={"keyword": location})
+                return get_graph().query(query, params={"keyword": clean_location})
             
             # 시설 타입별 우선순위 조정
             if facilities_dict.get("general_hospital"):
@@ -667,7 +851,7 @@ def execute_query(location: str, analysis: Dict) -> List[Dict]:
             
             print(f"[QueryBuilder] 🔍 Single facility search: {facility_type}")
             query = build_single_facility_query(facility_type)
-            return get_graph().query(query, params={"keyword": location})
+            return get_graph().query(query, params={"keyword": clean_location})
         
         # 기본 검색 - location_type에 따라 분기
         else:
@@ -677,7 +861,7 @@ def execute_query(location: str, analysis: Dict) -> List[Dict]:
             else:
                 print(f"[QueryBuilder] 🚇 Default subway search")
                 query = build_subway_query()
-            return get_graph().query(query, params={"keyword": location})
+            return get_graph().query(query, params={"keyword": clean_location})
     
     except Exception as e:
         print(f"[QueryBuilder] ❌ Query execution error: {e}")
@@ -722,7 +906,7 @@ def rule_based_search(state: RAGState) -> Dict:
     """
     규칙 기반 검색 (LLM 0회 호출)
     
-    1. 질문 분석 (위치 + 시설 타입 추출)
+    1. hard_filters가 있으면 사용, 없으면 질문 분석
     2. 동적 Cypher 쿼리 생성
     3. Neo4j 쿼리 실행
     4. 결과 정제 및 반환
@@ -734,14 +918,45 @@ def rule_based_search(state: RAGState) -> Dict:
     from common.redis_cache import get_location_cache, save_location_cache
     
     question = state["question"]
+    hard_filters = state.get("hard_filters", {})
+    
     print(f"\n{'='*60}")
     print(f"[Neo4j] 🚀 검색 시작: {question}")
+    print(f"[Neo4j] 📋 하드 필터: {hard_filters}")
     print(f"{'='*60}\n")
     
-    # 1. 질문 분석
-    analysis = analyze_question(question)
-    location = analysis['location']
-    facilities = analysis['facilities']
+    # 1. hard_filters가 있으면 사용, 없으면 질문 분석
+    if hard_filters and (hard_filters.get("location") or hard_filters.get("facilities")):
+        # 하드 필터에서 위치와 시설 추출
+        location = hard_filters.get("location", "")
+        facilities = hard_filters.get("facilities", [])
+        location_type = ""  # 하드 필터에서는 location_type 추정 필요
+        
+        # location_type 추정
+        if location:
+            # ★ 수정: "역"이 포함되면 먼저 subway로 판단 (홍대역 등)
+            if "역" in location:
+                location_type = "subway"
+            elif any(uni in location for uni in ["대학교", "대학"]):
+                location_type = "university"
+            elif location in ["홍대", "강남", "신촌", "역삼", "선릉", "합정", "망원", "연남", "이태원"]:
+                location_type = "subway"  # 역 없이도 지하철역 근처로 인식
+            else:
+                location_type = "region"
+        
+        analysis = {
+            'location': location,
+            'location_type': location_type,
+            'facilities': facilities,
+            'facilities_dict': {f: True for f in facilities},
+            'search_type': 'multi' if len(facilities) >= 2 else ('single' if facilities else 'default')
+        }
+        print(f"[Neo4j] 📍 하드필터 기반: location={location}, facilities={facilities}")
+    else:
+        # 기존 질문 분석 사용
+        analysis = analyze_question(question)
+        location = analysis['location']
+        facilities = analysis['facilities']
     
     # 검색 진행 상황 메시지 생성 (UI 표시용)
     search_steps = generate_search_steps(location, facilities)

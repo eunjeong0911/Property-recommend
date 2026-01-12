@@ -36,6 +36,12 @@ def generate(state: RAGState) -> RAGState:
             sql_details[str(land_num)] = item
     print(f"[Generate] ✓ Indexed {len(sql_details)} SQL records")
     
+    # Debug: Show sample of available SQL land_nums
+    if sql_details:
+        sample_keys = list(sql_details.keys())[:5]
+        print(f"[Generate] 🔑 Sample SQL land_nums: {sample_keys}")
+
+    
     # helper to format detail list
     def format_details(details_list):
         if not details_list: return ""
@@ -64,32 +70,39 @@ def generate(state: RAGState) -> RAGState:
     unique_results = []
     seen_ids = set()
     
-    # Flatten if list of lists
-    raw_items = []
+    # graph_results를 ID 맵으로 변환
+    graph_map = {}
     if isinstance(graph_results, list):
-         for item in graph_results:
-             if isinstance(item, list): raw_items.extend(item)
-             else: raw_items.append(item)
-    else:
-        raw_items = [graph_results]
+        for item in graph_results:
+            if isinstance(item, list):
+                for sub in item:
+                    if isinstance(sub, dict):
+                        gid = sub.get('p.id') or sub.get('id')
+                        if gid: graph_map[str(gid)] = sub
+            elif isinstance(item, dict):
+                gid = item.get('p.id') or item.get('id')
+                if gid: graph_map[str(gid)] = item
 
-    for result in raw_items:
-        if not isinstance(result, dict): continue
+    # sql_results 순서대로 병합
+    for sql_row in sql_results:
+        prop_id = sql_row.get('land_num') or sql_row.get('land_id')
+        if not prop_id: continue
         
-        prop_id = result.get('p.id') or result.get('id')
-        
-        unique_key = prop_id
-        if unique_key and unique_key not in seen_ids:
-            seen_ids.add(unique_key)
-            merged = {**result}
+        prop_id_str = str(prop_id)
+        if prop_id_str not in seen_ids:
+            seen_ids.add(prop_id_str)
             
-            # Merge SQL details (필수! Neo4j에는 ID만 있고 주소는 PostgreSQL에 있음)
-            if prop_id and str(prop_id) in sql_details:
-                merged['postgres_details'] = sql_details[str(prop_id)]
-            else:
-                # Exclude properties that failed SQL filtering or have no details
-                continue
-
+            # graph_results에서 기본 정보 가져오기
+            result = graph_map.get(prop_id_str, {})
+            
+            # 병합
+            merged = {**result}
+            merged['postgres_details'] = sql_row
+            
+            # ID 필드 통일
+            if 'id' not in merged:
+                merged['id'] = prop_id_str
+            
             # --- PRE-PROCESS DETAILS FOR LLM ---
             # Extract and format the specific detail lists returned by neo4j_search_node
             
@@ -159,8 +172,40 @@ def generate(state: RAGState) -> RAGState:
             
             merged['formatted_safety'] = " | ".join(safe_summary) if safe_summary else ""
             
-            # 4. Station Info
-            merged['formatted_poi'] = poi_info
+            # 3-1. 온도 점수 포맷팅 (Temperature Scores) - 모든 온도 표시
+            # 검색 기준 온도
+            temperature = result.get('temperature')
+            
+            # 개별 온도 (기본값 36.5)
+            temp_safety = result.get('temp_safety', 36.5)
+            temp_traffic = result.get('temp_traffic', 36.5)
+            temp_convenience = result.get('temp_convenience', 36.5)
+            temp_culture = result.get('temp_culture', 36.5)
+            temp_pet = result.get('temp_pet', 36.5)
+            
+            # 항상 모든 온도 표시
+            temp_str = f"🔒안전 {temp_safety:.1f}도 | 🚇교통 {temp_traffic:.1f}도 | 🏪생활 {temp_convenience:.1f}도 | 🎨문화 {temp_culture:.1f}도 | 🐾펫 {temp_pet:.1f}도"
+            
+            merged['formatted_temperature'] = temp_str
+            
+            # 4. Station Info (Subway Priority)
+            # poi_info가 역이 아닐 경우(예: 동/대학교), trans_details에서 가장 가까운 역을 찾아 표시
+            final_station = poi_info
+            
+            # poi_info가 비어있거나 '역'이 포함되지 않은 경우 trans_details 확인
+            if not poi_info or '역' not in poi_info:
+                trans_list = result.get('trans_details', [])
+                if trans_list:
+                    # trans_details는 이미 거리순 정렬되어 있음
+                    first_trans = trans_list[0]
+                    if isinstance(first_trans, dict):
+                        name = first_trans.get('name', '')
+                        dist = first_trans.get('dist') or 0
+                        walking_time = first_trans.get('time') or 0
+                        if name:
+                            final_station = f"{name} ({int(dist)}m, {int(walking_time)}분)"
+            
+            merged['formatted_poi'] = final_station
             
             # 5. Pre-generate detail link (확실한 링크 생성!)
             postgres_details = merged.get('postgres_details', {})
@@ -179,6 +224,10 @@ def generate(state: RAGState) -> RAGState:
     context = unique_results
     print(f"\n[Generate] ✅ Context merging complete!")
     print(f"[Generate] 📝 Prepared {len(context)} unique properties for answer generation")
+    
+    # ★★★ 핵심 수정: 좌측 리스트 순서 동기화 ★★★
+    # 챗봇 답변과 좌측 매물 리스트의 순서를 일치시키기 위해 graph_results 업데이트
+    state["graph_results"] = unique_results
     
     # Check for zero results - return immediately without LLM call
     if not context or len(context) == 0:
@@ -209,24 +258,6 @@ def generate(state: RAGState) -> RAGState:
     # Store full results for Redis caching
     full_results = context
     
-    # Sort by price if available (Prioritize cheaper options to ensure diversity)
-    # This addresses user feedback where only the most expensive options (e.g. at the limit) were shown.
-    def price_sort_key(item):
-        details = item.get('postgres_details', {})
-        deposit = details.get('parsed_deposit') # 만원 단위
-        rent = details.get('parsed_rent', 0)    # 만원 단위
-        
-        if deposit is not None:
-            return (deposit, rent)
-        return (float('inf'), float('inf'))
-        
-    # Check if we have price data to sort by
-    has_price_data = any(item.get('postgres_details', {}).get('parsed_deposit') is not None for item in context)
-    
-    if has_price_data:
-        print("[Generate] 💰 Sorting results by price (low to high)...")
-        context.sort(key=price_sort_key)
-    
     # Select top 3 for display
     context_for_display = context[:3]
     print(f"[Generate] 📊 Showing top 3 out of {len(full_results)} total results")
@@ -248,27 +279,113 @@ def generate(state: RAGState) -> RAGState:
             if k in details:
                 slim_details[k] = details[k]
         
-        # 2. 가격 정보 Pre-formatting (토큰 절약)
-        deposit = details.get('parsed_deposit')
-        rent = details.get('parsed_rent')
-        jeonse = details.get('parsed_jeonse')
-        sale = details.get('parsed_sale')
+        # 2. 가격 정보 Pre-formatting (토큰 절약) - trade_info에서 직접 파싱
+        trade_info = details.get('trade_info', {})
         
-        price_str = str(details.get('trade_info', '-'))
-        try:
-            trade_type = details.get('type')
-            if trade_type == '월세' and deposit is not None:
-                price_str = f"보증금 {deposit}/{rent}"
-            elif trade_type == '전세' and jeonse is not None:
-                price_str = f"전세 {jeonse}"
-            elif trade_type == '매매' and sale is not None:
-                price_str = f"매매 {sale}"
-            elif deposit is not None and rent is not None:
-                 price_str = f"{deposit}/{rent}"
-        except:
-            pass
+        # trade_info가 딕셔너리인지 확인
+        if isinstance(trade_info, dict):
+            trade_type = trade_info.get('거래유형', '')
+            deposit_str = trade_info.get('보증금', '-')
+            rent_str = trade_info.get('월세', '-')
+            sale_str = trade_info.get('매매가', '-')
+            
+            # 가격 문자열 생성
+            if trade_type == '월세':
+                if rent_str and rent_str != '-':
+                    price_str = f"보증금 {deposit_str}, 월세 {rent_str}"
+                else:
+                    price_str = f"보증금 {deposit_str}"
+            elif trade_type == '전세':
+                price_str = f"전세 {deposit_str}"
+            elif trade_type == '매매':
+                price_str = f"매매 {sale_str}"
+            elif trade_type == '단기임대':
+                if rent_str and rent_str != '-':
+                    price_str = f"단기임대 보증금 {deposit_str}, 월세 {rent_str}"
+                else:
+                    price_str = f"단기임대 보증금 {deposit_str}"
+            else:
+                # 기타: 있는 정보로 조합
+                parts = []
+                if deposit_str and deposit_str != '-':
+                    parts.append(f"보증금 {deposit_str}")
+                if rent_str and rent_str != '-':
+                    parts.append(f"월세 {rent_str}")
+                if sale_str and sale_str != '-':
+                    parts.append(f"매매 {sale_str}")
+                price_str = ", ".join(parts) if parts else "가격 정보 없음"
+        else:
+            price_str = "가격 정보 없음"
             
         slim_details['formatted_price'] = price_str
+        
+        # trade_info는 LLM에 보내지 않음 (formatted_price로 대체)
+        if 'trade_info' in slim_details:
+            del slim_details['trade_info']
+        
+        # 3. listing_info 파싱 (면적과 방/욕실 분리)
+        listing_info = slim_details.get('listing_info', '')
+        if listing_info:
+            import re
+            
+            # listing_info가 딕셔너리인 경우
+            if isinstance(listing_info, dict):
+                # 딕셔너리에서 직접 값 추출
+                area_info = listing_info.get('전용/공급면적', listing_info.get('면적', ''))
+                room_info = listing_info.get('방/욕실개수', '')
+                
+                if not area_info:
+                    # 다른 키 시도
+                    for key in listing_info.keys():
+                        if '면적' in key or '㎡' in str(listing_info.get(key, '')):
+                            area_info = str(listing_info[key])
+                            break
+                
+                if not room_info:
+                    for key in listing_info.keys():
+                        if '방' in key or '욕실' in key:
+                            room_info = str(listing_info[key])
+                            break
+                
+                # m2를 ㎡로 통일하고, 빈 값(-㎡, -평) 제거
+                area_str = str(area_info).replace('m2', '㎡').replace('M2', '㎡') if area_info else ''
+                import re
+                # "/-㎡" 제거 (슬래시 뒤의 빈 면적)
+                area_str = re.sub(r'/-㎡', '', area_str)
+                # "/-평" 제거 (슬래시 뒤의 빈 평수)
+                area_str = re.sub(r'/-평', '', area_str)
+                area_str = area_str.strip()
+                slim_details['listing_area'] = area_str
+                
+                # "1개/1개" 또는 "1/1" 형식을 "방 X개, 욕실 X개"로 변환
+                room_str = str(room_info) if room_info else ''
+                if room_str and '/' in room_str:
+                    parts = room_str.replace('개', '').split('/')
+                    if len(parts) == 2:
+                        room_str = f"방 {parts[0].strip()}개, 욕실 {parts[1].strip()}개"
+                slim_details['listing_room'] = room_str
+            else:
+                # 문자열인 경우 정규식으로 추출
+                listing_str = str(listing_info)
+                
+                # 면적 추출
+                area_match = re.search(r'전용\s*[\d.]+㎡?\s*/\s*공급\s*[\d.]+㎡?', listing_str)
+                if area_match:
+                    slim_details['listing_area'] = area_match.group()
+                else:
+                    alt_area = re.search(r'[\d.]+㎡', listing_str)
+                    slim_details['listing_area'] = alt_area.group() if alt_area else ''
+                
+                # 방/욕실 추출
+                room_match = re.search(r'방\s*\d+개', listing_str)
+                bath_match = re.search(r'욕실\s*\d+개', listing_str)
+                room_info = room_match.group() if room_match else ''
+                bath_info = bath_match.group() if bath_match else ''
+                slim_details['listing_room'] = f"{room_info}, {bath_info}".strip(', ')
+            
+            # 원본 listing_info 삭제
+            del slim_details['listing_info']
+            
         new_item['postgres_details'] = slim_details
         
         # 3. 불필요한 중간 데이터 삭제
@@ -310,7 +427,7 @@ def generate(state: RAGState) -> RAGState:
         # 추가 질문 섹션 준비 (마지막 항목에만 포함)
         followup_section = ""
         if is_last:
-            followup_section = f"\n💬 추가질문 2개 제안\n질문: {question}"
+            followup_section = f"\n추가질문 2개 제안\n질문: {question}"
             
         batch_inputs.append({
             "rank": f"{i+1}순위",
@@ -330,11 +447,10 @@ def generate(state: RAGState) -> RAGState:
 **{rank}**
 - 주소: [postgres_details.address]
 - 가격: [postgres_details.formatted_price]
-- 면적: [postgres_details.listing_info]
+- 면적: [postgres_details.listing_area]
+- 구성: [postgres_details.listing_room]
 - 역: [formatted_poi]
-- 시설: [formatted_infrastructure]
-- 안전: [formatted_safety] (있으면)
-👉 [detail_link]
+[detail_link]
 {followup_section}"""
     )
     
@@ -342,13 +458,42 @@ def generate(state: RAGState) -> RAGState:
     
     print(f"[Generate] 🚀 Executing parallel batch generation (Workers: {len(batch_inputs)})...")
     
-    # 3. 병렬 실행 (Batch)
-    
-    # batch 호출로 병렬 처리 (속도 3배 향상)
-    results = chain.batch(batch_inputs)
-    
-    # 4. 결과 합치기
-    answer = "\n\n".join(results)
+    # 3. 병렬 실행 (Batch) with fallback
+    try:
+        # batch 호출로 병렬 처리 (속도 3배 향상)
+        results = chain.batch(batch_inputs)
+        
+        # 4. 결과 합치기
+        answer = "\n\n".join(results)
+    except Exception as e:
+        print(f"[Generate] ⚠️ OpenAI API failed: {e}")
+        print(f"[Generate] 🔄 Generating fallback response from property data...")
+        
+        # Fallback: OpenAI 없이 간단한 응답 생성
+        fallback_parts = []
+        for i, item in enumerate(slim_context):
+            details = item.get('postgres_details', {})
+            rank = i + 1
+            
+            address = details.get('address', '주소 정보 없음')
+            price = details.get('formatted_price', '가격 정보 없음')
+            area = details.get('listing_area', '')
+            room = details.get('listing_room', '')
+            poi = item.get('formatted_poi', '')
+            link = item.get('detail_link', '')
+            
+            fallback_text = f"""**{rank}순위**
+- 주소: {address}
+- 가격: {price}
+- 면적: {area}
+- 구성: {room}
+- 역: {poi}
+{link}"""
+            fallback_parts.append(fallback_text)
+        
+        answer = "\n\n".join(fallback_parts)
+        print(f"[Generate] ✅ Fallback response generated: {len(fallback_parts)} properties")
+
 
 
 

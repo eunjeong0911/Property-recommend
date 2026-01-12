@@ -11,6 +11,7 @@ from .utils.price_utils import (
     extract_area_exclusive,
     extract_total_floors,
 )
+from .utils.temperature_utils import get_land_temperatures
 import random
 
 
@@ -29,16 +30,16 @@ class BrokerSerializer(serializers.ModelSerializer):
 
 
 class PriceClassificationSerializer(serializers.ModelSerializer):
-    """가격 분류 시리얼라이저"""
+    """가격 분류 시리얼라이저 (영어 필드명)"""
     class Meta:
         model = PriceClassificationResult
         fields = [
-            'prediction_class',
-            'prediction_label',
-            'prediction_label_korean',
-            'probability_underpriced',
-            'probability_fair',
-            'probability_overpriced'
+            'predicted_class',
+            'predicted_label',
+            'predicted_label_kr',
+            'underpriced_prob',
+            'fair_prob',
+            'overpriced_prob'
         ]
 
 
@@ -51,13 +52,13 @@ class LandSerializer(serializers.ModelSerializer):
     deposit = serializers.SerializerMethodField()
     monthly_rent = serializers.SerializerMethodField()
     price = serializers.SerializerMethodField()
-    region = serializers.CharField(source='address')
-    transaction_type = serializers.CharField(source='deal_type')
+    region = serializers.CharField(source='address', allow_null=True, allow_blank=True)
+    transaction_type = serializers.CharField(source='deal_type', allow_null=True, allow_blank=True)
     
     # Detail fields
     land_num = serializers.CharField()
-    address = serializers.CharField()
-    building_type = serializers.CharField()
+    address = serializers.CharField(allow_null=True, allow_blank=True)
+    building_type = serializers.CharField(allow_null=True, allow_blank=True)
     floor = serializers.SerializerMethodField()
     room_count = serializers.SerializerMethodField()
     area_supply = serializers.SerializerMethodField()
@@ -68,13 +69,27 @@ class LandSerializer(serializers.ModelSerializer):
     maintenance_fee = serializers.SerializerMethodField()
     heating_method = serializers.SerializerMethodField()
     elevator = serializers.SerializerMethodField()
-    description = serializers.CharField()
+    description = serializers.CharField(allow_null=True, allow_blank=True)
+    approval_date = serializers.SerializerMethodField()  # 사용승인일
+    additional_options = serializers.CharField(allow_null=True, allow_blank=True)
+    jeonse_loan = serializers.SerializerMethodField()  # 전세자금대출
+    move_in_report = serializers.SerializerMethodField()  # 전입신고
     
     # 중개업소 정보
     broker = BrokerSerializer(source='landbroker', read_only=True)
     
     # 가격 분류 정보
     price_prediction = serializers.SerializerMethodField()
+    
+    # 부동산 온도 데이터
+    temperatures = serializers.SerializerMethodField()
+
+    
+    # listing_info (시설 정보)
+    listing_info = serializers.JSONField(read_only=True)
+    
+    # 스타일 태그
+    style_tags = serializers.SerializerMethodField()
 
     class Meta:
         model = Land
@@ -103,8 +118,15 @@ class LandSerializer(serializers.ModelSerializer):
             'heating_method',
             'elevator',
             'description',
+            'approval_date',
+            'additional_options',
+            'jeonse_loan',
+            'move_in_report',
             'broker',
-            'price_prediction'
+            'price_prediction',
+            'temperatures',
+            'listing_info',
+            'style_tags'
         ]
 
     def get_title(self, obj):
@@ -123,13 +145,24 @@ class LandSerializer(serializers.ModelSerializer):
     def get_image(self, obj):
         """첫 번째 이미지 반환"""
         if obj.images and isinstance(obj.images, list) and len(obj.images) > 0:
-            return obj.images[0]
+            img_url = obj.images[0]
+            # Zigbang 이미지 URL에 크기 파라미터 추가
+            if 'ic.zigbang.com' in img_url and '?' not in img_url:
+                img_url = f"{img_url}?w=800&h=600"
+            return img_url
         return None
 
     def get_images(self, obj):
         """모든 이미지 반환"""
         if obj.images and isinstance(obj.images, list) and len(obj.images) > 0:
-            return obj.images
+            # Zigbang 이미지 URL에 크기 파라미터 추가
+            processed_images = []
+            for img_url in obj.images:
+                if 'ic.zigbang.com' in img_url and '?' not in img_url:
+                    # Zigbang CDN은 w, h 파라미터 필요
+                    img_url = f"{img_url}?w=800&h=600"
+                processed_images.append(img_url)
+            return processed_images
         return []
 
     def get_temperature(self, obj):
@@ -138,20 +171,36 @@ class LandSerializer(serializers.ModelSerializer):
         return round(random.uniform(30.0, 45.0), 1)
 
     def get_deposit(self, obj):
-        """보증금 추출 - price_utils 사용"""
+        """보증금 추출 - DB 컬럼 우선 사용 (만원 단위)"""
+        # DB 컬럼 값 사용 (만원 단위 그대로 반환)
+        if hasattr(obj, 'deposit') and obj.deposit is not None and obj.deposit > 0:
+            return obj.deposit
+        
+        # 전세의 경우 jeonse_price를 보증금으로 반환
+        if hasattr(obj, 'jeonse_price') and obj.jeonse_price is not None and obj.jeonse_price > 0:
+             return obj.jeonse_price
+
+        # 기존 로직 (텍스트 파싱) - 원 단위로 반환되므로 만원으로 변환
         deal_text = ''
         if obj.trade_info and isinstance(obj.trade_info, dict):
             deal_text = obj.trade_info.get('거래방식', '')
         
-        return extract_deposit_from_deal_text(deal_text, obj.deal_type or '')
+        raw_deposit = extract_deposit_from_deal_text(deal_text, obj.deal_type or '')
+        return raw_deposit // 10000 if raw_deposit else 0
 
     def get_monthly_rent(self, obj):
-        """월세 추출 - price_utils 사용"""
+        """월세 추출 - DB 컬럼 우선 사용 (만원 단위)"""
+        # DB 컬럼 값 사용 (만원 단위 그대로 반환)
+        if hasattr(obj, 'monthly_rent') and obj.monthly_rent is not None and obj.monthly_rent > 0:
+            return obj.monthly_rent
+
+        # 기존 로직 (텍스트 파싱) - 원 단위로 반환되므로 만원으로 변환
         deal_text = ''
         if obj.trade_info and isinstance(obj.trade_info, dict):
             deal_text = obj.trade_info.get('거래방식', '')
         
-        return extract_monthly_rent_from_deal_text(deal_text, obj.deal_type or '')
+        raw_rent = extract_monthly_rent_from_deal_text(deal_text, obj.deal_type or '')
+        return raw_rent // 10000 if raw_rent else 0
 
     def get_price(self, obj):
         """가격 포맷팅 (만원 단위) - price_utils 사용"""
@@ -213,13 +262,179 @@ class LandSerializer(serializers.ModelSerializer):
             return '있음' if total_floors >= 5 else '없음'
         return '-'
     
+    def get_approval_date(self, obj):
+        """사용승인일 (listing_info에서 추출)"""
+        if obj.listing_info and isinstance(obj.listing_info, dict):
+            return obj.listing_info.get('사용승인일', '-')
+        return '-'
+    
+    def get_jeonse_loan(self, obj):
+        """전세자금대출 (trade_info에서 추출)"""
+        if obj.trade_info and isinstance(obj.trade_info, dict):
+            return obj.trade_info.get('전세자금대출', '-')
+        return '-'
+    
+    def get_move_in_report(self, obj):
+        """전입신고 (listing_info에서 추출)"""
+        if obj.listing_info and isinstance(obj.listing_info, dict):
+            # listing_info에서 직접 확인 (최상위 레벨)
+            value = obj.listing_info.get('전입신고 여부', '')
+            if value and value != '-':
+                return value
+        return '-'
+    
     def get_price_prediction(self, obj):
-        """가격 분류 정보 조회"""
+        """가격 분류 정보 조회 (외래키 기반)"""
+        # context에 캐시된 price_predictions 사용 (N+1 쿼리 방지)
+        price_cache = self.context.get('price_predictions')
+        
+        if price_cache is not None:
+            # 캐시에서 조회
+            price_class = price_cache.get(obj.land_num)
+            if price_class:
+                return {
+                    'predicted_class': price_class.predicted_class,
+                    'predicted_label': price_class.predicted_label,
+                    'predicted_label_kr': price_class.predicted_label_kr,
+                    'underpriced_prob': price_class.underpriced_prob,
+                    'fair_prob': price_class.fair_prob,
+                    'overpriced_prob': price_class.overpriced_prob
+                }
+            return None
+        
+        # 캐시가 없으면 외래키 역참조 사용 (폴백)
         try:
-            price_class = PriceClassificationResult.objects.filter(land_num=obj.land_num).first()
+            # land.price_predictions는 related_name으로 역참조 가능
+            price_class = obj.price_predictions.first()
             if price_class:
                 return PriceClassificationSerializer(price_class).data
         except Exception as e:
             print(f"Error fetching price classification: {e}")
         return None
     
+    
+    def get_temperatures(self, obj):
+        """Neo4j에서 부동산 온도 정보 조회"""
+        return get_land_temperatures(obj.land_num)
+    
+    def get_style_tags(self, obj):
+        """스타일 태그 반환 (쉼표 구분 문자열 또는 리스트 → 리스트)"""
+        if obj.style_tags:
+            # 이미 리스트인 경우 (JSON 필드에서 로드된 경우)
+            if isinstance(obj.style_tags, list):
+                # 중괄호 제거
+                return [tag.replace('{', '').replace('}', '').strip() for tag in obj.style_tags if tag]
+            # 문자열인 경우 쉼표로 분리하고 중괄호 제거
+            return [tag.replace('{', '').replace('}', '').strip() for tag in obj.style_tags.split(',') if tag.strip()]
+        return []
+
+
+class LandListSerializer(serializers.ModelSerializer):
+    """목록 조회용 시리얼라이저"""
+    id = serializers.IntegerField(source='land_id')
+    title = serializers.SerializerMethodField()
+    image = serializers.SerializerMethodField()
+    price = serializers.SerializerMethodField()
+    transaction_type = serializers.CharField(source='deal_type', allow_null=True, allow_blank=True)
+    building_type = serializers.CharField(allow_null=True, allow_blank=True)
+    floor = serializers.SerializerMethodField()
+    room_count = serializers.SerializerMethodField()
+    area_supply = serializers.SerializerMethodField()
+    
+    # 중개업소 정보
+    broker = BrokerSerializer(source='landbroker', read_only=True)
+    
+    # 가격 분류 정보 (캐시된 데이터 활용)
+    price_prediction = serializers.SerializerMethodField()
+    
+    # 스타일 태그
+    style_tags = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Land
+        fields = [
+            'id', 
+            'title', 
+            'image', 
+            'price',
+            'transaction_type',
+            'building_type',
+            'land_num', # land_num 추가 (상세페이지 이동 등에 필요)
+            'address',
+            'floor',
+            'room_count',
+            'area_supply',
+            'broker',
+            'price_prediction',
+            'style_tags'
+        ]
+
+    def get_title(self, obj):
+        if obj.listing_info and isinstance(obj.listing_info, dict):
+            building_form = obj.listing_info.get('건물형태', obj.building_type)
+            area = obj.listing_info.get('전용/공급면적', '')
+            if area:
+                pyeong = extract_area_pyeong(area)
+                if pyeong:
+                    area = pyeong
+            return f"{building_form} {area}".strip() or obj.land_num
+        return obj.land_num
+
+    def get_image(self, obj):
+        if obj.images and isinstance(obj.images, list) and len(obj.images) > 0:
+            img_url = obj.images[0]
+            # Zigbang 이미지 URL에 크기 파라미터 추가
+            if 'ic.zigbang.com' in img_url and '?' not in img_url:
+                img_url = f"{img_url}?w=800&h=600"
+            return img_url
+        return None
+
+    def get_price(self, obj):
+        return get_price_display(obj)
+
+    def _get_listing_info_field(self, obj, field_name):
+        if obj.listing_info and isinstance(obj.listing_info, dict):
+            return obj.listing_info.get(field_name, '-')
+        return '-'
+
+    def get_floor(self, obj):
+        return self._get_listing_info_field(obj, '해당층/전체층')
+    
+    def get_room_count(self, obj):
+        return self._get_listing_info_field(obj, '방/욕실개수')
+    
+    def get_area_supply(self, obj):
+        area = self._get_listing_info_field(obj, '전용/공급면적')
+        return extract_area_supply(area)
+    
+    def get_price_prediction(self, obj):
+        # prefetch_related를 통해 미리 로딩된 데이터 사용 (DB 쿼리 발생 안 함)
+        try:
+            # .all()을 호출하여 prefetch된 캐시를 활용
+            # (queryset에서 prefetch_related('price_predictions') 사용 필수)
+            price_list = list(obj.price_predictions.all())
+            if price_list:
+                price_class = price_list[0]
+                return {
+                    'predicted_class': price_class.predicted_class,
+                    'predicted_label': price_class.predicted_label,
+                    'predicted_label_kr': price_class.predicted_label_kr,
+                    'underpriced_prob': price_class.underpriced_prob,
+                    'fair_prob': price_class.fair_prob,
+                    'overpriced_prob': price_class.overpriced_prob
+                }
+            return None
+        except Exception:
+            return None
+        
+    def get_style_tags(self, obj):
+        """스타일 태그 반환 (쉼표 구분 문자열 또는 리스트 → 리스트)"""
+        if obj.style_tags:
+            # 이미 리스트인 경우 (JSON 필드에서 로드된 경우)
+            if isinstance(obj.style_tags, list):
+                # 중괄호 제거
+                return [tag.replace('{', '').replace('}', '').strip() for tag in obj.style_tags if tag]
+            # 문자열인 경우 쉼표로 분리하고 중괄호 제거
+            return [tag.replace('{', '').replace('}', '').strip() for tag in obj.style_tags.split(',') if tag.strip()]
+        return []
+

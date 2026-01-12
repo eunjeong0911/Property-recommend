@@ -24,8 +24,9 @@ const handler = NextAuth({
                 }
 
                 try {
+                    const serverApiUrl = process.env.SERVER_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
                     const response = await axios.post(
-                        `${process.env.NEXT_PUBLIC_API_URL}/api/users/auth/login/`,
+                        `${serverApiUrl}/api/users/auth/login/`,
                         {
                             email: credentials.email,
                             password: credentials.password,
@@ -80,6 +81,12 @@ const handler = NextAuth({
                             name: user.name,
                             image: user.image,
                             googleId: account.providerAccountId,
+                        },
+                        {
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            timeout: 30000,
                         }
                     );
 
@@ -149,7 +156,7 @@ const handler = NextAuth({
     },
     pages: {
         signIn: '/login',
-    }
+    },
 });
 
 export { handler as GET, handler as POST };

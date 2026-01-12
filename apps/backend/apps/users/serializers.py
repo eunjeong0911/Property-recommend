@@ -82,8 +82,11 @@ class ListingViewHistorySerializer(serializers.ModelSerializer):
     """매물 조회 이력 시리얼라이저"""
     class Meta:
         model = ListingViewHistory
-        fields = ['id', 'listing_id', 'view_duration', 'scroll_depth', 'created_at']
-        read_only_fields = ['id', 'created_at']
+        fields = [
+            'id', 'listing_id', 'view_count', 'total_view_duration', 
+            'max_scroll_depth', 'first_viewed_at', 'last_viewed_at'
+        ]
+        read_only_fields = ['id', 'first_viewed_at', 'last_viewed_at']
 
 
 class WishlistSerializer(serializers.ModelSerializer):

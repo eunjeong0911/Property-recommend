@@ -24,15 +24,46 @@ export interface Land {
     heating_method?: string;
     elevator?: string;
     description?: string;
+    additional_options?: string | string[];
+    listing_info?: {
+        난방방식?: string[];
+        냉방시설?: string[];
+        생활시설?: string[];
+        보안시설?: string[];
+        기타시설?: string[];
+        방거실형태?: string;
+    };
+    jeonse_loan?: string;        // 전세자금대출
+    move_in_report?: string;     // 전입신고 여부
+    approval_date?: string;      // 사용승인일
+    trade_info?: any;            // 거래 정보 JSON
+
+    // 스타일 태그
+    style_tags?: string[];
 
     // 가격 예측 정보
     price_prediction?: {
-        prediction_class: number;
-        prediction_label: string;
-        prediction_label_korean: string;
-        probability_underpriced: number;
-        probability_fair: number;
-        probability_overpriced: number;
+        predicted_class: number;
+        predicted_label: string;
+        predicted_label_kr: string;
+        underpriced_prob: number;
+        fair_prob: number;
+        overpriced_prob: number;
+    };
+
+    // 부동산 온도 데이터
+    temperatures?: {
+        safety: number;
+        convenience: number;
+        pet?: number;
+        traffic?: number;
+        culture?: number;
+        pet_details?: {
+            playground: number;
+            hospital: number;
+            park: number;
+            etc: number;
+        };
     };
 
     // 중개업소 정보 (agent_info 대신 broker 사용)
@@ -50,7 +81,7 @@ export interface Land {
 }
 
 export interface LandFilterParams {
-    region?: string;
+    district?: string;
     dong?: string;
     transaction_type?: string;
     building_type?: string;
