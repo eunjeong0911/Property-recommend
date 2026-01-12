@@ -49,9 +49,16 @@ def create_rag_graph():
     def route_after_analyzer(state: RAGState) -> str:
         """
         조건 완성 여부에 따른 분기:
+        - 에러 발생: interrupt_response → 에러 메시지 반환
         - 조건 미완성: interrupt_response → 후속 질문 반환
         - 조건 완성: 검색 전략에 따라 분기
         """
+        # ★★★ 에러 타입 체크 (관련 없는 질문, 서울 외 지역 등) ★★★
+        error_type = state.get("error_type")
+        if error_type:
+            print(f"[Router] 🚫 에러 감지: {error_type} → 인터럽트 응답")
+            return "interrupt"
+        
         conversation_complete = state.get("conversation_complete", False)
         
         if not conversation_complete:
@@ -573,6 +580,15 @@ def interrupt_response_node(state: RAGState) -> RAGState:
     
     ★ 위치가 있으면 미리 Neo4j 검색을 실행하여 실시간 매물 표시 지원!
     """
+    # ★★★ 에러 타입이 있으면 이미 answer가 설정되어 있으므로 그대로 반환 ★★★
+    error_type = state.get("error_type")
+    if error_type:
+        print(f"\n{'='*60}")
+        print(f"[Interrupt] 🚫 에러 응답: {error_type}")
+        print(f"[Interrupt] 💬 메시지: {state.get('answer', '')[:100]}...")
+        print(f"{'='*60}\n")
+        return state
+    
     pending_question = state.get("pending_question", "")
     missing = state.get("missing_conditions", [])
     collected = state.get("collected_conditions", {})

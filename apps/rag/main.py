@@ -196,6 +196,38 @@ async def query(request: QueryRequest, background_tasks: BackgroundTasks):
         "collected_conditions": collected_conditions  # 멀티턴에서 수집된 조건
     })
     
+    # ★★★ 서울 외 지역 또는 부정적 감정 에러 처리 ★★★
+    error_type = result.get("error_type")
+    if error_type == "out_of_service_area":
+        # 서울 외 지역 에러
+        error_answer = result.get("answer", "죄송합니다. 현재 서울특별시 내 매물만 검색 가능합니다.")
+        logger.warning("Out of service area request", extra={
+            "question": request.question,
+            "session_id": session_id
+        })
+        return {
+            "answer": error_answer,
+            "session_id": session_id,
+            "awaiting_input": False,
+            "properties": []
+            # filter_info를 반환하지 않음 - 필터 업데이트 방지
+        }
+    
+    if error_type == "irrelevant_query":
+        # 부동산 관련 없는 질문 에러
+        error_answer = result.get("answer", "죄송합니다. 부동산 검색과 관련된 질문만 답변 가능합니다.")
+        logger.warning("Irrelevant query detected", extra={
+            "question": request.question,
+            "session_id": session_id
+        })
+        return {
+            "answer": error_answer,
+            "session_id": session_id,
+            "awaiting_input": False,
+            "properties": []
+            # filter_info를 반환하지 않음 - 필터 업데이트 방지
+        }
+    
     # 4. 멀티턴: 인터럽트 응답 처리
     conversation_complete = result.get("conversation_complete", True)
     pending_question = result.get("pending_question")

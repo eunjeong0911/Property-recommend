@@ -66,3 +66,10 @@ class RAGState(TypedDict):
     original_soft_filters: Optional[List[str]]  # 원본 소프트 필터 (폴백 전)
     original_unmapped_styles: Optional[List[str]]  # 원본 매핑되지 않은 스타일 (폴백 전)
     unmapped_styles: Optional[List[str]]  # 매핑되지 않은 스타일 키워드 (Requirements 8.4)
+    
+    # =====================================================================
+    # 부정적 감정 및 지역 제한 처리
+    # =====================================================================
+    excluded_locations: Optional[List[str]]  # 사용자가 싫어하는 지역 목록
+    error_type: Optional[str]  # "out_of_service_area" 등 에러 타입
+    is_followup: Optional[bool]  # 후속 질문 여부
