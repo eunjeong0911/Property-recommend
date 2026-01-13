@@ -1,7 +1,16 @@
-<img width="1277" height="653" alt="image" src="https://github.com/user-attachments/assets/aba2cb6d-e8ea-4809-b5f3-0ce2836f48b7" />
-
-
+![alt text](assets/image-5.png)
 # 🏠 부동산 매물 추천 AI 플랫폼
+### 팀원
+
+|이름|역할|메인 업무|깃허브|
+|---|---|---|---|
+|**이태호**|PM|Elasticsearch, RAG, Frontend, Backend|[william](https://github.com/william7333)|
+|**최은정**|APM|중개사 신뢰도 평가 ML, DevOps, Frontend, Backend|[eunjeong0911](https://github.com/eunjeong0911)|
+|**임연희**|팀원|실거래가 분류 ML, DevOps, Frontend, Backend|[yheeeon](https://github.com/yheeeon)|
+|**김수미**|팀원|중개사 신뢰도 평가 ML, Frontend, Backend|[ghyeju0904](https://github.com/ghyeju0904)|
+|**김담하**|팀원|Neo4j, RAG, Frontend, Backend|[DamHA-Kim](https://github.com/DamHA-Kim)|
+|**조준호**|팀원|실거래가 분류 ML, Frontend, Backend|[lemondear](https://github.com/lemondear)|
+
 
 > **AI 기반 부동산 매물 검색 및 추천 서비스**  
 
@@ -17,6 +26,8 @@
 [![Elasticsearch](https://img.shields.io/badge/elasticsearch-8.17-blue.svg)](https://www.elastic.co/)
 [![LangChain](https://img.shields.io/badge/langchain-0.3-yellow.svg)](https://www.langchain.com/)
 [![Docker](https://img.shields.io/badge/docker-24-blue.svg)](https://www.docker.com/)
+
+웹사이트: [goziphouse](https://goziphouse.com/)
 
 ---
 
@@ -79,7 +90,7 @@
 설문조사 결과를 바탕으로 다음 기능을 구현했습니다:
 
 **허위매물 판별**
-- 중개사 신뢰도 모델: 거래성사율, 운영기간, 자격구분 등을 활용한 A/B/C 등급 분류
+- 중개사 신뢰도 모델: 거래성사율, 운영기간, 자격구분 등을 활용한 금/은/동 등급 분류
 - 매물세부정보에서 중개사 신뢰도 즉시 확인
 
 **매물비교/추천**
@@ -101,10 +112,10 @@
 ### 1. 🤖 AI 챗봇 (RAG)
 - 자연어 기반 매물 검색
 - LangGraph 기반 질문 분류 및 응답
-- Neo4j + PostgreSQL + Elasticsearch 하이브리드 검색
+- Neo4j + Elasticsearch 하이브리드 검색
 
 ### 2.  ML 모델
-- 중개사 신뢰도 모델: A/B/C 등급 분류 (정확도 84.51%)
+- 중개사 신뢰도 모델: 금/은/동 등급 분류 (정확도 84.51%)
 - 가격 적정성 모델: 저렴/적정/비쌈 분류 (정확도 73.46%)
 
 ---
@@ -182,15 +193,15 @@
    ▼    ▼         ▼              ▼
 ┌────────────────────────────────────┐
 │        Data Layer                  │
-│  ┌──────┐ ┌──────┐ ┌──────┐      │
-│  │ PG   │ │Neo4j │ │Redis │      │
-│  │+vec  │ │Graph │ │Cache │      │
-│  └──────┘ └──────┘ └──────┘      │
-│  ┌──────────────────────┐         │
-│  │ Elasticsearch 8.17   │         │
-│  │ - 하이브리드 검색     │         │
-│  │ - k-NN 벡터 검색     │         │
-│  └──────────────────────┘         │
+│  ┌──────┐ ┌──────┐ ┌──────┐        │
+│  │ PG   │ │Neo4j │ │Redis │        │
+│  │+vec  │ │Graph │ │Cache │        │
+│  └──────┘ └──────┘ └──────┘        │
+│  ┌──────────────────────┐          │
+│  │ Elasticsearch 8.17   │          │
+│  │ - 하이브리드 검색    │          │
+│  │ - k-NN 벡터 검색     │          │
+│  └──────────────────────┘          │
 └────────────────────────────────────┘
    ▲              ▲
    │              │
@@ -210,6 +221,9 @@
 ```
 
 ### 주요 컴포넌트
+
+
+
 
 **1. Frontend Layer**
 - Next.js 14 (App Router)
@@ -235,7 +249,7 @@
 
 **1. 매물 검색 흐름**
 ```
-사용자 → Frontend → Backend → PostgreSQL/Neo4j/Elasticsearch
+사용자 → Frontend → Backend → Neo4j/Elasticsearch
 → 하이브리드 검색 (Neo4j 60% + ES 40%)
 → Backend → Frontend → 사용자
 ```
@@ -255,7 +269,7 @@
 **3. ML 모델 추론 흐름**
 ```
 매물 데이터 → Reco Server
-→ Trust Model (중개사 신뢰도: A/B/C)
+→ Trust Model (중개사 신뢰도: 금/은/동)
 → Price Model (가격 적정성: 저렴/적정/비쌈)
 → Backend → Frontend
 ```
@@ -265,11 +279,11 @@
 
 ### 1. 중개사 신뢰도 모델 (Trust Model)
 
-**목적**: 부동산 중개사의 신뢰도를 A/B/C 등급으로 분류
+**목적**: 부동산 중개사의 신뢰도를 금/은/동 등급으로 분류
 
 #### 데이터
 - **출처**: 크롤링 데이터 + V-WORLD API (중개업소 정보, 중개업자 정보)
-- **규모**: 351개 중개사무소
+- **규모**: 약 400개 중개사무소
 - **매칭**: 3단계 매칭 (중개사무소명+대표자명, 등록번호+중개사무소명, 중개사무소명+대표자명)
 
 #### 타겟 생성
@@ -296,9 +310,9 @@ Zscore = Performance_Zscore * 0.7 + Qual_Zscore * 0.3
 Zscore_조정 = Zscore + 대표자구분_가중치
 
 # 6. 등급 분류 (Train 기준 분위수)
-A등급: 상위 30% (Zscore_조정 > 70th percentile)
-B등급: 중위 40% (30th ~ 70th percentile)
-C등급: 하위 30% (Zscore_조정 < 30th percentile)
+금등급: 상위 30% (Zscore_조정 > 70th percentile)
+은등급: 중위 40% (30th ~ 70th percentile)
+동등급: 하위 30% (Zscore_조정 < 30th percentile)
 ```
 
 #### Feature (총 14개)
@@ -342,18 +356,20 @@ C등급: 하위 30% (Zscore_조정 < 30th percentile)
 - CV Mean: 74.76% (±7.60%)
 
 **등급별 성능 (Test 기준):**
-- C등급(0): Precision 0.62, Recall 0.94, F1-Score 0.75
-- B등급(1): Precision 0.75, Recall 0.69, F1-Score 0.72
-- A등급(2): Precision 0.87, Recall 0.65, F1-Score 0.74
+- 동등급(0): Precision 0.62, Recall 0.94, F1-Score 0.75
+- 은등급(1): Precision 0.75, Recall 0.69, F1-Score 0.72
+- 금등급(2): Precision 0.87, Recall 0.65, F1-Score 0.74
 
 **특징:**
-- C등급(신뢰도 낮음) 재현율이 가장 높음 (94%) - 문제 중개사 잘 감지
-- A등급(신뢰도 높음) 정밀도가 가장 높음 (87%) - 우수 중개사 정확히 분류
+- 동등급(신뢰도 낮음) 재현율이 가장 높음 (94%) - 문제 중개사 잘 감지
+- 금등급(신뢰도 높음) 정밀도가 가장 높음 (87%) - 우수 중개사 정확히 분류
 
 #### 알고리즘
 - **모델**: Logistic Regression
 - **최적화**: GridSearchCV (144개 조합 탐색)
 - **하이퍼파라미터**: C=1, penalty='l1', solver='saga', class_weight='balanced'
+
+![alt text](assets/image-1.png)
 
 ---
 
@@ -414,6 +430,7 @@ LightGBM 등급별 성능:
 
 상세 내용: [docs/PRICE_ML_MODEL.md](docs/PRICE_ML_MODEL.md)
 
+![alt text](assets/image-2.png)
 ---
 
 ## 💬 RAG 챗봇
@@ -421,15 +438,17 @@ LightGBM 등급별 성능:
 ### 주요 노드
 
 
-| 노드 | 파일명 | 역할 |
-|------|--------|------|
-| **classify_node** | classify_node.py | 사용자 질문 분류 |
-| **neo4j_search_node** | neo4j_search_node.py | Neo4j 그래프 DB 검색 |
-| **sql_search_node** | sql_search_node.py | PostgreSQL 매물 검색 |
-| **es_search_node** | es_search_node.py | Elasticsearch 전문 검색 |
-| **vector_search_node** | vector_search_node.py | 벡터 유사도 검색 |
-| **cache_filter_node** | cache_filter_node.py | 캐시 및 필터링 |
-| **generate_node** | generate_node.py | LLM 기반 최종 응답 생성 |
+| 노드 | 파일 (경로) | 역할 |
+|------|-------------|------|
+| classify_node | classify_node.py | 사용자 질문 분류 및 의도/엔티티 추출 |
+| neo4j_search_node | neo4j_search_node.py | Neo4j 기반 관계·거리 검색 (후보 탐색) |
+| sql_search_node | nodes/sql_search_node.py | PostgreSQL에서 매물 상세 조회 |
+| es_search_node | es_search_node.py | Elasticsearch 텍스트/벡터 검색 및 후보 수집 |
+| vector_search_node | vector_search_node.py | 임베딩 기반 유사도 검색 (벡터 검색) |
+| cache_filter_node | cache_filter_node.py | 캐시 관리 및 하드/소프트 필터 적용 |
+| generate_node | generate_node.py | LLM 호출 및 응답 생성·포맷팅 (최종 출력) |
+
+노드 구현은 `apps/rag/nodes/`에 모여 있습니다. 세부 동작이나 파라미터는 각 파일의 주석을 참고하세요.
 
 ### 주요 기능
 
@@ -455,8 +474,35 @@ LightGBM 등급별 성능:
 
 상세 가이드: [docs/README_CHATBOT.md](docs/README_CHATBOT.md)
 
----
+### 🧭 온도 지표(환경 점수) — 항목 설명
 
+온도 지표는 매물의 다양한 생활 요소를 한눈에 보여주기 위한 상대 점수입니다. 각 항목은 해당 범주의 세부 메트릭을 정규화하여 가중합한 후, 전체 매물 분포 대비 상대 위치를 온도(°C)로 표시합니다. 평균 기준선은 약 36.5°C입니다.
+
+- 🛡️ 안전 — 범죄 위험 + 안전 인프라
+   - 범죄 유형별 위험도를 구분해 중범죄 영향이 묻히지 않도록 반영합니다.
+   - CCTV, 경찰서, 비상벨 등 안전 인프라는 정규화 후 가중합으로 통합합니다.
+
+- 🛒 생활편의 — 일상 편의시설 접근성
+   - 편의점, 마트, 세탁소 등 필수 편의시설까지의 거리와 병원·약국 접근성을 평가합니다.
+   - 도보 생활권 내 접근성이 가까울수록 높은 점수를 부여합니다.
+
+- 🐾 반려동물 — 반려동물 친화 환경
+   - 반려동물 놀이터, 동물병원, 펫샵 등의 접근성을 반영합니다.
+   - 산책하기 좋은 공원(1,500㎡ 이상)까지의 거리도 포함합니다.
+
+- 🚇 교통 — 대중교통 접근성 및 출퇴근 편의성
+   - 가장 가까운 지하철역의 이용량과 노선 수, 주변 버스정류장 수를 고려합니다.
+   - 주요 업무지구(예: 강남, 여의도)까지의 거리로 출퇴근 편의성을 보정합니다.
+
+- 🎨 문화 — 문화·여가 시설 접근성
+   - 영화관, 미술관, 공연장, 도서관 등 문화 시설까지의 거리를 평가합니다.
+   - 공원·녹지 접근성도 여가 환경의 일부로 반영합니다.
+
+이 기준을 바탕으로 알고리즘을 설계하면(정규화·가중합·퍼센타일 스케일링 등), API 응답으로 사용자에게 각 항목의 온도와 구성 요소를 전달할 수 있습니다.
+![alt text](assets/image-4.png)
+![alt text](assets/image-3.png)
+
+---
 ## 🚀 배포 가이드
 
 ### AWS 배포 아키텍처
