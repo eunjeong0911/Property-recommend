@@ -181,7 +181,7 @@
 │  - 매물 검색 & 필터링                 │
 │  - 커뮤니티, 찜 목록                  │
 └──────┬──────────────────────────────┘
-       │ REST API / WebSocket
+      │ REST API
        ▼
 ┌─────────────────────────────────────┐
 │    Backend (Django REST API)        │
@@ -193,10 +193,10 @@
    ▼    ▼         ▼              ▼
 ┌────────────────────────────────────┐
 │        Data Layer                  │
-│  ┌──────┐ ┌──────┐ ┌──────┐        │
-│  │ PG   │ │Neo4j │ │Redis │        │
-│  │+vec  │ │Graph │ │Cache │        │
-│  └──────┘ └──────┘ └──────┘        │
+│   ┌──────┐ ┌──────┐                │
+│   │Neo4j │ │Redis │                │
+│   │Graph │ │Cache │                │
+│   └──────┘ └──────┘                │
 │  ┌──────────────────────┐          │
 │  │ Elasticsearch 8.17   │          │
 │  │ - 하이브리드 검색    │          │
@@ -258,11 +258,11 @@
 ```
 사용자 질문 → Frontend → RAG Server
 → LangGraph Pipeline:
-  1. classify_node (질문 분류)
-  2. parallel_search (Neo4j + Vector 병렬)
-  3. es_rerank (텍스트 재정렬)
-  4. sql_search (상세 정보)
-  5. generate_node (GPT-4 응답)
+   1. apps/rag/nodes/query_analyzer_node.py (질문 분류 / 의도·엔티티 추출)
+   2. apps/rag/nodes/neo4j_search_node.py + apps/rag/nodes/vector_search_node.py (병렬 후보 수집)
+   3. apps/rag/nodes/soft_filter_rerank_node.py (텍스트 재정렬 및 랭킹 보정)
+   4. apps/rag/nodes/sql_search_node.py (상세 정보 조회)
+   5. apps/rag/nodes/generate_node.py (LLM 호출 및 응답 생성)
 → Frontend → 사용자
 ```
 
@@ -440,13 +440,14 @@ LightGBM 등급별 성능:
 
 | 노드 | 파일 (경로) | 역할 |
 |------|-------------|------|
-| classify_node | classify_node.py | 사용자 질문 분류 및 의도/엔티티 추출 |
-| neo4j_search_node | neo4j_search_node.py | Neo4j 기반 관계·거리 검색 (후보 탐색) |
-| sql_search_node | nodes/sql_search_node.py | PostgreSQL에서 매물 상세 조회 |
-| es_search_node | es_search_node.py | Elasticsearch 텍스트/벡터 검색 및 후보 수집 |
-| vector_search_node | vector_search_node.py | 임베딩 기반 유사도 검색 (벡터 검색) |
-| cache_filter_node | cache_filter_node.py | 캐시 관리 및 하드/소프트 필터 적용 |
-| generate_node | generate_node.py | LLM 호출 및 응답 생성·포맷팅 (최종 출력) |
+| query_analyzer_node | apps/rag/nodes/query_analyzer_node.py | 사용자 질문 분류 및 의도/엔티티 추출 |
+| neo4j_search_node | apps/rag/nodes/neo4j_search_node.py | Neo4j 기반 관계·거리 검색 (후보 탐색) |
+| sql_search_node | apps/rag/nodes/sql_search_node.py | PostgreSQL에서 매물 상세 조회 |
+| es_search_node | apps/rag/nodes/es_search_node.py | Elasticsearch 텍스트/벡터 검색 및 후보 수집 |
+| vector_search_node | apps/rag/nodes/vector_search_node.py | 임베딩 기반 유사도 검색 (벡터 검색) |
+| soft_filter_rerank_node | apps/rag/nodes/soft_filter_rerank_node.py | 텍스트 재정렬 및 소프트 필터 적용 (랭킹 보정) |
+| generate_node | apps/rag/nodes/generate_node.py | LLM 호출 및 응답 생성·포맷팅 (최종 출력) |
+| style_mapping | apps/rag/nodes/style_mapping.py | 응답 스타일/포맷 매핑 (선택적 후처리) |
 
 노드 구현은 `apps/rag/nodes/`에 모여 있습니다. 세부 동작이나 파라미터는 각 파일의 주석을 참고하세요.
 
@@ -587,12 +588,12 @@ Amazon ECS (Fargate)
 
 ### ML 모델
 - [PRICE_ML_MODEL.md](docs/PRICE_ML_MODEL.md) - 가격 적정성 모델
-- [trust_model/README.md](apps/reco/models/trust_model/README.md) - 중개사 신뢰도 모델
+- [trust_model/README.md](apps/reco/trust_model/README.md) - 중개사 신뢰도 모델
 - [MODEL_APPLICATION_README.md](docs/MODEL_APPLICATION_README.md) - 모델 적용 가이드
 
 ### 개발 환경
 - [START.md](START.md) - 빠른 시작 가이드
-- [START_FOR_DEVELOPER.md](START_FOR_DEVELOPER.md) - 개발자 가이드
+- [START_FOR_DEVELOPER.md](START.md) - 개발자 가이드
 - [가상환경.md](docs/가상환경.md) - Python 가상환경 설정
 
 ---
