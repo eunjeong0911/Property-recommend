@@ -151,6 +151,7 @@
 
 ### AI/ML
 - **LLM**: OpenAI GPT-4
+- **LLM**: OpenAI gpt-4o-mini
 - **Framework**: LangChain, LangGraph
 - **ML Libraries**: scikit-learn, LightGBM, XGBoost, SHAP
 - **Embeddings**: OpenAI text-embedding-ada-002
@@ -484,7 +485,7 @@ LightGBM 등급별 성능:
    - CCTV, 경찰서, 비상벨 등 안전 인프라는 정규화 후 가중합으로 통합합니다.
 
 - 🛒 생활편의 — 일상 편의시설 접근성
-   - 편의점, 마트, 세탁소 등 필수 편의시설까지의 거리와 병원·약국 접근성을 평가합니다.
+   - 편의점, 마트, 세탁소 등 필수 편의시설까지의 거리와 접근성을 평가합니다.
    - 도보 생활권 내 접근성이 가까울수록 높은 점수를 부여합니다.
 
 - 🐾 반려동물 — 반려동물 친화 환경
@@ -538,7 +539,6 @@ Amazon ECS (Fargate)
    - RDS PostgreSQL 인스턴스 생성
    - Neo4j AuraDB 인스턴스 생성
    - ElastiCache Redis 클러스터 생성
-   - OpenSearch Service 도메인 생성
    - ECR 리포지토리 생성
 
 2. **CI/CD 파이프라인**
