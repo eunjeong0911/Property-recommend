@@ -62,7 +62,7 @@ export default function ChatbotFilter({ filterInfo, onToggle }: ChatbotFilterPro
             </div>
 
             {/* 필터 정보 표시 */}
-            {filterInfo ? (
+            {filterInfo && filterInfo.details ? (
                 <div className="space-y-4">
                     {/* 검색 조건 요약 */}
                     <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">

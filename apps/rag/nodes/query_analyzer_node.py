@@ -257,10 +257,80 @@ def analyze_query(state: RAGState) -> RAGState:
         elapsed = time.time() - start_time
         print(f"[QueryAnalyzer] ⏱️ 분석 완료: {elapsed:.2f}s")
         
+        # ★★★ 서울 외 지역 감지 처리 ★★★
+        is_out_of_service = analysis.get("is_out_of_service_area", False)
+        has_negative = analysis.get("has_negative_sentiment", False)
+        is_irrelevant = analysis.get("is_irrelevant_query", False)
+        
+        # ★★★ 부동산 관련 없는 질문 감지 처리 ★★★
+        if is_irrelevant:
+            print(f"[QueryAnalyzer] 🚫 부동산 관련 없는 질문 감지")
+            state["pending_question"] = None
+            state["conversation_complete"] = True
+            state["error_type"] = "irrelevant_query"
+            state["answer"] = """안녕하세요! 저는 **서울 부동산 매물 검색 전문 챗봇**입니다. 🏠
+
+현재 질문은 부동산 검색과 관련이 없는 것 같아요.
+
+**제가 도와드릴 수 있는 것들:**
+• 서울 지역 원룸, 투룸, 오피스텔, 아파트 검색
+• 월세, 전세, 매매 매물 찾기
+• 지하철역, 대학교 근처 매물 추천
+• 가격, 옵션, 시설 조건에 맞는 매물 검색
+
+**검색 예시:**
+• "강남역 근처 월세 50만원 이하 원룸"
+• "홍대 근처 조용하고 깨끗한 오피스텔"
+• "연세대 도보 10분 이내 전세"
+
+부동산 매물을 찾고 계시다면 언제든 말씀해 주세요! 😊"""
+            return state
+        
+        if is_out_of_service:
+            # 서울 외 지역 → 에러 메시지 반환
+            print(f"[QueryAnalyzer] 🚫 서울 외 지역 감지 → 서비스 불가 응답")
+            state["pending_question"] = None
+            state["conversation_complete"] = True
+            state["error_type"] = "out_of_service_area"
+            state["answer"] = """죄송합니다. 현재 저희 서비스는 **서울특별시 내 매물만** 검색 가능합니다.
+
+서울 지역으로 다시 검색해 주시면 최적의 매물을 찾아드리겠습니다!
+
+**검색 가능 지역 예시**
+• 강남역, 홍대입구역, 신촌역 등 서울 지하철역
+• 강남구, 마포구, 서초구 등 서울 자치구
+• 역삼동, 서교동, 연남동 등 서울 행정동"""
+            return state
+        
+        if has_negative:
+            # 부정적 감정 감지 → 제외 지역 안내
+            excluded_locs = analysis.get("hard_filters", {}).get("excluded_locations", [])
+            excluded_str = ", ".join(excluded_locs) if excluded_locs else "해당 지역"
+            print(f"[QueryAnalyzer] 😞 부정적 감정 감지: {excluded_locs}")
+            state["pending_question"] = f"""**{excluded_str}**을(를) 제외하고 검색하시는군요!
+
+다른 선호하시는 **지역**을 알려주시면 해당 지역의 매물을 찾아드리겠습니다.
+
+**입력 예시**
+• "강남역 근처로 찾아줘"
+• "마포구 서교동 쪽"
+• "공원 가까운 곳"
+"""
+            state["conversation_complete"] = False
+            # excluded_locations를 state에 저장
+            state["excluded_locations"] = excluded_locs
+            return state
+        
         # 상태 업데이트
         state["hard_filters"] = analysis.get("hard_filters", {})
         state["soft_filters"] = analysis.get("soft_filters", [])
         state["search_strategy"] = analysis.get("search_strategy", "hybrid")
+        
+        # excluded_locations 처리
+        excluded_locs = state["hard_filters"].get("excluded_locations", [])
+        if excluded_locs:
+            state["excluded_locations"] = excluded_locs
+            print(f"[QueryAnalyzer] 🚫 제외 지역: {excluded_locs}")
         
         # ★★★ 스타일 매핑 적용 (Requirements 1.1, 1.4, 8.5) ★★★
         # 자연어 스타일 표현을 시스템 태그로 변환
@@ -370,6 +440,20 @@ def analyze_query(state: RAGState) -> RAGState:
     except Exception as e:
         print(f"[QueryAnalyzer] ❌ OpenAI 분석 실패: {e}, 규칙 기반 폴백 사용")
         _fallback_analysis(state, question)
+        
+        # ★★★ 폴백에서 에러 감지 시 즉시 반환 ★★★
+        if state.get("error_type") == "out_of_service_area":
+            return state
+        
+        # ★★★ 폴백에서 관련 없는 질문 감지 시 즉시 반환 ★★★
+        if state.get("error_type") == "irrelevant_query":
+            return state
+        
+        # ★★★ 폴백에서 부정적 감정 감지 시 즉시 반환 ★★★
+        if state.get("conversation_complete") == False and state.get("pending_question"):
+            # 부정적 감정으로 인한 인터럽트
+            if state.get("excluded_locations"):
+                return state
         
         # ★★★ 폴백에서도 스타일 매핑 적용 (Requirements 1.1, 1.4, 8.5) ★★★
         raw_soft_filters = state.get("soft_filters", [])
@@ -491,6 +575,32 @@ def _analyze_with_openai(client, question: str, history: List[Dict] = None) -> D
 - 언급되지 않은 조건은 절대로 추론하거나 추가하지 마세요.
 - 예: "중앙대 원룸 추천"에서 거래유형(월세/전세)은 언급되지 않았으므로 deal_type은 빈 문자열이어야 합니다.
 
+🏠 부동산 관련 질문 검증:
+- **이 서비스는 서울 부동산 매물 검색 전용입니다.**
+- 부동산 검색과 관련 없는 질문은 is_irrelevant_query를 true로 설정하세요.
+- 부동산 관련 질문: 집 찾기, 원룸/오피스텔/아파트 검색, 월세/전세/매매, 지역/역 근처, 가격 문의 등
+- 관련 없는 질문 예시:
+  * 인사/잡담: "안녕", "반가워", "잘 지내?", "뭐해?"
+  * 챗봇 정보: "네 이름은?", "누가 만들었어?", "어떻게 작동해?"
+  * 일반 상식: "대통령 이름", "날씨", "시간", "뉴스"
+  * 불가능한 요청: "우주에 있는 집", "화성 부동산", "바다 속 집"
+  * 기타 주제: 음식, 여행, 쇼핑, 게임 등
+- 관련 없는 질문이 감지되면 is_irrelevant_query: true로 설정하세요.
+
+🚫 부정적 감정 및 거부 의사 감지:
+- 사용자가 특정 지역에 대해 "싫어", "싫다", "안 좋아", "별로", "제외", "빼줘" 등의 부정적 표현을 사용하면 해당 지역을 excluded_locations에 추가하세요.
+- 예: "신정동는 싫어" → excluded_locations: ["신정동"]
+- 예: "강남은 별로야" → excluded_locations: ["강남"]
+- 부정적 감정이 있는 경우 location 필드는 빈 문자열로 설정하세요.
+
+📍 지역 범위 검증:
+- **서울특별시 내 지역만 검색 가능합니다.**
+- 서울 외 지역(경기도, 인천, 부산 등)이 언급되면 is_out_of_service_area를 true로 설정하세요.
+- 예: "경기도 광명시" → is_out_of_service_area: true
+- 예: "인천 송도" → is_out_of_service_area: true
+- 예: "부산 해운대" → is_out_of_service_area: true
+- 서울 외 지역이 감지되면 location 필드는 빈 문자열로 설정하세요.
+
 💰 가격 추출 규칙:
 - "60" 또는 "60만원" -> 60
 - "1억" -> "1억"
@@ -506,7 +616,7 @@ def _analyze_with_openai(client, question: str, history: List[Dict] = None) -> D
 다음 형식으로 JSON만 반환하세요 (다른 텍스트 없이):
 {{
     "hard_filters": {{
-        "location": "지하철역 또는 지역명 (없으면 빈 문자열)",
+        "location": "지하철역 또는 지역명 (없으면 빈 문자열, 부정적 감정이나 서울 외 지역이면 빈 문자열)",
         "deal_type": "월세|전세|매매|단기임대 (없으면 빈 문자열)",
         "building_type": "원투룸|빌라주택|오피스텔|아파트 (없으면 빈 문자열)",
         "max_deposit": 보증금 상한 만원 단위 숫자 (없으면 null),
@@ -517,13 +627,17 @@ def _analyze_with_openai(client, question: str, history: List[Dict] = None) -> D
         "facilities": ["subway", "convenience", "safety", "hospital", "park", "university"] 중 필요한 것들,
         "options": ["세탁기", "에어컨", "냉장고", "인덕션", "가스레인지", "전자레인지", "건조기", "TV", "침대", "옷장", "책상", "풀옵션"] 중 사용자가 원하는 것들 (없으면 빈 배열),
         "excluded_floors": ["1층", "반지하", "저층", "탑층"] 중 기피하는 층수 (없으면 빈 배열),
+        "excluded_locations": ["사용자가 싫어하거나 제외하고 싶은 지역명 (없으면 빈 배열)"],
         "direction": "남향|동향|서향|북향|남동향 등 (없으면 빈 문자열)"
     }},
     "soft_filters": ["사용자가 원하는 스타일/분위기/선호도 키워드 - 정확한 태그명이 아니어도 됨 (예: 햇살좋은, 밝은, 아늑한, 조용한, 깔끔한, 넓은 등), 없으면 빈 배열"],
     "search_strategy": "neo4j_only|keyword_only|neo4j_keyword|keyword_vector|full",
     "use_cached_context": true 또는 false,
     "cached_context_reason": "관련성 판단 이유 (한 줄)",
-    "condition_change_intent": "location|deal_type|style|null (사용자가 이미 설정한 조건을 변경하려는 의도가 있으면 해당 조건명, 없으면 null)"
+    "condition_change_intent": "location|deal_type|style|null (사용자가 이미 설정한 조건을 변경하려는 의도가 있으면 해당 조건명, 없으면 null)",
+    "is_out_of_service_area": true 또는 false (서울 외 지역이 언급되면 true),
+    "has_negative_sentiment": true 또는 false (특정 지역에 대한 부정적 감정이 있으면 true),
+    "is_irrelevant_query": true 또는 false (부동산 검색과 관련 없는 질문이면 true)
 }}
 
 검색 전략 결정 규칙:
@@ -575,6 +689,69 @@ def _fallback_analysis(state: RAGState, question: str) -> None:
     """OpenAI 실패 시 규칙 기반 분석"""
     import re
     
+    # ★★★ 부동산 관련 없는 질문 감지 (규칙 기반 - 최소한의 명확한 케이스만) ★★★
+    # OpenAI가 주로 처리하고, 폴백에서는 아주 명확한 경우만 감지
+    irrelevant_patterns = [
+        # 단순 인사만 (명확한 케이스)
+        r"^(안녕|야|여보세요|헬로|hi|hello|하이|ㅎㅇ)$",
+    ]
+    
+    q_lower = question.lower().strip()
+    for pattern in irrelevant_patterns:
+        if re.search(pattern, q_lower):
+            print(f"[QueryAnalyzer] 🚫 부동산 관련 없는 질문 감지 (규칙): {pattern}")
+            state["error_type"] = "irrelevant_query"
+            state["conversation_complete"] = True
+            state["pending_question"] = None
+            state["answer"] = """안녕하세요! 저는 **서울 부동산 매물 검색 전문 챗봇**입니다. 🏠
+
+현재 질문은 부동산 검색과 관련이 없는 것 같아요.
+
+**제가 도와드릴 수 있는 것들:**
+• 서울 지역 원룸, 투룸, 오피스텔, 아파트 검색
+• 월세, 전세, 매매 매물 찾기
+• 지하철역, 대학교 근처 매물 추천
+• 가격, 옵션, 시설 조건에 맞는 매물 검색
+
+**검색 예시:**
+• "강남역 근처 월세 50만원 이하 원룸"
+• "홍대 근처 조용하고 깨끗한 오피스텔"
+• "연세대 도보 10분 이내 전세"
+
+부동산 매물을 찾고 계시다면 언제든 말씀해 주세요! 😊"""
+            return
+    
+    # ★★★ 서울 외 지역 감지 (규칙 기반) ★★★
+    out_of_service_keywords = [
+        "경기도", "경기", "인천", "부산", "대구", "대전", "광주", "울산", "세종",
+        "수원", "성남", "고양", "용인", "부천", "안산", "안양", "남양주",
+        "평택", "의정부", "시흥", "파주", "김포", "광명", "광주시", "군포", "하남",
+        "오산", "양주", "이천", "구리", "안성", "포천", "의왕", "양평", "여주",
+        "송도", "판교", "분당", "일산", "동탄"  # 주요 신도시
+        # 주의: "화성"은 제외 (우주 화성과 혼동 가능)
+    ]
+    
+    q_lower = question.lower()
+    for keyword in out_of_service_keywords:
+        if keyword in q_lower:
+            print(f"[QueryAnalyzer] 🚫 서울 외 지역 감지 (규칙): {keyword}")
+            state["error_type"] = "out_of_service_area"
+            state["conversation_complete"] = True
+            state["pending_question"] = None
+            state["answer"] = """죄송합니다. 현재 저희 서비스는 **서울특별시 내 매물만** 검색 가능합니다.
+
+서울 지역으로 다시 검색해 주시면 최적의 매물을 찾아드리겠습니다!
+
+**검색 가능 지역 예시**
+• 강남역, 홍대입구역, 신촌역 등 서울 지하철역
+• 강남구, 마포구, 서초구 등 서울 자치구
+• 역삼동, 서교동, 연남동 등 서울 행정동"""
+            return
+    
+    # ★★★ 부정적 감정 감지 (규칙 기반) ★★★
+    negative_keywords = ["싫어", "싫다", "안 좋아", "별로", "제외", "빼줘", "말고"]
+    has_negative = any(kw in question for kw in negative_keywords)
+    
     hard_filters: Dict[str, Any] = {
         "location": "",
         "deal_type": "",
@@ -583,20 +760,42 @@ def _fallback_analysis(state: RAGState, question: str) -> None:
         "max_rent": None,
         "facilities": [],
         "excluded_floors": [],
+        "excluded_locations": [],
         "direction": ""
     }
     soft_filters: List[str] = []
     
     # 위치 추출 (기존 neo4j_search_node 패턴 재사용)
-    location_pattern = r"(홍대|강남|신촌|이태원|잠실|여의도|명동|역삼|선릉|삼성|건대|왕십리|성수|합정|망원|연남|마포|용산|영등포|구로|노원|송파|동작|서초|강서|양천|은평|독산|금천|시흥|가산)"
+    location_pattern = r"(홍대|강남|신촌|이태원|잠실|여의도|명동|역삼|선릉|삼성|건대|왕십리|성수|합정|망원|연남|마포|용산|영등포|구로|노원|송파|동작|서초|강서|양천|은평|독산|금천|시흥|가산|신정동)"
     location_match = re.search(location_pattern, question)
-    if location_match:
+    
+    if has_negative and location_match:
+        # 부정적 감정 + 위치 → excluded_locations에 추가
+        excluded_loc = location_match.group(1)
+        hard_filters["excluded_locations"].append(excluded_loc)
+        state["excluded_locations"] = [excluded_loc]
+        print(f"[QueryAnalyzer] 😞 부정적 감정 감지 (규칙): {excluded_loc}")
+        state["pending_question"] = f"""**{excluded_loc}**을(를) 제외하고 검색하시는군요!
+
+다른 선호하시는 **지역**을 알려주시면 해당 지역의 매물을 찾아드리겠습니다.
+
+**입력 예시**
+• "강남역 근처로 찾아줘"
+• "마포구 서교동 쪽"
+• "공원 가까운 곳"
+"""
+        state["conversation_complete"] = False
+        state["hard_filters"] = hard_filters
+        state["soft_filters"] = soft_filters
+        return
+    
+    if location_match and not has_negative:
         hard_filters["location"] = location_match.group(1)
     
     # 역 패턴 추출
     station_pattern = r"(\w+역)"
     station_match = re.search(station_pattern, question)
-    if station_match and not hard_filters["location"]:
+    if station_match and not hard_filters["location"] and not has_negative:
         hard_filters["location"] = station_match.group(1).replace("역", "")
     
     # 거래 타입

@@ -112,7 +112,7 @@ export default function MainPage() {
         const details = chatbotFilterInfo.details;
 
         // 필터 조건이 하나도 없으면 스킵
-        if (!details.location && !details.deal_type && !details.building_type) {
+        if (!details || (!details.location && !details.deal_type && !details.building_type)) {
             console.log('[page.tsx] ⚠️ 필터 조건 없음 - 스킵');
             return;
         }
