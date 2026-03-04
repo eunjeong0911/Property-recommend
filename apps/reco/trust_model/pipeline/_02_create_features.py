@@ -10,11 +10,7 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
-<<<<<<< HEAD
 def load_target_data(train_path=None, test_path=None):
-=======
-def load_target_data(train_path="data/brokerInfo/ML/train_target.csv", test_path="data/brokerInfo/ML/test_target.csv"):
->>>>>>> ebd2c7930b7a1f006d5e9868a05e7c6a4588b468
     """01단계에서 생성된 데이터 로드"""
     print(f"📂 [1단계] 데이터 로드")
     
@@ -246,15 +242,11 @@ def main():
     y_test = test_processed["Target"]
     
     # 4. 저장
-<<<<<<< HEAD
     # Docker 환경에서는 /data로 마운트됨
     if Path("/data/ML").exists():
         save_dir = Path("/data/ML/trust")
     else:
         save_dir = Path("data/ML/trust")
-=======
-    save_dir = Path("data/brokerInfo/ML")
->>>>>>> ebd2c7930b7a1f006d5e9868a05e7c6a4588b468
     save_dir.mkdir(parents=True, exist_ok=True)
     
     X_train.to_csv(save_dir / "X_train.csv", index=False, encoding="utf-8-sig")

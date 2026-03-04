@@ -3,8 +3,10 @@ import sys
 import pandas as pd
 import numpy as np
 
-# Add scripts/data_import to path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+# Add scripts/03_import to path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+import_dir = os.path.dirname(os.path.dirname(current_dir))
+sys.path.append(import_dir)
 
 from database import Database
 

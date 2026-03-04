@@ -1,7 +1,21 @@
 import os
 import json
 import psycopg2
+import sys
 from pathlib import Path
+
+# Add scripts/03_import to path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+import_dir = os.path.dirname(os.path.dirname(os.path.dirname(current_dir))) # scripts/03_import/neo4j/property/ -> scripts/03_import
+# property folder is inside neo4j folder ?? Wait.
+# scripts/03_import/neo4j/property/property_importer.py
+# .parent -> property
+# .parent -> neo4j
+# .parent -> 03_import
+import_dir = str(Path(__file__).resolve().parent.parent.parent) 
+
+sys.path.append(import_dir)
+
 from config import Config
 from database import Database
 

@@ -57,7 +57,7 @@ Thumbs.db
 # Model artifacts
 apps/reco/artifacts/
 *.pth
-# *.pkl
+*.pkl
 *.joblib
 
 # Data

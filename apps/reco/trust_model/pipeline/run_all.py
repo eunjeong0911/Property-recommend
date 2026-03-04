@@ -7,6 +7,7 @@
 3) 모델 학습 (_03)
 4) 모델 평가 (_04)
 5) 최종 모델 저장 (_05)
+6) 성능 시각화 (_06)
 """
 
 from pathlib import Path
@@ -37,6 +38,7 @@ from _02_create_features import main as step02_create_features
 from _03_train import main as step03_train
 from _04_eval import main as step04_eval
 from _05_save_model import main as step05_save_model
+from _06_visualize_performance import main as step06_visualize
 
 
 def main():
@@ -87,9 +89,17 @@ def main():
         step05_save_model()
         print("✅ 5단계 완료")
 
+        # ---------------------------------------------
+        # 6) 성능 시각화
+        # ---------------------------------------------
+        print("\n\n=== [6단계] 성능 시각화 ===")
+        step06_visualize()
+        print("✅ 6단계 완료")
+
         print("\n====================================")
         print("🎉 전체 파이프라인 실행 완료!")
         print("📦 최종 모델: scripts/03_import/trust/final_trust_model.pkl")
+        print("📊 성능 그래프: data/ML/trust/visualizations/")
         print("====================================\n")
 
     except Exception as e:

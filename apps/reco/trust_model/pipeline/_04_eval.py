@@ -9,11 +9,11 @@ import pandas as pd
 from pathlib import Path
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 
-# Docker 환경에서는 /app으로 마운트됨
-if Path("/app/trust_model").exists():
-    MODEL_TEMP_PATH = "/app/trust_model/temp_trained_models.pkl"
+# Docker 환경에서는 /data로 마운트됨
+if Path("/data/ML/trust").exists():
+    MODEL_TEMP_PATH = "/data/ML/trust/temp_trained_models.pkl"
 else:
-    MODEL_TEMP_PATH = "apps/reco/trust_model/temp_trained_models.pkl"
+    MODEL_TEMP_PATH = "data/ML/trust/temp_trained_models.pkl"
 
 
 def load_temp_model():
