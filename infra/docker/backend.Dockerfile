@@ -10,6 +10,8 @@ FROM python:3.11-slim AS builder
 
 WORKDIR /build
 
+ENV PIP_TRUSTED_HOST="pypi.org files.pythonhosted.org download.pytorch.org"
+
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
@@ -18,7 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy and install Python dependencies
 COPY apps/backend/requirements.txt .
-RUN pip wheel --no-cache-dir --wheel-dir /wheels -r requirements.txt
+RUN pip wheel --no-cache-dir --wheel-dir /wheels --trusted-host pypi.org --trusted-host files.pythonhosted.org -r requirements.txt
 
 # -----------------------------------------------------------------------------
 # Stage 2: Runtime - Production image

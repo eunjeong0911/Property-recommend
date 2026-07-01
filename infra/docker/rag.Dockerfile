@@ -9,13 +9,15 @@ FROM python:3.11-slim AS builder
 
 WORKDIR /build
 
+ENV PIP_TRUSTED_HOST="pypi.org files.pythonhosted.org download.pytorch.org"
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 COPY apps/rag/requirements.txt .
-RUN pip wheel --no-cache-dir --wheel-dir /wheels -r requirements.txt
+RUN pip wheel --no-cache-dir --wheel-dir /wheels --trusted-host pypi.org --trusted-host files.pythonhosted.org -r requirements.txt
 
 # -----------------------------------------------------------------------------
 # Stage 2: Runtime
