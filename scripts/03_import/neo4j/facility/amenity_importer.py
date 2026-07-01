@@ -22,9 +22,9 @@ class AmenityImporter:
 
     def import_medical(self):
         print("Importing Medical Data...")
-        hospital_file = os.path.join(Config.DATA_DIR, "medical", "1.병원정보서비스(2025.9).xlsx")
+        hospital_file = os.path.join(Config.DATA_DIR, "medical", "1.병원정보서비스(2025.9).csv")
         self._import_hospital(hospital_file)
-        pharmacy_file = os.path.join(Config.DATA_DIR, "medical", "2. 약국정보서비스(2025.9).xlsx")
+        pharmacy_file = os.path.join(Config.DATA_DIR, "medical", "2. 약국정보서비스(2025.9).csv")
         self._import_pharmacy(pharmacy_file)
 
     def _import_hospital(self, file_path):
@@ -35,7 +35,10 @@ class AmenityImporter:
                 return
         
         print(f"Loading Hospital data from {file_path}...")
-        df = pd.read_excel(file_path)
+        try:
+            df = pd.read_csv(file_path, encoding='utf-8')
+        except UnicodeDecodeError:
+            df = pd.read_csv(file_path, encoding='cp949')
         df = df[df['주소'].str.contains("서울특별시", na=False)]
         total_rows = len(df)
         print(f"Found {total_rows} Hospitals.")
@@ -145,7 +148,10 @@ class AmenityImporter:
                 return
         
         print(f"Loading Pharmacy data from {file_path}...")
-        df = pd.read_excel(file_path)
+        try:
+            df = pd.read_csv(file_path, encoding='utf-8')
+        except UnicodeDecodeError:
+            df = pd.read_csv(file_path, encoding='cp949')
         df = df[df['주소'].str.contains("서울특별시", na=False)]
         df = df.dropna(subset=['좌표(X)', '좌표(Y)'])
         total_rows = len(df)

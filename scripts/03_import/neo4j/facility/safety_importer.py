@@ -26,10 +26,13 @@ class SafetyImporter:
                 print(f"  ⏭ CCTV already exists ({existing}). Skipping import.")
                 return
         
-        file_path = os.path.join(Config.DATA_DIR, "safety", "12_04_08_E_CCTV정보.xlsx")
+        file_path = os.path.join(Config.DATA_DIR, "safety", "12_04_08_E_CCTV정보.csv")
         print(f"Loading CCTV data from {file_path}...")
-        
-        df = pd.read_excel(file_path)
+
+        try:
+            df = pd.read_csv(file_path, encoding='utf-8')
+        except UnicodeDecodeError:
+            df = pd.read_csv(file_path, encoding='cp949')
         df = df[df['소재지도로명주소'].str.contains("서울특별시", na=False)]
         df = df.dropna(subset=['WGS84위도', 'WGS84경도'])
         total_rows = len(df)
@@ -119,10 +122,13 @@ class SafetyImporter:
                 print(f"  ⏭ Emergency bells already exist ({existing}). Skipping import.")
                 return
         
-        file_path = os.path.join(Config.DATA_DIR, "safety", "12_04_09_E_안전비상벨위치정보.xlsx")
+        file_path = os.path.join(Config.DATA_DIR, "safety", "12_04_09_E_안전비상벨위치정보.csv")
         print(f"Loading Emergency Bell data from {file_path}...")
-        
-        df = pd.read_excel(file_path)
+
+        try:
+            df = pd.read_csv(file_path, encoding='utf-8')
+        except UnicodeDecodeError:
+            df = pd.read_csv(file_path, encoding='cp949')
         df = df[df['소재지도로명주소'].str.contains("서울특별시", na=False)]
         df = df.dropna(subset=['WGS84위도', 'WGS84경도'])
         total_rows = len(df)

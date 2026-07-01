@@ -73,7 +73,10 @@ def main():
         print("=" * 70)
         amenity = AmenityImporter()
         print("\n[2-1] 의료시설 데이터 Import 중...")
-        amenity.import_medical()
+        try:
+            amenity.import_medical()
+        except Exception as e:
+            print(f"  ⚠ 의료시설 Import 실패 (건너뜀): {e}")
         print("\n[2-2] 대학교 데이터 Import 중...")
         amenity.import_college()
         print("\n[2-3] 편의점 데이터 Import 중...")
@@ -97,9 +100,15 @@ def main():
         print("=" * 70)
         safety = SafetyImporter()
         print("\n[3-1] CCTV 데이터 Import 중...")
-        safety.import_cctv()
+        try:
+            safety.import_cctv()
+        except Exception as e:
+            print(f"  ⚠ CCTV Import 실패 (건너뜀): {e}")
         print("\n[3-2] 안심벨 데이터 Import 중...")
-        safety.import_bell()
+        try:
+            safety.import_bell()
+        except Exception as e:
+            print(f"  ⚠ 안심벨 Import 실패 (건너뜀): {e}")
         print("\n[3-3] 경찰서 데이터 Import 중...")
         safety.import_police()
         print("\n[3-4] 소방서 데이터 Import 중...")
